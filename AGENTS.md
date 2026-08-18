@@ -18,6 +18,26 @@ shaped the way it is. [ADR-001][adr-001] defines the process.
   `adrs/000-template.md`, give it the next free number, and open it in its own
   pull request. A new ADR can also supersede an existing one.
 
+Each crate has a specification in `crates/<crate>/SPECIFICATION.md` that
+documents what the crate does. A specification is a list of requirements with
+identifiers, such as `kawauso[placeholder.add]`. The prefix is the name of the
+crate without `kawauso-`. [Tracey][tracey] links each requirement to the code
+that implements it and to the test that verifies it. `just check-specs`
+validates these links, and `.config/tracey/config.styx` lists the
+specifications.
+
+- Before you implement a crate, read its specification.
+- Put a comment such as `// kawauso[impl placeholder.add]` above the code that
+  implements a requirement, and `// kawauso[verify placeholder.add]` above the
+  test that verifies it.
+- Do not change the text of a requirement unless the task asks for it. If you
+  change it, stage the file and run `tracey bump`, so that the requirement
+  gets a new version.
+- An implementation task is complete when `tracey query uncovered` and
+  `tracey query untested` list no requirements for the crate.
+- Use `tracey query rule <id>` to read one requirement, and
+  `tracey query status` for an overview of the coverage.
+
 ## Language
 
 - Use American English spelling, e.g. "color" not "colour".
@@ -144,3 +164,4 @@ shaped the way it is. [ADR-001][adr-001] defines the process.
 
 [adr-001]: adrs/001-adrs.md
 [git-style-guide]: https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
+[tracey]: https://tracey.bearcove.eu/
