@@ -52,9 +52,25 @@
       "markdownlint-cli": {
         "pkg-path": "markdownlint-cli"
       },
+      "nodejs": {
+        "pkg-path": "nodejs_22",
+        "systems": [
+          "aarch64-darwin",
+          "aarch64-linux",
+          "x86_64-linux"
+        ]
+      },
       "parallel": {
         "pkg-path": "parallel",
         "outputs": "all"
+      },
+      "pnpm": {
+        "pkg-path": "pnpm",
+        "systems": [
+          "aarch64-darwin",
+          "aarch64-linux",
+          "x86_64-linux"
+        ]
       },
       "pre-commit": {
         "pkg-path": "pre-commit",
@@ -81,8 +97,11 @@
         "pkg-path": "zizmor"
       }
     },
+    "vars": {
+      "TRACEY_REV": "7494469c454ea3e93203f2cc860adbf153fe64b9"
+    },
     "hook": {
-      "on-activate": "# On GitHub Actions, we need to unset the LD_AUDIT variable to avoid an \"cannot\n# allocate memory in static TLS block\" error when loading Rust. See this issue:\n# https://github.com/flox/flox/issues/1341\nif [ -n \"$GITHUB_ACTIONS\" ]; then\n  unset LD_AUDIT\nfi\n"
+      "on-activate": "# On GitHub Actions, we need to unset the LD_AUDIT variable to avoid an \"cannot\n# allocate memory in static TLS block\" error when loading Rust. See this issue:\n# https://github.com/flox/flox/issues/1341\nif [ -n \"$GITHUB_ACTIONS\" ]; then\n  unset LD_AUDIT\nfi\n\n# Install tracey from source, once per revision and per machine. The binary is\n# put in the user's cache directory instead of the project, so that clones,\n# worktrees, and CI jobs on the same machine share one build. The build takes\n# several minutes the first time. Set KAWAUSO_SKIP_TRACEY to a non-empty value\n# to skip the installation, for example in CI jobs that do not run tracey.\ntracey_root=\"${XDG_CACHE_HOME:-$HOME/.cache}/kawauso/tracey/$TRACEY_REV\"\nif [ -z \"${KAWAUSO_SKIP_TRACEY:-}\" ] && [ ! -x \"$tracey_root/bin/tracey\" ]; then\n  if command -v node >/dev/null && command -v pnpm >/dev/null; then\n    echo \"Installing tracey ${TRACEY_REV:0:12} from source, this takes several minutes...\" >&2\n    mkdir -p \"$(dirname \"$tracey_root\")\"\n    tracey_tmp=\"$(mktemp -d \"$(dirname \"$tracey_root\")/tmp.XXXXXX\")\"\n    # Build from the project directory, so that rustup picks up the toolchain\n    # from rust-toolchain.toml. Build into a temporary directory and move only\n    # the binary into place afterwards, so that a failed build never leaves a\n    # half-installed tracey behind. Moving a single file is an atomic rename.\n    # If two activations build the same revision at the same time, the second\n    # move replaces the binary with an identical one.\n    if (cd \"$FLOX_ENV_PROJECT\" && cargo install --git https://github.com/bearcove/tracey --rev \"$TRACEY_REV\" --locked --root \"$tracey_tmp\" tracey); then\n      mkdir -p \"$tracey_root/bin\"\n      mv \"$tracey_tmp/bin/tracey\" \"$tracey_root/bin/tracey\"\n    else\n      echo \"error: failed to install tracey, see the output above\" >&2\n    fi\n    rm -rf \"$tracey_tmp\"\n  else\n    echo \"warning: tracey is not installed because node or pnpm is not available on this system\" >&2\n  fi\nfi\nexport PATH=\"$tracey_root/bin:$PATH\"\n"
     },
     "profile": {},
     "options": {}
@@ -1475,6 +1494,105 @@
       "priority": 5
     },
     {
+      "attr_path": "nodejs_22",
+      "broken": false,
+      "derivation": "/nix/store/mmjs3qrg9kpnfdqgmy25fy8fz913y7yh-nodejs-22.22.3.drv",
+      "description": "Event-driven I/O framework for the V8 JavaScript engine",
+      "install_id": "nodejs",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "name": "nodejs-22.22.3",
+      "pname": "nodejs_22",
+      "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "rev_count": 1017464,
+      "rev_date": "2026-06-16T02:33:49Z",
+      "scrape_date": "2026-06-17T03:13:39.228838Z",
+      "stabilities": [
+        "staging",
+        "unstable",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "22.22.3",
+      "outputs_to_install": [
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/k1yy2d1h7pvpac7m14vmaw23j529fpza-nodejs-22.22.3"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "nodejs_22",
+      "broken": false,
+      "derivation": "/nix/store/aqk3840k5ywzp52xb11yky8pbqha3grj-nodejs-22.22.3.drv",
+      "description": "Event-driven I/O framework for the V8 JavaScript engine",
+      "install_id": "nodejs",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "name": "nodejs-22.22.3",
+      "pname": "nodejs_22",
+      "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "rev_count": 1017464,
+      "rev_date": "2026-06-16T02:33:49Z",
+      "scrape_date": "2026-06-17T03:44:48.146999Z",
+      "stabilities": [
+        "staging",
+        "unstable",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "22.22.3",
+      "outputs_to_install": [
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/d8zana2n6i904c088i533ivg1j817x8v-nodejs-22.22.3"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "nodejs_22",
+      "broken": false,
+      "derivation": "/nix/store/x0vx03v1gd5bzlqias0gixnf8m5y31xp-nodejs-22.22.3.drv",
+      "description": "Event-driven I/O framework for the V8 JavaScript engine",
+      "install_id": "nodejs",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "name": "nodejs-22.22.3",
+      "pname": "nodejs_22",
+      "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "rev_count": 1017464,
+      "rev_date": "2026-06-16T02:33:49Z",
+      "scrape_date": "2026-06-17T04:47:47.932926Z",
+      "stabilities": [
+        "staging",
+        "unstable",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "22.22.3",
+      "outputs_to_install": [
+        "out",
+        "out",
+        "out",
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ac9bklddx1klg92hj7r08xmpky1nwag2-nodejs-22.22.3"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
       "attr_path": "parallel",
       "broken": false,
       "derivation": "/nix/store/73swbq5jgvmzbz3hjfq4zzf998xd5zll-parallel-20260422.drv",
@@ -1605,6 +1723,99 @@
         "doc": "/nix/store/m6b21x6f7jwp6kgbrjgrig249545d82l-parallel-20260422-doc",
         "man": "/nix/store/b4c0sa2vmas1fcibhdckn22xqwhwijpc-parallel-20260422-man",
         "out": "/nix/store/ii68lcwv78bxdbrr7w88n1mq9yn5yvi9-parallel-20260422"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pnpm",
+      "broken": false,
+      "derivation": "/nix/store/g0lbidwyjf1msxm3q6j5056d7hrp0kar-pnpm-11.5.3.drv",
+      "description": "Fast, disk space efficient package manager for JavaScript",
+      "install_id": "pnpm",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "name": "pnpm-11.5.3",
+      "pname": "pnpm",
+      "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "rev_count": 1017464,
+      "rev_date": "2026-06-16T02:33:49Z",
+      "scrape_date": "2026-06-17T03:13:54.072081Z",
+      "stabilities": [
+        "staging",
+        "unstable",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "11.5.3",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ir1v2h2wws01lf6chfcq64x7w2c6j96z-pnpm-11.5.3"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pnpm",
+      "broken": false,
+      "derivation": "/nix/store/9znqg3mxv52y7gj1cl6m7w3vkj9mn71z-pnpm-11.5.3.drv",
+      "description": "Fast, disk space efficient package manager for JavaScript",
+      "install_id": "pnpm",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "name": "pnpm-11.5.3",
+      "pname": "pnpm",
+      "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "rev_count": 1017464,
+      "rev_date": "2026-06-16T02:33:49Z",
+      "scrape_date": "2026-06-17T03:45:08.162706Z",
+      "stabilities": [
+        "staging",
+        "unstable",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "11.5.3",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/575mdxcjkv465s9p8fsib0bd7lkfzzfg-pnpm-11.5.3"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pnpm",
+      "broken": false,
+      "derivation": "/nix/store/k62331cv06di01fmxliz9djg0k6h1bdw-pnpm-11.5.3.drv",
+      "description": "Fast, disk space efficient package manager for JavaScript",
+      "install_id": "pnpm",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "name": "pnpm-11.5.3",
+      "pname": "pnpm",
+      "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
+      "rev_count": 1017464,
+      "rev_date": "2026-06-16T02:33:49Z",
+      "scrape_date": "2026-06-17T04:48:08.540071Z",
+      "stabilities": [
+        "staging",
+        "unstable",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "11.5.3",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/5jlr96h609vn5ylavrfbjbbsbrp1x61z-pnpm-11.5.3"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

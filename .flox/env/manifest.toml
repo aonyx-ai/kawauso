@@ -45,7 +45,20 @@ yamllint.pkg-path = "yamllint"
 yamllint.outputs = "all"
 zizmor.pkg-path = "zizmor"
 
+# Build dependencies for tracey, which the hook below installs from source. The
+# build script of tracey bundles a web dashboard with node and pnpm. Neither
+# package is available for x86_64-darwin, so tracey is not installed there.
+nodejs.pkg-path = "nodejs_22"
+nodejs.systems = ["aarch64-darwin", "aarch64-linux", "x86_64-linux"]
+pnpm.pkg-path = "pnpm"
+pnpm.systems = ["aarch64-darwin", "aarch64-linux", "x86_64-linux"]
+
 [vars]
+# The Git revision of tracey that the hook below installs. The releases of
+# tracey lag behind its main branch, so we build a pinned revision from source.
+# Change the revision deliberately: main is a 2.0 release candidate, and its
+# configuration format can still change.
+TRACEY_REV = "7494469c454ea3e93203f2cc860adbf153fe64b9"
 
 [hook]
 on-activate = '''
@@ -55,6 +68,36 @@ on-activate = '''
 if [ -n "$GITHUB_ACTIONS" ]; then
   unset LD_AUDIT
 fi
+
+# Install tracey from source, once per revision and per machine. The binary is
+# put in the user's cache directory instead of the project, so that clones,
+# worktrees, and CI jobs on the same machine share one build. The build takes
+# several minutes the first time. Set KAWAUSO_SKIP_TRACEY to a non-empty value
+# to skip the installation, for example in CI jobs that do not run tracey.
+tracey_root="${XDG_CACHE_HOME:-$HOME/.cache}/kawauso/tracey/$TRACEY_REV"
+if [ -z "${KAWAUSO_SKIP_TRACEY:-}" ] && [ ! -x "$tracey_root/bin/tracey" ]; then
+  if command -v node >/dev/null && command -v pnpm >/dev/null; then
+    echo "Installing tracey ${TRACEY_REV:0:12} from source, this takes several minutes..." >&2
+    mkdir -p "$(dirname "$tracey_root")"
+    tracey_tmp="$(mktemp -d "$(dirname "$tracey_root")/tmp.XXXXXX")"
+    # Build from the project directory, so that rustup picks up the toolchain
+    # from rust-toolchain.toml. Build into a temporary directory and move only
+    # the binary into place afterwards, so that a failed build never leaves a
+    # half-installed tracey behind. Moving a single file is an atomic rename.
+    # If two activations build the same revision at the same time, the second
+    # move replaces the binary with an identical one.
+    if (cd "$FLOX_ENV_PROJECT" && cargo install --git https://github.com/bearcove/tracey --rev "$TRACEY_REV" --locked --root "$tracey_tmp" tracey); then
+      mkdir -p "$tracey_root/bin"
+      mv "$tracey_tmp/bin/tracey" "$tracey_root/bin/tracey"
+    else
+      echo "error: failed to install tracey, see the output above" >&2
+    fi
+    rm -rf "$tracey_tmp"
+  else
+    echo "warning: tracey is not installed because node or pnpm is not available on this system" >&2
+  fi
+fi
+export PATH="$tracey_root/bin:$PATH"
 '''
 
 [profile]
