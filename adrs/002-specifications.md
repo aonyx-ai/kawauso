@@ -6,17 +6,17 @@ Accepted
 
 ## Context
 
-[ADR-001][adr-001] records why the project has its shape. We also need a
-record of what each crate does. We want to design each crate as humans and
-give its implementation to coding agents. This division of work needs a
-contract. A human reviews the contract before the implementation exists. A
-machine compares the contract with the code afterwards.
+[ADR-001][adr-001] records that we use Architecture Decision Records (ADRs) to
+document the context and the reasons for a decision, the "why". But when we
+implement features, we also need to specify the requirements, the "what". The
+requirements need a different kind of document.
 
-Documentation in prose does not give us this contract. It has no unit that a
-tool can count, so nobody knows which parts of it the code implements. The
-prose and the code also become different over time, and nobody sees the
-difference. Coding agents make this worse, because they read the
-documentation as the truth and act on it.
+A specification is especially important because coding agents implement the
+features. The agents get the context from the ADRs, but they need a
+specification to guide their implementation and to keep it in scope. A
+specification that a tool can compare with the code also shows which
+requirements are implemented and which are not. Our hypothesis is that agents
+with good specifications work more autonomously and need less human oversight.
 
 ## Decision
 
@@ -26,7 +26,7 @@ its requirements to the code and to the tests.
 1. **One specification per crate.** Each crate has a specification in
    `crates/<crate>/SPECIFICATION.md`. The specification documents what the
    crate does. It does not name types or functions, because the code and its
-   documentation do that. ADRs document why the crate has its shape.
+   documentation do that.
 
 2. **Requirements have identifiers.** A specification is a list of
    requirements. Each requirement states one behavior with the key word MUST,
@@ -65,10 +65,10 @@ We considered these alternatives and rejected them for the reasons below.
 ### Documentation Only
 
 Rustdoc and README files document the API of a crate. They can describe
-requirements in prose, but they have no unit that a tool can count. Then
-nobody knows which requirements the code implements and which requirements
-have a test. The documentation and the code also become different over time,
-and no tool reports the difference.
+requirements in prose, but they have no unit that a tool can count. As a
+result, nobody knows which requirements the code implements and which
+requirements have a test. The documentation and the code can also diverge over
+time, and no tool reports the difference.
 
 ### One Specification for the Workspace
 
