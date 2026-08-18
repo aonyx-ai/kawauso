@@ -2,9 +2,36 @@
 schema-version = "1.12.0"
 
 [install]
+# Rustup installs rustc, cargo, clippy, rust-analyzer, and rustfmt
+rustup.pkg-path = "rustup"
+
+# The standard library links against this package on macOS.
+libiconv.pkg-path = "libiconv"
+libiconv.systems = ["aarch64-darwin", "x86_64-darwin"]
+libiconv.outputs = "all"
+
+# This package provides the source code for the standard library, which is used
+# by rust-analyzer below to provide diagnostics and documentation.
+rust-lib-src.pkg-group = "rust-toolchain"
+rust-lib-src.pkg-path = "rustPlatform.rustLibSrc"
+
+# We install gcc and clang as linkers for Rust.
+clang.pkg-path = "clang"
+clang.systems = ["aarch64-darwin", "x86_64-darwin"]
+gcc.pkg-path = "gcc"
+gcc.systems = ["aarch64-linux", "x86_64-linux"]
+gcc.outputs = "all"
+
+# Development tools for the Rust ecosystem
+cargo-deny.pkg-path = "cargo-deny"
+cargo-llvm-cov.pkg-path = "cargo-llvm-cov"
+cargo-nextest.pkg-path = "cargo-nextest"
+cargo-udeps.pkg-path = "cargo-udeps"
+
 # Local development tools
 git.pkg-path = "git"
 git.outputs = "all"
+jq.pkg-path = "jq"
 just.pkg-path = "just"
 just.outputs = "all"
 markdownlint-cli.pkg-path = "markdownlint-cli"
@@ -21,6 +48,14 @@ zizmor.pkg-path = "zizmor"
 [vars]
 
 [hook]
+on-activate = '''
+# On GitHub Actions, we need to unset the LD_AUDIT variable to avoid an "cannot
+# allocate memory in static TLS block" error when loading Rust. See this issue:
+# https://github.com/flox/flox/issues/1341
+if [ -n "$GITHUB_ACTIONS" ]; then
+  unset LD_AUDIT
+fi
+'''
 
 [profile]
 

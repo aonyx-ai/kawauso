@@ -1,1 +1,6 @@
 # See https://github.com/jdno/labelflair for the documentation of Labelflair.
+
+[[label]]
+name = "adr"
+description = "Architecture Decision Record"
+color = "#6366f1"

@@ -2,6 +2,7 @@
 extends: default
 
 ignore: |
+  .claude/*
   .flox/cache/*
 
 rules:
