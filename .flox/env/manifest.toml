@@ -81,12 +81,14 @@ if [ -z "${KAWAUSO_SKIP_TRACEY:-}" ] && [ ! -x "$tracey_root/bin/tracey" ]; then
     mkdir -p "$(dirname "$tracey_root")"
     tracey_tmp="$(mktemp -d "$(dirname "$tracey_root")/tmp.XXXXXX")"
     # Build from the project directory, so that rustup picks up the toolchain
-    # from rust-toolchain.toml. Build into a temporary directory and move it
-    # into place afterwards, so that a failed build never leaves a half-installed
-    # tracey behind. Another activation can install the same revision in the
-    # meantime, in which case this build is discarded.
+    # from rust-toolchain.toml. Build into a temporary directory and move only
+    # the binary into place afterwards, so that a failed build never leaves a
+    # half-installed tracey behind. Moving a single file is an atomic rename.
+    # If two activations build the same revision at the same time, the second
+    # move replaces the binary with an identical one.
     if (cd "$FLOX_ENV_PROJECT" && cargo install --git https://github.com/bearcove/tracey --rev "$TRACEY_REV" --locked --root "$tracey_tmp" tracey); then
-      [ -d "$tracey_root" ] || mv "$tracey_tmp" "$tracey_root"
+      mkdir -p "$tracey_root/bin"
+      mv "$tracey_tmp/bin/tracey" "$tracey_root/bin/tracey"
     else
       echo "error: failed to install tracey, see the output above" >&2
     fi
