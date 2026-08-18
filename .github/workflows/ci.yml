@@ -14,7 +14,7 @@ concurrency:
 jobs:
   targets:
     name: Enumerate Just recipes
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, ARM64]
 
     permissions:
       contents: read
@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # 4.0.0
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
 
       - name: Export targets
         id: export-targets
@@ -37,7 +37,7 @@ jobs:
 
   checks:
     name: ${{ matrix.target }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, ARM64]
 
     permissions:
       contents: read
@@ -55,20 +55,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Flox
-        uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2.6.0
-
-      - name: Remove Flox installer (if it exists)
-        run: rm -f flox.x86_64-linux.deb
-
       - name: Run check with Just
         uses: flox/activate-action@7065dcbe5583b7b015f07a8ebd49d7266e3053e8 # v1.1.1
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           command: just ${{ matrix.target }}
 
   success:
     name: All checks succeeded
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, ARM64]
 
     permissions: {}
 

@@ -1,0 +1,21 @@
+[workspace]
+members = ["crates/*"]
+
+# Opt-in to the new feature resolver introduced in Rust 1.85 and Edition 2024.
+# https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions
+resolver = "3"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+
+repository = "https://github.com/aonyx-ai/kawauso.git"
+
+# Rust edition 2024 requires Rust 1.85 or later
+rust-version = "1.85.0"
+
+[workspace.dependencies]
+
+[workspace.lints.clippy]
+# Prefer `mod.rs` over `name.rs` so that every module is a self-contained unit.
+self_named_module_files = "warn"
