@@ -31,9 +31,7 @@ pre-commit-verify:
 
 # Build the Rust documentation and force the rustdoc lints to run
 build-rustdoc:
-    # The cli bin and the aonyx lib document to the same path, so they run apart
-    cargo doc --workspace --exclude cli --no-deps --document-private-items
-    cargo doc -p cli --no-deps --document-private-items
+    cargo doc --workspace --no-deps --document-private-items
 
 # Check that Aonyx builds with the latest dependencies
 check-latest-deps force="false":
