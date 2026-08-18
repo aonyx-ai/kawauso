@@ -4,6 +4,20 @@ Kawauso is a toolkit for building Rust applications with the help of AI agents.
 It provides a set of crates that can be used together or independently to
 implement features that most applications share.
 
+## Engineering
+
+Architecture Decision Records (ADRs) in `adrs/` document why the project is
+shaped the way it is. [ADR-001][adr-001] defines the process.
+
+- Before you start a task, read the ADRs that relate to it.
+- If your task conflicts with an ADR, stop and report the conflict. Do not work
+  around the ADR.
+- Do not edit an accepted ADR, except to change its status.
+- If a task needs a decision that is architectural, cross-cutting, or hard to
+  reverse, draft an ADR before you implement the task. Start from
+  `adrs/000-template.md`, give it the next free number, and open it in its own
+  pull request. A new ADR can also supersede an existing one.
+
 ## Language
 
 - Use American English spelling, e.g. "color" not "colour".
@@ -128,4 +142,5 @@ implement features that most applications share.
 - **Never** write conventional commit messages.
 - **Never** add yourself as a co-author.
 
+[adr-001]: adrs/001-adrs.md
 [git-style-guide]: https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
