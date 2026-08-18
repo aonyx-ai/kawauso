@@ -1,0 +1,2 @@
+# Ignore the scoped settings for the GitHub CLI
+.gh/

@@ -1,0 +1,139 @@
+# Pass recipe arguments through as positional arguments, so that a quoted
+# prompt such as `just launch -p "do the thing"` reaches Claude as one argument
+# instead of being split on spaces
+set positional-arguments
+
+# The 1Password secret reference for the GitHub access token
+#
+# `launch-from-1password` resolves this reference with the 1Password CLI. Set
+# `KAWAUSO_GITHUB_TOKEN_REFERENCE` to override it when the token lives in a
+# different vault or item.
+token_reference := env("KAWAUSO_GITHUB_TOKEN_REFERENCE", "op://Agents/kawauso-github-token/token")
+
+[private]
+default:
+    @just --list
+
+# Ensure the repository is cloned over HTTPS
+#
+# The configuration set up by the following recipes only works if the
+# repository's remote uses HTTPS. This recipe checks the remote URL and fails if
+# it is not an HTTPS URL.
+[doc("Ensure the repository is cloned over HTTPS")]
+[private]
+require-https:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    url="$(git remote get-url origin)"
+
+    case "$url" in
+      https://github.com/*) ;;
+      *) printf 'error: origin is %s\n' "$url" >&2
+         printf 'hint: this expects a dedicated HTTPS clone, not your main checkout\n' >&2
+         exit 1 ;;
+    esac
+
+# Ensure a GitHub access token is in the environment
+#
+# Both the credential helper and the GitHub CLI read the token from the
+# `KAWAUSO_GITHUB_TOKEN` environment variable. On a VM that variable is usually
+# exported from `~/.profile`; on a workstation `launch-from-1password` puts it
+# into the environment instead.
+[doc("Ensure a GitHub access token is in the environment")]
+[private]
+require-token:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [ -z "${KAWAUSO_GITHUB_TOKEN:-}" ]; then
+      printf 'error: KAWAUSO_GITHUB_TOKEN is not set\n' >&2
+      printf 'hint: export it from ~/.profile, or run `just launch-from-1password`\n' >&2
+      exit 1
+    fi
+
+# Set up GitHub authentication
+#
+# This recipe sets up GitHub authentication for the current repository by
+# configuring a local Git credential helper that uses an access token stored in
+# the `KAWAUSO_GITHUB_TOKEN` environment variable. This allows you to
+# authenticate with GitHub without having to unlock 1Password every time.
+#
+# The helper reads the variable each time Git asks for credentials, so a rotated
+# token takes effect in the next session. This recipe only has to run once per
+# clone.
+[doc("Set up GitHub authentication")]
+setup: require-https
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Configure Git to use a custom credential helper that reads the token from
+    # the environment variable
+    key='credential.https://github.com.helper'
+    git config --local --unset-all "$key" || true
+    git config --local --add "$key" ""
+    git config --local --add "$key" \
+      '!f() { [ -n "${KAWAUSO_GITHUB_TOKEN:-}" ] || { echo "KAWAUSO_GITHUB_TOKEN is not set" >&2; exit 1; }; echo username=x-access-token; echo password=$KAWAUSO_GITHUB_TOKEN; }; f'
+
+    # Disable commit signing
+    git config --local commit.gpgsign false
+    git config --local tag.gpgsign false
+
+# Launch a Claude Code session with scoped GitHub access
+#
+# This recipe launches a Claude Code session that uses HTTPS and a scoped access
+# token to reach GitHub. This makes it possible to automate Claude sessions and
+# drive them remotely without having to unlock 1Password to sign commits or push
+# to GitHub.
+#
+# The token comes from the `KAWAUSO_GITHUB_TOKEN` environment variable, which an
+# unattended host exports from a shell profile:
+#
+# ```sh
+# export KAWAUSO_GITHUB_TOKEN="github_pat_..."
+# ```
+#
+# On a workstation that has 1Password, use `launch-from-1password` instead of
+# keeping the token in a profile.
+[doc("Launch a Claude Code session with scoped GitHub access")]
+launch *args: require-https require-token
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Never prompt the user for credentials
+    export GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=false
+
+    # Scope gh to the token, and hide the admin credential in the keyring so it
+    # cannot be recovered by unsetting GH_TOKEN
+    export GH_TOKEN="$KAWAUSO_GITHUB_TOKEN"
+    export GH_CONFIG_DIR="{{ justfile_directory() }}/.gh"
+    mkdir -p "$GH_CONFIG_DIR"
+
+    flox activate -- claude "$@"
+
+# Launch a Claude Code session with a token from 1Password
+#
+# This is the workstation counterpart to `launch`. It reads the token from
+# 1Password once, puts it into the environment, and then hands over to `launch`.
+# The vault is unlocked a single time, and the session keeps working after
+# 1Password locks again.
+#
+# The recipe reads the item that `token_reference` points to. Use `launch` on
+# hosts that have no 1Password CLI.
+[doc("Launch a Claude Code session with a token from 1Password")]
+launch-from-1password *args: require-https
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if ! command -v op >/dev/null 2>&1; then
+      printf 'error: the 1Password CLI (op) is not installed\n' >&2
+      printf 'hint: export KAWAUSO_GITHUB_TOKEN and run `just launch` instead\n' >&2
+      exit 1
+    fi
+
+    # Assign before exporting, because `export VAR="$(...)"` hides the exit
+    # status of the command substitution from `set -e`
+    KAWAUSO_GITHUB_TOKEN="$(op read "{{ token_reference }}")"
+    export KAWAUSO_GITHUB_TOKEN
+
+    exec just --justfile "{{ justfile() }}" launch "$@"
