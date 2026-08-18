@@ -24,7 +24,7 @@ identifiers, such as `kawauso[placeholder.add]`. The prefix is the name of the
 crate without `kawauso-`. [Tracey][tracey] links each requirement to the code
 that implements it and to the test that verifies it. `just check-specs`
 validates these links, and `.config/tracey/config.styx` lists the
-specifications.
+specifications. [ADR-002][adr-002] records this decision.
 
 - Before you implement a crate, read its specification.
 - Put a comment such as `// kawauso[impl placeholder.add]` above the code that
@@ -163,5 +163,6 @@ specifications.
 - **Never** add yourself as a co-author.
 
 [adr-001]: adrs/001-adrs.md
+[adr-002]: adrs/002-specifications.md
 [git-style-guide]: https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
 [tracey]: https://tracey.bearcove.eu/
