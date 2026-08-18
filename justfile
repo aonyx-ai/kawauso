@@ -108,7 +108,14 @@ check-specs:
     # Broken or stale references, duplicate or malformed requirement IDs
     tracey query validate --deny warnings
 
-    # A staged change to the text of a requirement needs a version bump
+    # A staged change to the text of a requirement needs a version bump.
+    # tracey compares the index with HEAD. On a pull request, GitHub Actions
+    # checks out a merge commit and stages nothing, so move HEAD to the base
+    # branch, the first parent of the merge commit. The index keeps the
+    # content of the pull request, and tracey compares the two.
+    if [ -n "${GITHUB_BASE_REF:-}" ] && git rev-parse --quiet --verify HEAD^2 >/dev/null; then
+        git reset --quiet --soft HEAD^1
+    fi
     tracey pre-commit
 
     # Coverage is information, not a gate: a spec can land before its
