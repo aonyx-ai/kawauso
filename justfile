@@ -23,6 +23,7 @@ pre-commit-fix:
 [private]
 pre-commit-verify:
     #!/usr/bin/env -S parallel --shebang --ungroup --jobs {{ num_cpus() }}
+    just check-specs
     just lint-github-actions
     just lint-markdown
     just lint-rust
@@ -85,6 +86,34 @@ check-minimal-deps force="false":
 
     # Run tests to ensure the minimal versions are compatible
     RUSTFLAGS="-D deprecated" rustup run nightly cargo test --all-features --all-targets --locked
+
+# Check that the specs and the requirement references in the code are valid
+check-specs:
+    #!/usr/bin/env -S flox activate -- bash
+    # The shebang activates the Flox environment, because a shebang recipe
+    # bypasses the `shell` setting above, and tracey is only on PATH inside
+    # the environment.
+    set -euo pipefail
+
+    # tracey is compiled without logging and warns about its default log
+    # filter on every run. Turning logging off silences the warning.
+    export RUST_LOG=off
+
+    # tracey answers queries from a daemon per workspace, which picks up file
+    # changes with a delay of a few seconds. Stop the daemon before the check,
+    # so that a fresh daemon scans the workspace before it answers. The LSP
+    # and MCP servers reconnect and start a new daemon on their next call.
+    tracey kill >/dev/null
+
+    # Broken or stale references, duplicate or malformed requirement IDs
+    tracey query validate --deny warnings
+
+    # A staged change to the text of a requirement needs a version bump
+    tracey pre-commit
+
+    # Coverage is information, not a gate: a spec can land before its
+    # implementation. The gaps are listed here and in the tracey dashboard.
+    tracey query status
 
 # Check that Aonyx builds with the MSRV
 check-msrv:
