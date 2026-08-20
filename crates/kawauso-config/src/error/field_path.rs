@@ -1,22 +1,24 @@
-//! The place of a failure in the structure of a configuration file
+//! The path of a value in a configuration file
 
 use std::fmt::{Display, Formatter, Result};
 
-/// The place of a value in the structure of a configuration file
+/// The path from the root of a document to one value, such as `server.port`
 ///
-/// A field path shows the keys that lead from the top of a configuration file
-/// to one value. A dot divides the keys, as in `server.port`. An index in
-/// square brackets comes after the key of an array of tables, as in
-/// `peers[1].name`. One dot alone is the path of the file itself, and it
-/// shows that the failure applies to the full document.
+/// A path joins the keys that lead to a value with dots. The key of an array
+/// of tables is followed by the index of the table in square brackets, as in
+/// `peers[1].name`. The root of the document itself has no keys and is
+/// written as a single dot.
 ///
-/// A field path is a report for a person. A path shows a user which entry to
-/// correct. A path does not get a value from the file.
+/// A path identifies a value for a human reader. It is not a query: the
+/// crate offers no way to look a path up in a document.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct FieldPath(String);
 
 impl FieldPath {
-    /// Creates a field path from the keys that lead to a value
+    /// Creates a field path from its text
+    ///
+    /// The text is stored as given; the function does not parse or validate
+    /// it.
     pub fn new(path: impl Into<String>) -> Self {
         Self(path.into())
     }
@@ -27,6 +29,7 @@ impl FieldPath {
     }
 }
 
+/// Formats the path as its text, without quotes or other decoration
 impl Display for FieldPath {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         Display::fmt(&self.0, formatter)

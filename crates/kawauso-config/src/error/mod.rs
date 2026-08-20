@@ -1,4 +1,4 @@
-//! The failures that the deserialization of a configuration file reports
+//! Errors for the deserialization of configuration files
 
 pub mod field_path;
 pub mod position;
@@ -8,55 +8,53 @@ use thiserror::Error;
 use crate::error::field_path::FieldPath;
 use crate::error::position::Position;
 
-/// A configuration file that the crate cannot deserialize
+/// The error returned when a configuration file cannot be deserialized
 ///
-/// The two variants divide the failures by what the crate knows. A file that
-/// is not TOML fails before an entry exists, and the crate can give only the
-/// place in the text. A file that is TOML can still hold the wrong entries
-/// for the type. Such a file fails at a known entry, and the crate gives the
-/// path of that entry.
+/// The variants separate the failures by the information that exists for
+/// each. Contents that are not valid TOML fail in the parser, where fields
+/// do not exist yet, so the error can only point to a position in the text.
+/// A valid document that does not match the caller's type fails at a known
+/// field, so the error points to that field by its path.
 ///
-/// Each variant holds the cause of the failure. Read the cause with
-/// [`Error::source`][source] to make a full report. Do not match on the type
-/// of the cause, because the crate can change the cause while this enum stays
-/// the same.
+/// Every variant carries its cause, which [`Error::source`][source] exposes
+/// for error reports. The concrete type of the cause is unspecified and can
+/// change in any release; do not downcast it.
 ///
-/// A later version can add more variants, and it can add more fields to a
-/// variant. Match this enum with a wildcard arm, and bind the fields of a
-/// variant with `..`.
+/// A later release can add variants, and it can add fields to a variant.
+/// Match with a wildcard arm, and bind the fields of a variant with `..`.
 ///
 /// [source]: https://doc.rust-lang.org/std/error/trait.Error.html#method.source
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum DeserializeConfigurationError {
-    /// The contents are not a TOML document
+    /// The contents are not valid TOML
     ///
-    /// The text does not obey the rules of TOML, and the crate can thus read
-    /// no entry of the file. The position shows the first place where the
-    /// text is no longer TOML. The mistake is often some characters before
-    /// that place.
+    /// The position marks where parsing stopped: the first character that
+    /// the parser could not accept. The actual mistake, for example a quote
+    /// that was never closed, can lie before that position.
     // config[impl load.error.syntax]
     #[error("failed to parse the configuration at {position}")]
     #[non_exhaustive]
     MalformedDocument {
-        /// The place where the text is no longer TOML
+        /// Where parsing stopped
         position: Position,
 
         /// The cause of the failure
         source: Box<dyn std::error::Error + Send + Sync>,
     },
 
-    /// The document is TOML, but it does not agree with the type
+    /// The document is valid TOML, but it does not match the caller's type
     ///
-    /// The entry at the path is absent, or the entry holds a value that the
-    /// type cannot accept. An entry that is absent has no place of its own in
-    /// the file. For such an entry, the path shows the table that does not
-    /// have the key, and the cause gives the name of the key.
+    /// The path points to the value that could not be deserialized, for
+    /// example a string where the type expects a number. A key that the type
+    /// requires but the document lacks has no path of its own; in that case,
+    /// the path points to the table that lacks the key, and the cause names
+    /// the key.
     // config[impl load.error.field]
     #[error("failed to deserialize the configuration at `{path}`")]
     #[non_exhaustive]
     MismatchedField {
-        /// The place in the file that does not agree with the type
+        /// The path of the value that does not match
         path: FieldPath,
 
         /// The cause of the failure

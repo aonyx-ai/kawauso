@@ -1,15 +1,12 @@
-//! The place of a failure in a configuration file
+//! A position in a configuration file
 
 use std::fmt::{Display, Formatter, Result};
 
-/// A place in a configuration file
+/// A line and a column in a configuration file
 ///
-/// A position points to one character in a configuration file. The line and
-/// the column start at one, as an editor shows them. A reader can thus go to
-/// the position immediately.
-///
-/// A position is a report for a person. Use a position to show a user where
-/// to look. Do not use a position to divide a file into parts.
+/// Both numbers count from one, the way editors display them, so a reader
+/// can jump from an error message straight to the position without any
+/// conversion.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Position {
     line: usize,
@@ -19,8 +16,8 @@ pub struct Position {
 impl Position {
     /// Creates a position from a line and a column
     ///
-    /// The line and the column start at one. If a caller has a count that
-    /// starts at zero, the caller must add one to that count first.
+    /// Both arguments count from one. A caller that has zero-based numbers
+    /// must add one to them first.
     pub fn new(line: usize, column: usize) -> Self {
         Self { line, column }
     }
@@ -36,6 +33,7 @@ impl Position {
     }
 }
 
+/// Formats the position as `line 2, column 8`
 impl Display for Position {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         write!(formatter, "line {}, column {}", self.line, self.column)

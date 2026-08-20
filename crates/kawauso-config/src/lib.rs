@@ -14,20 +14,20 @@ pub use crate::error::position::Position;
 
 /// Deserializes a TOML document into a type that the caller defines
 ///
-/// The caller gives the contents of a configuration file and the type that
-/// describes the structure of the file. The type must implement the
-/// [`Deserialize`][deserialize] trait of serde, which the derive macro of
-/// serde generates.
+/// The caller gives the contents of a configuration file and a type that
+/// describes the expected structure of the file. The type must implement the
+/// [`Deserialize`][deserialize] trait of serde, which its derive macro
+/// generates.
 ///
 /// # Errors
 ///
-/// This function returns [`MalformedDocument`][malformed] when the contents
-/// are not TOML. The message of the error gives the line and the column of
-/// the failure.
+/// Returns [`MalformedDocument`][malformed] when the contents are not valid
+/// TOML. The message of the error names the line and the column at which
+/// parsing stopped.
 ///
-/// This function returns [`MismatchedField`][mismatched] when the contents
-/// are TOML, but do not agree with the type. The message of the error gives
-/// the path of the entry, for example `server.port`.
+/// Returns [`MismatchedField`][mismatched] when the document is valid TOML
+/// but does not match the type. The message of the error names the path of
+/// the field, such as `server.port`.
 ///
 /// # Examples
 ///
@@ -75,10 +75,10 @@ where
 
 /// Translates a byte offset in a document into a line and a column
 ///
-/// The line and the column start at one. An offset can be out of bounds, or
-/// it can point into the middle of a character. For such an offset, this
-/// function returns the position of the end of the document, because a report
-/// that points to the end is better than a panic.
+/// Lines and columns count from one, and columns count characters, not
+/// bytes. An offset that is out of bounds, or that points into the middle of
+/// a multi-byte character, yields the position of the end of the document:
+/// in an error report, an imprecise position is better than a panic.
 fn position_of(document: &str, offset: usize) -> Position {
     let head = document.get(..offset).unwrap_or(document);
 
