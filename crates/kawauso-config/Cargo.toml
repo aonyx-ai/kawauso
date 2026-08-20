@@ -10,7 +10,10 @@ rust-version.workspace = true
 
 [dependencies]
 serde = { workspace = true }
+serde_path_to_error = { workspace = true }
+thiserror = { workspace = true }
 toml = { workspace = true }
+typed-fields = { workspace = true }
 
 [dev-dependencies]
 indoc = { workspace = true }
