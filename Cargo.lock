@@ -212,9 +212,9 @@ checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "typed-fields"
-version = "0.5.2"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70118d5713b6d9058873a7727b62bf067851371c70ed10403a38705dafaf4603"
+checksum = "c3ca13745e125572a3377df79d66d046468f102cc6a029b7b504a5fff2abae3a"
 dependencies = [
  "proc-macro2",
  "quote",
