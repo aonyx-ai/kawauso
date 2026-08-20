@@ -123,9 +123,9 @@ forbids for `kawauso-config`, and this ADR forbids it for every crate.
 ### Diagnostic Frameworks in the Public API
 
 Frameworks such as `miette` render compiler-quality reports with spans and
-labels, and its own documentation tells libraries not to put its types in
-their public API, because the framework becomes a public, semver-relevant
-dependency for every consumer. We keep rendering out of the mandatory
+labels, and even miette's own documentation tells libraries not to put its
+types in their public API, because the framework becomes a public,
+semver-relevant dependency for every consumer. We keep rendering out of the mandatory
 surface: a crate carries structured context and a good `Display`, and a
 `Diagnostic` derive can arrive later behind an optional feature without a
 breaking change.
