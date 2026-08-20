@@ -55,11 +55,16 @@ specifications. [ADR-002][adr-002] records this decision.
 ### Dependencies
 
 - All versions managed in root `Cargo.toml`, crates import from workspace.
-- Comment on dependency choices when non-obvious.
-- When adding dependencies, run `just check-licenses` to verify license
+- Require the lowest version of a dependency that still compiles, so that
+  applications keep the widest choice of versions. Verify the floor with
+  `just check-minimal-deps`.
+- Write dependency entries without comments. Do not describe what a package
+  does, and do not explain a version requirement. Reasoning that matters, such
+  as why a floor cannot go lower, belongs in the commit message.
+- When adding dependencies, run `just check-dependencies` to verify license
   compatibility. If new licenses need allowlisting in `deny.toml`, include
-  that in the same commit. Allowlist licenses that are OSI- or FSF-approved,
-  ask for any other licenses.
+  that in the same commit, again without a comment. Allowlist licenses that
+  are OSI- or FSF-approved, ask for any other licenses.
 
 ### Derives
 
@@ -78,6 +83,11 @@ specifications. [ADR-002][adr-002] records this decision.
   - **Modules**: Explain the module's role in the system and key concepts.
 - Write documentation for a reader that has no prior context, and especially no
   knowledge of the conversation that led to the creation of the code.
+- Write for a consumer of the published crate. A published crate bundles
+  neither the ADRs nor the specifications, so never reference them from a doc
+  comment. Internal rationale, such as which library a function hides, stays
+  out of the documentation as well. Document what the API does, what it
+  requires of the caller, and how it fails.
 - Write function/method docs in third-person singular
   ("Returns the..." not "Return the...").
 - Do not add a trailing period on the title (i.e. the first line).
