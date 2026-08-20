@@ -24,5 +24,39 @@ toml = "1.0.0"
 typed-fields = ">=0.5.1, <1"
 
 [workspace.lints.clippy]
+# Require documentation on private items as well, since that helps with long-term maintainability.
+missing_docs_in_private_items = "warn"
+
+# Require errors, panics, and unsafe code to be documented.
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+missing_safety_doc = "warn"
+unnecessary_safety_doc = "warn"
+
+# `unwrap` and `expect` can cause panics, which is why we ban them from production code. Tests are
+# exempt, which `.clippy.toml` configures.
+expect_used = "warn"
+unwrap_used = "warn"
+
+# Forbid printing anything to stdout or stderr.
+print_stderr = "warn"
+print_stdout = "warn"
+
 # Prefer `mod.rs` over `name.rs` so that every module is a self-contained unit.
 self_named_module_files = "warn"
+
+[workspace.lints.rust]
+# Detect explicit lifetime requirements that the compiler can infer.
+explicit_outlives_requirements = "forbid"
+
+# Types must implement or derive `Debug` so that they can be easily debugged.
+missing_debug_implementations = "forbid"
+
+# Require documentation for all public items
+missing_docs = "forbid"
+
+# Public but unreachable items are likely a mistake.
+unreachable_pub = "forbid"
+
+# Unsafe code can lead to undefined behavior and security vulnerabilities.
+unsafe_code = "forbid"
