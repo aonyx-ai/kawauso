@@ -5,7 +5,7 @@
 //! traits that make this possible, because a private field of a later version
 //! could take them away without a word from the compiler.
 
-use kawauso_config::DeserializeConfigurationError;
+use kawauso_config::error::DeserializeConfigurationError;
 
 #[test]
 fn deserialize_configuration_error_is_send_and_sync() {

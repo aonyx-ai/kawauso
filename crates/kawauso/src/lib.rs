@@ -1,3 +1,18 @@
+//! A toolkit for building Rust applications
+//!
+//! This crate is the entry point of the toolkit. It is a placeholder: the
+//! toolkit keeps its features in separate crates, and this crate gets an API
+//! when there is something to tie together.
+
+/// Returns the sum of two unsigned 64-bit integers
+///
+/// This function is a placeholder. It exists so that the crate has an item to
+/// build and to test.
+///
+/// # Panics
+///
+/// This function panics in a debug build when the sum is more than
+/// [`u64::MAX`]. In a release build, the sum wraps around.
 // kawauso[impl placeholder.add]
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
@@ -5,6 +20,10 @@ pub fn add(left: u64, right: u64) -> u64 {
 
 #[cfg(test)]
 mod tests {
+    // An assertion in a test panics by design. A `# Panics` section on every
+    // test would repeat that and give the reader no information.
+    #![allow(clippy::missing_panics_doc)]
+
     use super::*;
 
     // kawauso[verify placeholder.add]

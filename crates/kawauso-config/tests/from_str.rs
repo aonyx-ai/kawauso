@@ -4,6 +4,10 @@
 //! that the caller defines. These tests take the role of the caller: they
 //! define a type, and they give a TOML document to the crate.
 
+// An assertion in a test panics by design. A `# Panics` section on every test
+// would repeat that and give the reader no information.
+#![allow(clippy::missing_panics_doc)]
+
 use indoc::indoc;
 use serde::Deserialize;
 

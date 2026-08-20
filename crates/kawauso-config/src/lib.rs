@@ -4,15 +4,15 @@
 //! application finds, loads, and deserializes its configuration file in the
 //! same way, and reports failures with the same clear errors.
 
-mod error;
+pub mod error;
 
 use serde::de::DeserializeOwned;
 
-pub use crate::error::DeserializeConfigurationError;
-pub use crate::error::field_path::FieldPath;
-pub use crate::error::position::Position;
-pub use crate::error::position::column::Column;
-pub use crate::error::position::line::Line;
+use self::error::DeserializeConfigurationError;
+use self::error::FieldPath;
+use self::error::Position;
+use self::error::position::Column;
+use self::error::position::Line;
 
 /// Deserializes a TOML document into a type that the caller defines
 ///
@@ -44,7 +44,7 @@ pub use crate::error::position::line::Line;
 /// let configuration: Configuration = kawauso_config::from_str("port = 8080")?;
 ///
 /// assert_eq!(configuration.port, 8080);
-/// # Ok::<(), kawauso_config::DeserializeConfigurationError>(())
+/// # Ok::<(), kawauso_config::error::DeserializeConfigurationError>(())
 /// ```
 ///
 /// [deserialize]: https://docs.rs/serde/latest/serde/trait.Deserialize.html
@@ -92,6 +92,10 @@ fn position_of(document: &str, offset: usize) -> Position {
 
 #[cfg(test)]
 mod tests {
+    // An assertion in a test panics by design. A `# Panics` section on every
+    // test would repeat that and give the reader no information.
+    #![allow(clippy::missing_panics_doc)]
+
     use super::*;
 
     #[test]

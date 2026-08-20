@@ -5,8 +5,8 @@ pub mod line;
 
 use std::fmt::{Display, Formatter, Result};
 
-use crate::error::position::column::Column;
-use crate::error::position::line::Line;
+pub use self::column::Column;
+pub use self::line::Line;
 
 /// A line and a column in a configuration file
 ///
@@ -15,7 +15,10 @@ use crate::error::position::line::Line;
 /// conversion.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Position {
+    /// The line of the position
     line: Line,
+
+    /// The column of the position
     column: Column,
 }
 
@@ -48,6 +51,10 @@ impl Display for Position {
 
 #[cfg(test)]
 mod tests {
+    // An assertion in a test panics by design. A `# Panics` section on every
+    // test would repeat that and give the reader no information.
+    #![allow(clippy::missing_panics_doc)]
+
     use super::*;
 
     #[test]

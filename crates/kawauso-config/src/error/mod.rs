@@ -5,8 +5,8 @@ pub mod position;
 
 use thiserror::Error;
 
-use crate::error::field_path::FieldPath;
-use crate::error::position::Position;
+pub use self::field_path::FieldPath;
+pub use self::position::Position;
 
 /// The error returned when a configuration file cannot be deserialized
 ///
