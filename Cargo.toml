@@ -16,6 +16,16 @@ repository = "https://github.com/aonyx-ai/kawauso.git"
 rust-version = "1.85.0"
 
 [workspace.dependencies]
+# Inline TOML documents in the tests without the indentation of the source code
+indoc = "2.0.0"
+# The trait bound for the types that callers define. The derive feature is on,
+# because callers and the tests derive `Deserialize` for their configuration.
+# The minimum is 1.0.225, because toml 1.0 uses the traits of `serde_core`, and
+# serde re-exports these traits from that version on.
+serde = { version = "1.0.225", features = ["derive"] }
+# The TOML parser behind the public API. ADR-004 keeps the parser an
+# implementation detail, so no type of the parser appears in a signature.
+toml = "1.0.0"
 
 [workspace.lints.clippy]
 # Prefer `mod.rs` over `name.rs` so that every module is a self-contained unit.

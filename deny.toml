@@ -7,7 +7,10 @@
 feature-depth = 1
 
 [licenses]
-allow = ["Apache-2.0", "MIT"]
+# Unicode-3.0 is OSI-approved. The `unicode-ident` crate, a transitive
+# dependency of the derive macros of serde, requires it next to MIT and
+# Apache-2.0.
+allow = ["Apache-2.0", "MIT", "Unicode-3.0"]
 
 [bans]
 # Lint level for when multiple versions of the same crate are detected
