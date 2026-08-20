@@ -35,3 +35,17 @@ impl Display for FieldPath {
         Display::fmt(&self.0, formatter)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trait_display() {
+        let path = FieldPath::new("server.port");
+
+        let display = path.to_string();
+
+        assert_eq!(display, "server.port");
+    }
+}

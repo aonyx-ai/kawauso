@@ -11,6 +11,8 @@ use serde::de::DeserializeOwned;
 pub use crate::error::DeserializeConfigurationError;
 pub use crate::error::field_path::FieldPath;
 pub use crate::error::position::Position;
+pub use crate::error::position::column::Column;
+pub use crate::error::position::line::Line;
 
 /// Deserializes a TOML document into a type that the caller defines
 ///
@@ -85,7 +87,7 @@ fn position_of(document: &str, offset: usize) -> Position {
     let line = head.matches('\n').count() + 1;
     let column = head.rsplit('\n').next().unwrap_or_default().chars().count() + 1;
 
-    Position::new(line, column)
+    Position::new(Line::new(line), Column::new(column))
 }
 
 #[cfg(test)]
@@ -98,7 +100,7 @@ mod tests {
 
         let position = position_of(document, usize::MAX);
 
-        assert_eq!(position, Position::new(3, 1));
+        assert_eq!(position, Position::new(Line::new(3), Column::new(1)));
     }
 
     #[test]
@@ -107,7 +109,7 @@ mod tests {
 
         let position = position_of(document, 24);
 
-        assert_eq!(position, Position::new(2, 8));
+        assert_eq!(position, Position::new(Line::new(2), Column::new(8)));
     }
 
     #[test]
@@ -116,7 +118,7 @@ mod tests {
 
         let position = position_of(document, 9);
 
-        assert_eq!(position, Position::new(2, 1));
+        assert_eq!(position, Position::new(Line::new(2), Column::new(1)));
     }
 
     #[test]
@@ -125,6 +127,6 @@ mod tests {
 
         let position = position_of(document, 0);
 
-        assert_eq!(position, Position::new(1, 1));
+        assert_eq!(position, Position::new(Line::new(1), Column::new(1)));
     }
 }

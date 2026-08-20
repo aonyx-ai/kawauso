@@ -1,6 +1,12 @@
 //! A position in a configuration file
 
+pub mod column;
+pub mod line;
+
 use std::fmt::{Display, Formatter, Result};
+
+use crate::error::position::column::Column;
+use crate::error::position::line::Line;
 
 /// A line and a column in a configuration file
 ///
@@ -9,26 +15,26 @@ use std::fmt::{Display, Formatter, Result};
 /// conversion.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Position {
-    line: usize,
-    column: usize,
+    line: Line,
+    column: Column,
 }
 
 impl Position {
     /// Creates a position from a line and a column
     ///
-    /// Both arguments count from one. A caller that has zero-based numbers
-    /// must add one to them first.
-    pub fn new(line: usize, column: usize) -> Self {
+    /// The two arguments have distinct types, so the compiler rejects a call
+    /// that passes them in the wrong order.
+    pub fn new(line: Line, column: Column) -> Self {
         Self { line, column }
     }
 
-    /// Returns the column, counted from one
-    pub fn column(&self) -> usize {
+    /// Returns the column
+    pub fn column(&self) -> Column {
         self.column
     }
 
-    /// Returns the line, counted from one
-    pub fn line(&self) -> usize {
+    /// Returns the line
+    pub fn line(&self) -> Line {
         self.line
     }
 }
@@ -37,5 +43,19 @@ impl Position {
 impl Display for Position {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         write!(formatter, "line {}, column {}", self.line, self.column)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trait_display() {
+        let position = Position::new(Line::new(2), Column::new(8));
+
+        let display = position.to_string();
+
+        assert_eq!(display, "line 2, column 8");
     }
 }
