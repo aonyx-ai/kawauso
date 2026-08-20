@@ -16,6 +16,9 @@ repository = "https://github.com/aonyx-ai/kawauso.git"
 rust-version = "1.85.0"
 
 [workspace.dependencies]
+indoc = "2.0.0"
+serde = { version = "1.0.225", features = ["derive"] }
+toml = "1.0.0"
 
 [workspace.lints.clippy]
 # Prefer `mod.rs` over `name.rs` so that every module is a self-contained unit.
