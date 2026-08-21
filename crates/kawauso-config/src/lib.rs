@@ -3,134 +3,30 @@
 //! This crate loads the configuration files of Kawauso applications. Every
 //! application finds, loads, and deserializes its configuration file in the
 //! same way, and reports failures with the same clear errors.
+//!
+//! [`Loader`] is the entry point of the crate. A constructor selects
+//! the source of the configuration, and [`load`][load] deserializes the
+//! configuration into a type that the caller defines.
+//!
+//! ```
+//! use serde::Deserialize;
+//!
+//! use kawauso_config::Loader;
+//!
+//! #[derive(Deserialize)]
+//! struct Configuration {
+//!     port: u16,
+//! }
+//!
+//! let configuration: Configuration = Loader::contents("port = 8080").load()?;
+//!
+//! assert_eq!(configuration.port, 8080);
+//! # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+//! ```
+//!
+//! [load]: Loader::load
 
 pub mod error;
+pub mod loader;
 
-use serde::de::DeserializeOwned;
-
-use self::error::DeserializeConfigurationError;
-use self::error::FieldPath;
-use self::error::Position;
-use self::error::position::Column;
-use self::error::position::Line;
-
-/// Deserializes a TOML document into a type that the caller defines
-///
-/// The caller gives the contents of a configuration file and a type that
-/// describes the expected structure of the file. The type must implement the
-/// [`Deserialize`][deserialize] trait of serde, which its derive macro
-/// generates.
-///
-/// # Errors
-///
-/// Returns [`MalformedDocument`][malformed] when the contents are not valid
-/// TOML. The message of the error names the line and the column at which
-/// parsing stopped.
-///
-/// Returns [`MismatchedField`][mismatched] when the document is valid TOML
-/// but does not match the type. The message of the error names the path of
-/// the field, such as `server.port`.
-///
-/// # Examples
-///
-/// ```
-/// use serde::Deserialize;
-///
-/// #[derive(Deserialize)]
-/// struct Configuration {
-///     port: u16,
-/// }
-///
-/// let configuration: Configuration = kawauso_config::from_str("port = 8080")?;
-///
-/// assert_eq!(configuration.port, 8080);
-/// # Ok::<(), kawauso_config::error::DeserializeConfigurationError>(())
-/// ```
-///
-/// [deserialize]: https://docs.rs/serde/latest/serde/trait.Deserialize.html
-/// [malformed]: DeserializeConfigurationError::MalformedDocument
-/// [mismatched]: DeserializeConfigurationError::MismatchedField
-// config[impl load.deserialize]
-// config[impl load.error]
-pub fn from_str<T>(contents: &str) -> Result<T, DeserializeConfigurationError>
-where
-    T: DeserializeOwned,
-{
-    let deserializer = toml::Deserializer::parse(contents).map_err(|error| {
-        let offset = error.span().map_or(0, |span| span.start);
-
-        DeserializeConfigurationError::MalformedDocument {
-            position: position_of(contents, offset),
-            source: Box::new(error),
-        }
-    })?;
-
-    serde_path_to_error::deserialize(deserializer).map_err(|error| {
-        let path = FieldPath::new(error.path().to_string());
-
-        DeserializeConfigurationError::MismatchedField {
-            path,
-            source: Box::new(error.into_inner()),
-        }
-    })
-}
-
-/// Translates a byte offset in a document into a line and a column
-///
-/// Lines and columns count from one, and columns count characters, not
-/// bytes. An offset that is out of bounds, or that points into the middle of
-/// a multi-byte character, yields the position of the end of the document:
-/// in an error report, an imprecise position is better than a panic.
-fn position_of(document: &str, offset: usize) -> Position {
-    let head = document.get(..offset).unwrap_or(document);
-
-    let line = head.matches('\n').count() + 1;
-    let column = head.rsplit('\n').next().unwrap_or_default().chars().count() + 1;
-
-    Position::new(Line::new(line), Column::new(column))
-}
-
-#[cfg(test)]
-mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
-
-    use super::*;
-
-    #[test]
-    fn position_of_beyond_the_document_returns_the_end() {
-        let document = "name = \"kawauso\"\nport = 8080\n";
-
-        let position = position_of(document, usize::MAX);
-
-        assert_eq!(position, Position::new(Line::new(3), Column::new(1)));
-    }
-
-    #[test]
-    fn position_of_inside_a_later_line_returns_that_line() {
-        let document = "name = \"kawauso\"\nport = 8080\n";
-
-        let position = position_of(document, 24);
-
-        assert_eq!(position, Position::new(Line::new(2), Column::new(8)));
-    }
-
-    #[test]
-    fn position_of_inside_a_multi_byte_character_returns_the_end() {
-        let document = "name = \"ä\"\n";
-
-        let position = position_of(document, 9);
-
-        assert_eq!(position, Position::new(Line::new(2), Column::new(1)));
-    }
-
-    #[test]
-    fn position_of_zero_returns_the_start() {
-        let document = "name = \"kawauso\"\n";
-
-        let position = position_of(document, 0);
-
-        assert_eq!(position, Position::new(Line::new(1), Column::new(1)));
-    }
-}
+pub use self::loader::Loader;
