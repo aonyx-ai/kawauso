@@ -10,7 +10,7 @@ Accepted
 through the free function `from_str`. The crate now takes on reading the
 file itself, and more capabilities are in sight: discovery through the
 XDG base directories, a walk up the parent directories of the working
-directory, and the layering of sources that [ADR-004][adr-004] leaves
+directory, and the layering of sources that [ADR-004] leaves
 open.
 
 Every one of these capabilities needs an entry point, and the entry
@@ -103,7 +103,7 @@ source keeps flat.
   variant that one source can never produce is still visible to the
   callers of that source, and only the documentation says which sources
   produce which variants.
-- The layering of multiple sources stays open, as [ADR-004][adr-004]
+- The layering of multiple sources stays open, as [ADR-004]
   records. A layered configuration combines sources, and a loader with
   one source per construction does not express that yet. When layering
   arrives, it can compose loaders or add an accumulating constructor;
