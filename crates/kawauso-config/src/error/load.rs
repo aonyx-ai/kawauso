@@ -3,6 +3,8 @@
 use thiserror::Error;
 
 use crate::error::deserialize::DeserializeConfigurationError;
+use crate::error::discover::DiscoverConfigurationError;
+use crate::loader::ApplicationName;
 use crate::loader::ConfigurationPath;
 
 /// The error returned when a configuration cannot be loaded
@@ -13,9 +15,10 @@ use crate::loader::ConfigurationPath;
 /// points into the application instead.
 ///
 /// A failure during deserialization carries a
-/// [`DeserializeConfigurationError`] as its cause, which
-/// [`Error::source`][source] exposes for error reports. The message of the
-/// cause names the position or the field that has to change.
+/// [`DeserializeConfigurationError`] as its cause, and a failure of a search
+/// carries a [`DiscoverConfigurationError`]. [`Error::source`][source]
+/// exposes the cause for error reports, and its message names the position,
+/// the field, or the locations that the user has to act on.
 ///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
@@ -64,6 +67,21 @@ pub enum LoadConfigurationError {
     MissingFile {
         /// The path at which no file exists
         path: ConfigurationPath,
+    },
+
+    /// The search of the loader did not produce a configuration file
+    ///
+    /// The loader searched the locations of its strategy and got no file
+    /// that it could read. The cause names the locations that the search
+    /// read, or the reason why it could read none of them.
+    #[error("failed to find the configuration file of `{application}`")]
+    #[non_exhaustive]
+    UndiscoverableFile {
+        /// The name of the application whose configuration file is missing
+        application: ApplicationName,
+
+        /// The cause of the failure
+        source: DiscoverConfigurationError,
     },
 
     /// A file exists at the path, but it cannot be read

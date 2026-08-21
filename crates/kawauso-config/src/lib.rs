@@ -8,6 +8,12 @@
 //! the source of the configuration, and [`load`][load] deserializes the
 //! configuration into a type that the caller defines.
 //!
+//! The source can be a search. An application whose configuration belongs to
+//! a project uses [`ancestors`][ancestors], which walks from the working
+//! directory up to the root of the file system. An application whose
+//! configuration belongs to a user uses [`user`][user], which reads the
+//! directory that the platform defines for the configuration of a user.
+//!
 //! ```
 //! use serde::Deserialize;
 //!
@@ -24,7 +30,9 @@
 //! # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
 //! ```
 //!
+//! [ancestors]: Loader::ancestors
 //! [load]: Loader::load
+//! [user]: Loader::user
 
 pub mod error;
 pub mod loader;
