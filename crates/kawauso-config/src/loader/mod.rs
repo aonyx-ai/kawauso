@@ -158,22 +158,13 @@ impl Loader {
     /// [invalid-file]: LoadConfigurationError::InvalidFile
     /// [missing]: LoadConfigurationError::MissingFile
     /// [unreadable]: LoadConfigurationError::UnreadableFile
-    // config[impl load.file]
     pub fn load<T>(&self) -> Result<T, LoadConfigurationError>
     where
         T: DeserializeOwned,
     {
         match &self.source {
-            Source::Contents(contents) => deserialize(contents.get())
-                .map_err(|source| LoadConfigurationError::InvalidContents { source }),
-            Source::Path(path) => {
-                let contents = read(path)?;
-
-                deserialize(&contents).map_err(|source| LoadConfigurationError::InvalidFile {
-                    path: path.clone(),
-                    source,
-                })
-            }
+            Source::Contents(contents) => load_contents(contents.get()),
+            Source::Path(path) => load_file(path),
         }
     }
 }
@@ -191,6 +182,46 @@ enum Source {
 
     /// A file at a caller-supplied path
     Path(ConfigurationPath),
+}
+
+/// Loads a configuration from contents that the caller supplied
+///
+/// # Errors
+///
+/// Returns an error when the contents are not valid TOML, or when the
+/// document does not match the caller's type.
+fn load_contents<T>(contents: &str) -> Result<T, LoadConfigurationError>
+where
+    T: DeserializeOwned,
+{
+    deserialize(contents).map_err(|source| LoadConfigurationError::InvalidContents { source })
+}
+
+/// Loads a configuration from the file at a caller-supplied path
+///
+/// Deserializing the file reuses the function for caller-supplied
+/// contents, so the two sources cannot drift apart. The failure of that
+/// shared step then gains the path of the file, so that the report names
+/// the file that has to change.
+///
+/// # Errors
+///
+/// Returns an error when the file cannot be read, when its contents are
+/// not valid TOML, or when the document does not match the caller's type.
+// config[impl load.file]
+fn load_file<T>(path: &ConfigurationPath) -> Result<T, LoadConfigurationError>
+where
+    T: DeserializeOwned,
+{
+    let contents = read(path)?;
+
+    load_contents(&contents).map_err(|error| match error {
+        LoadConfigurationError::InvalidContents { source } => LoadConfigurationError::InvalidFile {
+            path: path.clone(),
+            source,
+        },
+        error => error,
+    })
 }
 
 /// Deserializes the contents of a configuration document into the caller's type
