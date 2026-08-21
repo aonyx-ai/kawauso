@@ -40,6 +40,48 @@ struct Server {
     port: u16,
 }
 
+#[test]
+fn load_with_invalid_file_carries_the_cause() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("configuration.toml");
+    let contents = indoc! {r#"
+        name = "kawauso"
+        port = "8080"
+    "#};
+    std::fs::write(&path, contents).unwrap();
+
+    let error = Loader::path(&path).load::<Configuration>().unwrap_err();
+
+    let LoadConfigurationError::InvalidFile { source, .. } = error else {
+        panic!("expected the InvalidFile variant, got {error:?}");
+    };
+    assert_eq!(
+        source.to_string(),
+        "failed to deserialize the configuration at `port`"
+    );
+}
+
+#[test]
+fn load_with_invalid_file_reports_the_path() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("configuration.toml");
+    let contents = indoc! {r#"
+        name = "kawauso"
+        port = "8080"
+    "#};
+    std::fs::write(&path, contents).unwrap();
+
+    let error = Loader::path(&path).load::<Configuration>().unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "failed to deserialize the configuration file at `{}`",
+            path.display()
+        )
+    );
+}
+
 // config[verify load.error.syntax]
 #[test]
 fn load_with_invalid_toml_reports_the_position() {
