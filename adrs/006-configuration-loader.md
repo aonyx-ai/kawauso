@@ -38,7 +38,10 @@ one constructor per source.
    everything that its source needs. A loader without a source cannot
    exist, so the load method cannot fail with an "incomplete loader"
    error that no caller can act on. The compiler rejects the call that
-   a runtime check would catch.
+   a runtime check would catch. The rule does not limit construction to
+   one call: a strategy with many options can use a builder whose
+   intermediate steps are their own types, as the typed-builder crate
+   generates them, so that the compiler still checks completeness.
 
 3. **The loader is one runtime type.** Every constructor returns the
    same type, and no type parameter encodes the source. An application
