@@ -9,5 +9,5 @@ name!(
     /// default or from a test fixture. The loader stores them and parses
     /// them as TOML when it loads. Where the caller got the contents is
     /// unknown to the crate.
-    ConfigurationContents
+    Contents
 );

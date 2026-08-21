@@ -7,16 +7,16 @@
 //!
 //! [load]: Loader::load
 
-pub mod configuration_contents;
 pub mod configuration_path;
+pub mod contents;
 
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
 use serde::de::DeserializeOwned;
 
-pub use self::configuration_contents::ConfigurationContents;
 pub use self::configuration_path::ConfigurationPath;
+pub use self::contents::Contents;
 use crate::error::DeserializeConfigurationError;
 use crate::error::LoadConfigurationError;
 use crate::error::deserialize::FieldPath;
@@ -92,7 +92,7 @@ impl Loader {
     /// [load]: Loader::load
     pub fn contents(contents: impl Into<String>) -> Self {
         Self {
-            source: Source::Contents(ConfigurationContents::new(contents)),
+            source: Source::Contents(Contents::new(contents)),
         }
     }
 
@@ -187,7 +187,7 @@ impl Loader {
 #[derive(Clone, Debug)]
 enum Source {
     /// Contents that the caller supplies directly
-    Contents(ConfigurationContents),
+    Contents(Contents),
 
     /// A file at a caller-supplied path
     Path(ConfigurationPath),
