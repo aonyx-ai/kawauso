@@ -61,3 +61,23 @@ pub enum DeserializeConfigurationError {
         source: Box<dyn std::error::Error + Send + Sync>,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    // An assertion in a test panics by design. A `# Panics` section on every
+    // test would repeat that and give the reader no information.
+    #![allow(clippy::missing_panics_doc)]
+
+    use super::*;
+
+    // A caller sends the error between threads and keeps it in a report that
+    // another thread reads. This test holds the error to the auto traits that
+    // make this possible, because a private field of a later version could
+    // take them away without a word from the compiler.
+    #[test]
+    fn deserialize_configuration_error_is_send_and_sync() {
+        fn assert_send_and_sync<T: Send + Sync>() {}
+
+        assert_send_and_sync::<DeserializeConfigurationError>();
+    }
+}
