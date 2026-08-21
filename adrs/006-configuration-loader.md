@@ -7,17 +7,18 @@ Accepted
 ## Context
 
 `kawauso-config` deserializes contents that the caller has already read,
-through the free function `from_str`. The crate now takes on reading the
-file itself, and more capabilities are in sight: discovery through the
-XDG base directories, a walk up the parent directories of the working
-directory, and the layering of sources that [ADR-004] leaves
-open.
+through the free function `from_str`. The crate now reads the
+configuration file itself, and more capabilities will follow: discovery
+through the XDG base directories, a walk up the parent directories of
+the working directory, and the layering of sources that [ADR-004]
+leaves open.
 
-Every one of these capabilities needs an entry point, and the entry
-point is the part of a public API that is hardest to change: every
+Each of these capabilities needs an entry point, and the entry point
+is the part of a public API that is hardest to change: every
 application calls it, and every future capability must fit into it. We
-must choose its shape before the second capability arrives, because two
-entry points that grow independently do not converge into one. The
+must choose its shape before the second capability ships, because entry
+points that ship separately can only be unified through a breaking
+change. The
 candidates are a free function per capability, a method on the caller's
 configuration type, a builder with a strategy setter, and a loader with
 one constructor per source.
@@ -26,12 +27,12 @@ one constructor per source.
 
 `kawauso-config` has one entry point: the `Loader`.
 
-1. **Every configuration comes out of a loader.** A caller constructs a
+1. **Every configuration comes from a loader.** A caller constructs a
    loader and calls its load method. The free function `from_str`
    retires: contents that the caller has already read construct a
    loader like every other source. A future way to find a configuration
    file arrives as a new constructor on the same type, and the load
-   method stays the one place where a configuration comes out.
+   method stays the only operation that returns a configuration.
 
 2. **A loader is complete by construction.** Each source of a
    configuration has its own constructor, and the constructor takes
@@ -51,14 +52,14 @@ one constructor per source.
 
 4. **The caller's type appears at the load method.** The loader is not
    generic over the configuration type; the load method is. Type
-   inference lets an annotation on the result name the type, and one
-   loader can load more than once and into more than one type.
+   inference lets the annotation on the result name the type, and one
+   loader can load many times and into more than one type.
 
 5. **The vocabulary of sources stays private.** The crate does not
    expose an enum of strategies while every strategy is a constructor
-   with one obvious shape. A public vocabulary is fixed the day it
-   ships; a private one can still change when the second and third
-   strategies teach us what the variants really are.
+   with one obvious shape. A public enum is fixed with its first
+   release. A private one can still change when the second and third
+   strategies show which variants the crate needs.
 
 ## Alternatives
 
@@ -71,29 +72,29 @@ A builder in the classic shape, such as
 `Loader::new().strategy(Strategy::Path(path)).load()`, was the starting
 point of this design. The builder has a half-built state:
 `Loader::new().load()` names no source. The crate must then either
-return a runtime error that no caller can act on, or encode the state
-in a type parameter. The type parameter breaks the runtime selection of
-a source, because the arms of a match produce different types. One
-constructor per source keeps the extensibility of the builder and
-removes the half-built state.
+return a runtime error that no caller can act on, or encode the
+missing source in a type parameter of the loader. The type parameter
+breaks the runtime selection of a source, because the arms of a match
+then produce different types. One constructor per source keeps the
+flexibility of the builder and removes the half-built state.
 
 ### A Method on the Configuration Type
 
-`Configuration::loader().load()` reads well, but the method must come
-from somewhere. A blanket implementation over every deserializable type
-hangs a loader method on every type in scope that serde can
-deserialize, including types that are not configurations. A derive
-macro avoids that pollution and costs a proc-macro crate and its
-compile time. Both are heavy machinery for a call that
-`Loader::path(path).load()` expresses with the same clarity.
+`Configuration::loader().load()` reads well, but a trait or a macro
+must supply the method. A blanket implementation over every
+deserializable type adds a loader method to every type that serde can
+deserialize, including every field type of a configuration. A derive
+macro avoids that pollution, but costs a proc-macro crate and its
+compile time. Both alternatives add machinery, and the call they enable
+is not clearer than `Loader::path(path).load()`.
 
 ### A Free Function per Source
 
 `from_str` today, `from_file` tomorrow, `from_xdg` after that. Free
-functions leave no room for options: every knob that a source grows
-becomes an argument of every call or a new function. N sources with M
-options multiply into a surface that a loader with one constructor per
-source keeps flat.
+functions leave no room for options: every option that a source gains
+becomes a parameter of every call or a new function. The surface grows
+with the product of sources and options, while the loader grows with
+their sum: one constructor per source, one method per option.
 
 ## Consequences
 
