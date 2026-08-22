@@ -43,7 +43,11 @@ struct Server {
 
 #[test]
 fn load_with_ancestors_and_no_file_returns_an_error() {
-    let application = "kawauso-config-without-a-configuration-file";
+    // The search must find nothing, so the application needs a name that no
+    // file on this machine belongs to. The operating system gives a temporary
+    // directory a unique name, and the application borrows it.
+    let directory = tempfile::tempdir().unwrap();
+    let application = directory.path().file_name().unwrap().to_str().unwrap();
 
     let result = Loader::ancestors(application).load::<Configuration>();
 
@@ -198,7 +202,11 @@ fn load_with_unreadable_file_reports_the_path() {
 
 #[test]
 fn load_with_user_directory_and_no_file_returns_an_error() {
-    let application = "kawauso-config-without-a-configuration-file";
+    // The search must find nothing, so the application needs a name that no
+    // file on this machine belongs to. The operating system gives a temporary
+    // directory a unique name, and the application borrows it.
+    let directory = tempfile::tempdir().unwrap();
+    let application = directory.path().file_name().unwrap().to_str().unwrap();
 
     let result = Loader::user(application).load::<Configuration>();
 
