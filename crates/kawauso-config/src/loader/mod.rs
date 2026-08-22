@@ -460,6 +460,11 @@ fn find_in_user_directory(
 /// a directory is a mistake that is hard to see, and a file from a location
 /// that follows it would hide the mistake.
 ///
+/// Only a regular file is a configuration file. A location that holds a
+/// socket, a device, or a named pipe holds none, and the search moves on. A
+/// read of such a location fails, and a read of a named pipe blocks until
+/// another process writes to it.
+///
 /// # Errors
 ///
 /// Returns an error when no location holds the file, or when a location
@@ -479,7 +484,9 @@ fn search(locations: SearchedLocations) -> Result<ConfigurationPath, DiscoverCon
             });
         }
 
-        return Ok(location.clone());
+        if metadata.is_file() {
+            return Ok(location.clone());
+        }
     }
 
     Err(DiscoverConfigurationError::MissingFile { locations })
@@ -665,6 +672,24 @@ mod tests {
         .unwrap();
 
         assert_eq!(path.get(), working_directory.join("kawauso.toml"));
+    }
+
+    // A named pipe is the case that matters: a read of one blocks until
+    // another process writes to it, so a search that took it for a
+    // configuration file would hang. A socket is the object that a test can
+    // create without a call to libc.
+    #[cfg(unix)]
+    #[test]
+    fn find_in_ancestors_with_a_socket_continues_the_search() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        std::os::unix::net::UnixListener::bind(working_directory.join("kawauso.toml")).unwrap();
+        std::fs::write(root.path().join("kawauso.toml"), "port = 8080").unwrap();
+
+        let path =
+            find_in_ancestors(Ok(working_directory), &ApplicationName::new("kawauso")).unwrap();
+
+        assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
 
     // config[verify discover.ancestors.name]
