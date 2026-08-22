@@ -18,6 +18,7 @@ rust-version = "1.85.0"
 [workspace.dependencies]
 dirs = ">=4.0.0, <7"
 indoc = "2.0.0"
+kawauso-config = { version = "0.0.0", path = "crates/kawauso-config" }
 serde = { version = "1.0.225", features = ["derive"] }
 serde_path_to_error = ">=0.1.0, <1"
 tempfile = "3.0.0"
