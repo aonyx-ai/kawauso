@@ -1,36 +1,38 @@
 //! A toolkit for building Rust applications
 //!
-//! This crate is the entry point of the toolkit. It is a placeholder: the
-//! toolkit keeps its features in separate crates, and this crate gets an API
-//! when there is something to tie together.
+//! Kawauso is a framework, and each part of it is also a crate that an
+//! application can take on its own. This crate is the framework as a whole: it
+//! re-exports the other crates as modules, so that an application needs one
+//! dependency and one version requirement to reach all of them.
+//!
+//! A module carries the name of its crate without the prefix `kawauso-`, and
+//! the module is that crate rather than a copy of it. `kawauso::config::Loader`
+//! and `kawauso_config::Loader` are one type, so an application that depends
+//! on this crate and a library that depends on the single crate can pass
+//! values to each other.
+//!
+//! This crate has no features. It brings the whole framework, and an
+//! application that wants a part of it depends on the crates that hold that
+//! part.
 
-/// Returns the sum of two unsigned 64-bit integers
+/// Configuration files, from the crate `kawauso-config`
 ///
-/// This function is a placeholder. It exists so that the crate has an item to
-/// build and to test.
+/// An application that wants this capability on its own, without the rest of
+/// the framework, depends on `kawauso-config` and reaches the same types.
 ///
-/// # Panics
+/// # Examples
 ///
-/// This function panics in a debug build when the sum is more than
-/// [`u64::MAX`]. In a release build, the sum wraps around.
-// kawauso[impl placeholder.add]
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
-
-    use super::*;
-
-    // kawauso[verify placeholder.add]
-    #[test]
-    fn add_two_and_two_returns_four() {
-        let result = add(2, 2);
-
-        assert_eq!(result, 4);
-    }
-}
+/// ```
+/// use std::collections::BTreeMap;
+///
+/// use kawauso::config::Loader;
+///
+/// let configuration: BTreeMap<String, u16> = Loader::contents("port = 8080").load()?;
+///
+/// assert_eq!(configuration["port"], 8080);
+/// # Ok::<(), kawauso::config::error::LoadConfigurationError>(())
+/// ```
+// kawauso[impl facade.module]
+// kawauso[impl facade.identity]
+#[doc(inline)]
+pub use kawauso_config as config;
