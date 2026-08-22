@@ -7,7 +7,9 @@
 //! message of the error.
 
 pub mod deserialize;
+pub mod discover;
 pub mod load;
 
 pub use self::deserialize::DeserializeConfigurationError;
+pub use self::discover::DiscoverConfigurationError;
 pub use self::load::LoadConfigurationError;

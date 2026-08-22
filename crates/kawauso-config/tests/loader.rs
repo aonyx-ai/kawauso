@@ -2,7 +2,8 @@
 //!
 //! The crate loads a configuration from a source and deserializes it into a
 //! type that the caller defines. These tests take the role of the caller:
-//! they define a type, and they give the loader contents or a file.
+//! they define a type, and they give the loader contents, a file, or the
+//! name of an application to search for.
 
 // An assertion in a test panics by design. A `# Panics` section on every test
 // would repeat that and give the reader no information.
@@ -38,6 +39,22 @@ struct NestedConfiguration {
 #[derive(Eq, PartialEq, Debug, Deserialize)]
 struct Server {
     port: u16,
+}
+
+#[test]
+fn load_with_ancestors_and_no_file_returns_an_error() {
+    // The search must find nothing, so the application needs a name that no
+    // file on this machine belongs to. The operating system gives a temporary
+    // directory a unique name, and the application borrows it.
+    let directory = tempfile::tempdir().unwrap();
+    let application = directory.path().file_name().unwrap().to_str().unwrap();
+
+    let result = Loader::ancestors(application).load::<Configuration>();
+
+    assert!(matches!(
+        result,
+        Err(LoadConfigurationError::UndiscoverableFile { .. })
+    ));
 }
 
 #[test]
@@ -181,6 +198,22 @@ fn load_with_unreadable_file_reports_the_path() {
             path.display()
         )
     );
+}
+
+#[test]
+fn load_with_user_directory_and_no_file_returns_an_error() {
+    // The search must find nothing, so the application needs a name that no
+    // file on this machine belongs to. The operating system gives a temporary
+    // directory a unique name, and the application borrows it.
+    let directory = tempfile::tempdir().unwrap();
+    let application = directory.path().file_name().unwrap().to_str().unwrap();
+
+    let result = Loader::user(application).load::<Configuration>();
+
+    assert!(matches!(
+        result,
+        Err(LoadConfigurationError::UndiscoverableFile { .. })
+    ));
 }
 
 // config[verify load.file]

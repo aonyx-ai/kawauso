@@ -16,6 +16,7 @@ repository = "https://github.com/aonyx-ai/kawauso.git"
 rust-version = "1.85.0"
 
 [workspace.dependencies]
+dirs = ">=4.0.0, <7"
 indoc = "2.0.0"
 serde = { version = "1.0.225", features = ["derive"] }
 serde_path_to_error = ">=0.1.0, <1"

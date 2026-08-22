@@ -9,6 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+dirs = { workspace = true }
 serde = { workspace = true }
 serde_path_to_error = { workspace = true }
 thiserror = { workspace = true }
