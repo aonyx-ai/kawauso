@@ -23,7 +23,7 @@ serde_path_to_error = ">=0.1.0, <1"
 tempfile = "3.0.0"
 thiserror = "2.0.0"
 toml = "1.0.0"
-typed-fields = ">=0.6.0, <1"
+typed-fields = ">=0.7.0, <1"
 
 [workspace.lints.clippy]
 # Require documentation on private items as well, since that helps with long-term maintainability.
