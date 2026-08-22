@@ -7,6 +7,11 @@ name: Continuous Integration
 
 permissions: {}
 
+# The `ci` profile of nextest keeps a run going after the first failure, so
+# that one job reports every broken test instead of only the first one.
+env:
+  NEXTEST_PROFILE: ci
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -14,13 +19,14 @@ concurrency:
 jobs:
   targets:
     name: Enumerate Just recipes
-    runs-on: [self-hosted, linux, ARM64]
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
 
     outputs:
-      matrix: ${{ steps.export-targets.outputs.targets }}
+      checks: ${{ steps.export-targets.outputs.checks }}
+      tests: ${{ steps.export-targets.outputs.tests }}
 
     steps:
       - name: Checkout code
@@ -31,25 +37,41 @@ jobs:
       - name: Install Just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
 
+      # A check reads the sources and reaches the same verdict everywhere, so
+      # one platform answers for all of them. A test runs the code, and the
+      # code branches on the platform, so the two lists go to separate jobs.
       - name: Export targets
         id: export-targets
-        run: echo "targets=$(just --list | awk '/build-|check-|format-|lint-|test-/{print $1}' | jq -cnR '[inputs]')" >> "$GITHUB_OUTPUT"
+        run: |
+          recipes=$(just --list)
+          echo "checks=$(awk '$1 ~ /^(build|check|format|lint)-/ {print $1}' <<< "$recipes" | jq -cnR '[inputs]')" >> "$GITHUB_OUTPUT"
+          echo "tests=$(awk '$1 ~ /^test-/ {print $1}' <<< "$recipes" | jq -cnR '[inputs]')" >> "$GITHUB_OUTPUT"
 
   checks:
     name: ${{ matrix.target }}
-    runs-on: [self-hosted, linux, ARM64]
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
 
     needs: targets
 
+    # The tests job below repeats this through the alias of the anchor.
+    env: &recipe-env
+      # Only `just check-specs` calls tracey, and the Flox hook builds tracey
+      # from source when the cache below misses. An empty value leaves that
+      # build on, so every other recipe skips it.
+      KAWAUSO_SKIP_TRACEY: ${{ matrix.target != 'check-specs' && '1' || '' }}
+
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJson(needs.targets.outputs.matrix) }}
+        target: ${{ fromJson(needs.targets.outputs.checks) }}
 
-    steps:
+    # The tests job below repeats these steps through the alias of the anchor.
+    # Both jobs take one Just recipe from a matrix and run it; only the runner
+    # and the list of recipes differ.
+    steps: &recipe-steps
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,20 +80,52 @@ jobs:
           fetch-depth: 2
           persist-credentials: false
 
-      - name: Run check with Just
+      # A runner of GitHub starts from a clean disk, and the build of tracey
+      # takes several minutes. The manifest pins the revision that the hook
+      # builds, so a change to the manifest asks for a new build.
+      - name: Restore tracey
+        if: env.KAWAUSO_SKIP_TRACEY == ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/kawauso/tracey
+          key: tracey-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.flox/env/manifest.toml') }}
+
+      - name: Install Flox
+        uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2.6.0
+
+      - name: Run recipe with Just
         uses: flox/activate-action@7065dcbe5583b7b015f07a8ebd49d7266e3053e8 # v1.1.1
         env:
           GH_TOKEN: ${{ github.token }}
         with:
           command: just ${{ matrix.target }}
 
+  tests:
+    name: ${{ matrix.target }} (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+
+    permissions:
+      contents: read
+
+    needs: targets
+
+    env: *recipe-env
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.targets.outputs.tests) }}
+        runner: [ubuntu-latest, macos-latest]
+
+    steps: *recipe-steps
+
   success:
     name: All checks succeeded
-    runs-on: [self-hosted, linux, ARM64]
+    runs-on: ubuntu-latest
 
     permissions: {}
 
-    needs: checks
+    needs: [checks, tests]
     if: always()
 
     steps:
