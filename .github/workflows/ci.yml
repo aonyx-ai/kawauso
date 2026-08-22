@@ -81,14 +81,11 @@ jobs:
           persist-credentials: false
 
       # A runner of GitHub starts from a clean disk, and the build of tracey
-      # takes several minutes. The manifest pins the revision that the hook
-      # builds, so a change to the manifest asks for a new build.
+      # takes several minutes. The cache workflow keeps a cache on the default
+      # branch that every pull request can reach.
       - name: Restore tracey
         if: env.KAWAUSO_SKIP_TRACEY == ''
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/kawauso/tracey
-          key: tracey-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.flox/env/manifest.toml') }}
+        uses: ./.github/actions/restore-tracey
 
       - name: Install Flox
         uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2.6.0
