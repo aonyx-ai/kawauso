@@ -8,6 +8,20 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+documentation = "https://docs.rs/kawauso"
+readme = "README.md"
+
+categories = ["development-tools"]
+keywords = ["framework", "toolkit"]
+
+include = [
+  "LICENSE-APACHE",
+  "LICENSE-MIT",
+  "README.md",
+  "src/**/*.rs",
+  "tests/*.rs",
+]
+
 [dependencies]
 kawauso-config = { workspace = true }
 

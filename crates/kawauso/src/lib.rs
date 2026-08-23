@@ -1,19 +1,4 @@
-//! A toolkit for building Rust applications
-//!
-//! Kawauso is a framework, and each part of it is also a crate that an
-//! application can take on its own. This crate is the framework as a whole: it
-//! re-exports the other crates as modules, so that an application needs one
-//! dependency and one version requirement to reach all of them.
-//!
-//! A module carries the name of its crate without the prefix `kawauso-`, and
-//! the module is that crate rather than a copy of it. `kawauso::config::Loader`
-//! and `kawauso_config::Loader` are one type, so an application that depends
-//! on this crate and a library that depends on the single crate can pass
-//! values to each other.
-//!
-//! This crate has no features. It brings the whole framework, and an
-//! application that wants a part of it depends on the crates that hold that
-//! part.
+#![cfg_attr(not(doctest), doc = include_str!("../README.md"))]
 
 /// Configuration files, from the crate `kawauso-config`
 ///

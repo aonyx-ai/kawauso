@@ -8,6 +8,20 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+documentation = "https://docs.rs/kawauso-config"
+readme = "README.md"
+
+categories = ["config"]
+keywords = ["configuration", "serde", "toml"]
+
+include = [
+  "LICENSE-APACHE",
+  "LICENSE-MIT",
+  "README.md",
+  "src/**/*.rs",
+  "tests/*.rs",
+]
+
 [dependencies]
 dirs = { workspace = true }
 serde = { workspace = true }
