@@ -9,7 +9,7 @@ resolver = "3"
 version = "0.0.0"
 edition = "2024"
 
-license = "MIT or Apache-2.0"
+license = "Apache-2.0 OR MIT"
 repository = "https://github.com/aonyx-ai/kawauso.git"
 
 # Rust edition 2024 requires Rust 1.85 or later
