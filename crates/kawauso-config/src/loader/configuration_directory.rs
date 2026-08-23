@@ -42,7 +42,7 @@ impl ConfigurationDirectory {
     // config[impl discover.user.windows]
     // config[impl discover.user.xdg]
     // config[impl discover.user.xdg.default]
-    pub fn of_platform() -> Option<Self> {
+    pub(super) fn of_platform() -> Option<Self> {
         dirs::config_dir().map(Self::new)
     }
 }

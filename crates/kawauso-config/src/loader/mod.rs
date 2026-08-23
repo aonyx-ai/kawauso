@@ -13,9 +13,14 @@
 //! [load]: Loader::load
 
 pub mod application_name;
-pub mod configuration_directory;
 pub mod configuration_path;
-pub mod contents;
+
+// A caller never names the contents of a configuration or the directory of a
+// platform: a constructor of the loader takes what they wrap, and no error
+// reports one. Their modules are therefore private, which keeps them out of
+// the public API and leaves the crate free to change them.
+mod configuration_directory;
+mod contents;
 
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -23,9 +28,9 @@ use std::path::PathBuf;
 use serde::de::DeserializeOwned;
 
 pub use self::application_name::ApplicationName;
-pub use self::configuration_directory::ConfigurationDirectory;
+use self::configuration_directory::ConfigurationDirectory;
 pub use self::configuration_path::ConfigurationPath;
-pub use self::contents::Contents;
+use self::contents::Contents;
 use crate::error::DeserializeConfigurationError;
 use crate::error::DiscoverConfigurationError;
 use crate::error::LoadConfigurationError;
