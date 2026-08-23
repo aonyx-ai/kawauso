@@ -14,5 +14,3 @@ allow = ["Apache-2.0", "MIT", "Unicode-3.0"]
 multiple-versions = "warn"
 # Lint level for when a crate version requirement is `*`
 wildcards = "deny"
-# Smelt is an internal unpublished crate referenced via path dependency
-allow-wildcard-paths = true
