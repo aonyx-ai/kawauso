@@ -254,6 +254,9 @@ impl Loader {
     /// Returns [`MissingFile`][missing] when the source is a path and no
     /// file exists at that path.
     ///
+    /// Returns [`UnexpectedDirectory`][directory] when the source is a path
+    /// and that path holds a directory.
+    ///
     /// Returns [`UnreadableFile`][unreadable] when the source is a path and
     /// the file at that path cannot be read.
     ///
@@ -268,6 +271,7 @@ impl Loader {
     /// search, and the search finds no configuration file.
     ///
     /// [deserialize]: https://docs.rs/serde/latest/serde/trait.Deserialize.html
+    /// [directory]: LoadConfigurationError::UnexpectedDirectory
     /// [invalid-contents]: LoadConfigurationError::InvalidContents
     /// [invalid-file]: LoadConfigurationError::InvalidFile
     /// [missing]: LoadConfigurationError::MissingFile
@@ -540,19 +544,37 @@ where
 /// another process can create or remove the file between a check and the
 /// read.
 ///
+/// A path that holds a directory is the exception. The kind of that read
+/// error is not the same on every platform, and one platform reports a
+/// permission that the user cannot correct. The function therefore asks the
+/// file system what the path holds, but only after the read failed. A read
+/// that succeeds therefore makes no extra call to the file system.
+///
 /// # Errors
 ///
-/// Returns an error when no file exists at the path, or when the file
-/// cannot be read.
+/// Returns an error when no file exists at the path, when the path holds a
+/// directory, or when the file cannot be read.
 // config[impl load.file.error]
 fn read(path: &ConfigurationPath) -> Result<String, LoadConfigurationError> {
     std::fs::read_to_string(path.get()).map_err(|source| match source.kind() {
         ErrorKind::NotFound => LoadConfigurationError::MissingFile { path: path.clone() },
+        _ if is_directory(path) => {
+            LoadConfigurationError::UnexpectedDirectory { path: path.clone() }
+        }
         _ => LoadConfigurationError::UnreadableFile {
             path: path.clone(),
             source,
         },
     })
+}
+
+/// Reports whether a path holds a directory
+///
+/// The answer explains a read that already failed. A file system that
+/// reports nothing about the path gives no reason to replace that failure,
+/// and the answer is `false`.
+fn is_directory(path: &ConfigurationPath) -> bool {
+    std::fs::metadata(path.get()).is_ok_and(|metadata| metadata.is_dir())
 }
 
 /// Translates a byte offset in a document into a line and a column

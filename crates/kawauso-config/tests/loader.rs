@@ -57,6 +57,27 @@ fn load_with_ancestors_and_no_file_returns_an_error() {
     ));
 }
 
+// config[verify load.file.error.directory]
+#[test]
+fn load_with_directory_at_the_path_reports_the_path() {
+    // The read of a directory fails with a different report on each platform,
+    // and one of them names a permission. The message must state the
+    // condition instead, so that the message reads the same everywhere.
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("configuration.toml");
+    std::fs::create_dir(&path).unwrap();
+
+    let error = Loader::path(&path).load::<Configuration>().unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "the path `{}` is a directory, not a configuration file",
+            path.display()
+        )
+    );
+}
+
 #[test]
 fn load_with_invalid_file_carries_the_cause() {
     let directory = tempfile::tempdir().unwrap();
