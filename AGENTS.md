@@ -152,6 +152,9 @@ specifications. [ADR-002][adr-002] records this decision.
   message — this is what lands in the Git history. Follow-up fixups within
   the same PR can use simple one-liner messages since they get squashed into
   the primary commit on merge.
+- Reuse the commit message as the pull request description, but reflow each
+  paragraph onto one line, because GitHub renders every newline as a line
+  break. Do not use `gh pr create --fill`.
 
 ### Commit Messages
 
