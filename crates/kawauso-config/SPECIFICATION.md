@@ -130,7 +130,9 @@ The caller supplies the path to a configuration file and a type that defines
 the expected structure of the file. The crate reads the file, parses it as
 TOML, and deserializes it into the type. Each step can fail. An error from
 the read names the path, and an error from the parse or the deserialization
-names the place in the file that has to change.
+names the place in the file that has to change. A directory at the path is
+the same mistake that the search finds, so the crate reports it in the same
+words.
 
 config[load.deserialize]
 The crate MUST deserialize the contents of a TOML file into a caller-defined
@@ -163,6 +165,10 @@ The message of the error MUST name the path when no file exists at that path.
 config[load.file.error.unreadable]
 The message of the error MUST name the path when a file exists at that path
 but cannot be read.
+
+config[load.file.error.directory]
+The message of the error MUST name the path, and MUST state that it is a
+directory, when a directory exists at that path.
 
 [adr-004]: ../../adrs/004-configuration-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119

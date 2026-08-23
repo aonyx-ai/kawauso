@@ -84,11 +84,28 @@ pub enum LoadConfigurationError {
         source: DiscoverConfigurationError,
     },
 
+    /// The path holds a directory, not a configuration file
+    ///
+    /// A directory with the name of a configuration file is a mistake that
+    /// is hard to see. The error therefore states this condition, and not
+    /// the failure of the read.
+    ///
+    /// The variant carries no cause: each platform reports a read of a
+    /// directory in its own way. One of these reports names a permission
+    /// that the user cannot correct. The condition is the full diagnosis,
+    /// and it is the same on every platform.
+    // config[impl load.file.error.directory]
+    #[error("the path `{path}` is a directory, not a configuration file")]
+    #[non_exhaustive]
+    UnexpectedDirectory {
+        /// The path of the directory
+        path: ConfigurationPath,
+    },
+
     /// A file exists at the path, but it cannot be read
     ///
-    /// The read can fail because permissions are missing, because the path
-    /// points to a directory, or because the file is not valid UTF-8. The
-    /// cause states the reason.
+    /// The read can fail because permissions are missing, or because the
+    /// file is not valid UTF-8. The cause states the reason.
     // config[impl load.file.error.unreadable]
     #[error("failed to read the configuration file at `{path}`")]
     #[non_exhaustive]
