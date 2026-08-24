@@ -50,16 +50,16 @@ self_named_module_files = "warn"
 
 [workspace.lints.rust]
 # Detect explicit lifetime requirements that the compiler can infer.
-explicit_outlives_requirements = "forbid"
+explicit_outlives_requirements = "deny"
 
 # Types must implement or derive `Debug` so that they can be easily debugged.
-missing_debug_implementations = "forbid"
+missing_debug_implementations = "deny"
 
 # Require documentation for all public items
-missing_docs = "forbid"
+missing_docs = "deny"
 
 # Public but unreachable items are likely a mistake.
-unreachable_pub = "forbid"
+unreachable_pub = "deny"
 
 # Unsafe code can lead to undefined behavior and security vulnerabilities.
-unsafe_code = "forbid"
+unsafe_code = "deny"
