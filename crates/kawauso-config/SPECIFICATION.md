@@ -55,10 +55,28 @@ The message of the error MUST name the path of that directory.
 
 The configuration of a project belongs to the project, and a user runs the
 application from the project or from a directory in it. The crate therefore
-starts at the working directory and goes up, one directory at a time, until
+starts at the working directory and walks up, one directory at a time, until
 it reaches the root of the file system. The file that is nearest to the
 working directory wins, so a project can override the configuration of the
 directory that contains it.
+
+A project does not always keep the configuration of a tool in the directory
+itself. The tools of GitHub read `.github`, and other tools read `.config`.
+The developer therefore names the subdirectories in which their application
+accepts the file. Each directory of the walk then contributes one location
+for the directory itself, and one for each subdirectory.
+
+The subdirectories are an addition, not a replacement. The directory itself
+keeps the first location, so a project that names no subdirectory searches
+what it searched before. The walk stays the outer loop: every location of one
+directory comes before every location of the directory above it. A directory
+above a project therefore cannot override the project.
+
+A subdirectory that does not exist holds no file, and the search continues. A
+subdirectory that is absolute, or that leaves the directory of the walk, is a
+mistake in the application. Such a value moves the search to a place that the
+walk never reaches, so the crate reports it. A value that names no directory
+at all is a mistake as well.
 
 config[discover.ancestors.name]
 The crate MUST search for a file that has the name of the application and the
@@ -79,6 +97,26 @@ config[discover.ancestors.precedence]
 The crate MUST use the first file that it finds, and MUST NOT search the
 locations that follow it.
 
+config[discover.ancestors.subdirectories]
+In each directory of the walk, the crate MUST also search each subdirectory
+that the developer names.
+
+config[discover.ancestors.subdirectories.order]
+The crate MUST search a directory of the walk before its subdirectories, and
+the subdirectories in the order in which the developer names them.
+
+config[discover.ancestors.subdirectories.walk]
+The crate MUST search every location of a directory of the walk before every
+location of the ancestor above it.
+
+config[discover.ancestors.subdirectories.missing]
+The crate MUST continue the search when a subdirectory does not exist in a
+directory of the walk.
+
+config[discover.ancestors.subdirectories.error.outside]
+The crate MUST return an error, and MUST NOT panic, when a subdirectory is
+not a relative path inside a directory of the walk.
+
 config[discover.ancestors.error.unknown-directory]
 The crate MUST return an error, and MUST NOT panic, when it cannot determine
 the working directory of the process.
@@ -92,7 +130,9 @@ Windows, so that the file sits where the rest of the platform sits. Each of
 these places has a requirement of its own, because a phrase such as "the
 configuration directory of the operating system" leaves every reader with a
 different path in mind. The application gets a directory of its own in that
-place, which leaves room for the files that it writes later.
+place, which leaves room for the files that it writes later. A subdirectory
+that the developer names is therefore not necessary here, because the
+application already has a directory of its own.
 
 `XDG_CONFIG_HOME` belongs to the standard of one platform, and the crate
 reads the variable only where that standard applies. A user of macOS who

@@ -112,6 +112,27 @@ fn report_of(output: &Output) -> String {
     )
 }
 
+// The tool that this case comes from keeps its configuration in
+// `.github`, and its users ran it without a flag and got a report that no
+// configuration file exists. The search has to reach the file that the
+// project already has.
+// config[verify discover.ancestors.subdirectories]
+#[test]
+fn load_with_ancestors_and_a_file_in_a_subdirectory_returns_the_configuration() {
+    let working_directory = tempfile::tempdir().unwrap();
+    let subdirectory = working_directory.path().join(".github");
+    std::fs::create_dir(&subdirectory).unwrap();
+    std::fs::write(subdirectory.join(format!("{APPLICATION}.toml")), CONTENTS).unwrap();
+
+    let output = child("child::load_with_ancestors_and_a_subdirectory")
+        .current_dir(working_directory.path())
+        .output()
+        .unwrap();
+
+    let report = report_of(&output);
+    assert!(report.contains(PASSED), "{report}");
+}
+
 // config[verify discover.ancestors.working-directory]
 #[test]
 fn load_with_ancestors_and_a_file_in_the_working_directory_returns_the_configuration() {
@@ -158,6 +179,7 @@ fn load_with_user_directory_and_a_file_returns_the_configuration() {
 /// environment that it needs, so `#[ignore]` keeps a run of the suite from
 /// reaching it on its own.
 mod child {
+    use kawauso_config::AncestorsSearch;
     use kawauso_config::Loader;
 
     use super::APPLICATION;
@@ -168,6 +190,16 @@ mod child {
     #[ignore = "needs the working directory that the first half of the test prepares"]
     fn load_with_ancestors() {
         let configuration: Configuration = Loader::ancestors(APPLICATION).load().unwrap();
+
+        assert_eq!(configuration, CONFIGURATION);
+    }
+
+    #[test]
+    #[ignore = "needs the working directory that the first half of the test prepares"]
+    fn load_with_ancestors_and_a_subdirectory() {
+        let search = AncestorsSearch::new(APPLICATION).subdirectory(".github");
+
+        let configuration: Configuration = Loader::ancestors(search).load().unwrap();
 
         assert_eq!(configuration, CONFIGURATION);
     }

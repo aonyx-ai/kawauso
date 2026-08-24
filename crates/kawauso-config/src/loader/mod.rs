@@ -10,8 +10,14 @@
 //! root of the file system, and a look into the directory in which the
 //! platform keeps the configuration of a user.
 //!
+//! A strategy that has options carries them in a type of its own, such as
+//! [`AncestorsSearch`], which the constructor of that strategy takes. An
+//! option of one strategy therefore cannot reach a loader that reads another
+//! source.
+//!
 //! [load]: Loader::load
 
+pub mod ancestors_search;
 pub mod application_name;
 pub mod configuration_path;
 
@@ -23,10 +29,14 @@ mod configuration_directory;
 mod contents;
 
 use std::io::ErrorKind;
+use std::path::Component;
+use std::path::Path;
 use std::path::PathBuf;
 
 use serde::de::DeserializeOwned;
 
+pub use self::ancestors_search::AncestorsSearch;
+pub use self::ancestors_search::Subdirectory;
 pub use self::application_name::ApplicationName;
 use self::configuration_directory::ConfigurationDirectory;
 pub use self::configuration_path::ConfigurationPath;
@@ -100,10 +110,22 @@ impl Loader {
     /// [`user`][user] does that. Use this constructor for an application
     /// whose configuration belongs to a project.
     ///
+    /// The name of an application is enough to start the search. A project
+    /// that keeps the file in a subdirectory needs an [`AncestorsSearch`].
+    /// It names the subdirectories, such as `.github`, that the application
+    /// also accepts.
+    ///
+    /// Each directory then has more than one location. The search reads the
+    /// directory itself first, and then each subdirectory in the order in
+    /// which the developer named them. It reads every location of one
+    /// directory before it reads a location of the directory above.
+    ///
     /// The working directory is read when [`load`][load] runs, not at the
     /// time of this call.
     ///
     /// # Examples
+    ///
+    /// A search that reads only the directories themselves:
     ///
     /// ```no_run
     /// use serde::Deserialize;
@@ -120,11 +142,30 @@ impl Loader {
     /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
     /// ```
     ///
+    /// A search that also reads `.github` in each directory:
+    ///
+    /// ```no_run
+    /// use serde::Deserialize;
+    ///
+    /// use kawauso_config::AncestorsSearch;
+    /// use kawauso_config::Loader;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct Configuration {
+    ///     port: u16,
+    /// }
+    ///
+    /// // Reads `kawauso.toml`, then `.github/kawauso.toml`, in each directory
+    /// let search = AncestorsSearch::new("kawauso").subdirectory(".github");
+    /// let configuration: Configuration = Loader::ancestors(search).load()?;
+    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// ```
+    ///
     /// [load]: Loader::load
     /// [user]: Loader::user
-    pub fn ancestors(application: impl Into<String>) -> Self {
+    pub fn ancestors(search: impl Into<AncestorsSearch>) -> Self {
         Self {
-            source: Source::Ancestors(ApplicationName::new(application)),
+            source: Source::Ancestors(search.into()),
         }
     }
 
@@ -286,10 +327,10 @@ impl Loader {
         T: DeserializeOwned,
     {
         match &self.source {
-            Source::Ancestors(application) => {
-                let found = find_in_ancestors(std::env::current_dir(), application);
+            Source::Ancestors(search) => {
+                let found = find_in_ancestors(std::env::current_dir(), search);
 
-                load_found(found, application)
+                load_found(found, search.application())
             }
             Source::Contents(contents) => load_contents(contents.get()),
             Source::Path(path) => load_file(path),
@@ -312,7 +353,7 @@ impl Loader {
 #[derive(Clone, Debug)]
 enum Source {
     /// A search of the working directory and its ancestors
-    Ancestors(ApplicationName),
+    Ancestors(AncestorsSearch),
 
     /// Contents that the caller supplies directly
     Contents(Contents),
@@ -400,32 +441,101 @@ where
 ///
 /// The locations are the working directory and each of its ancestors, in
 /// that order, and each of them holds a file with the name of the
-/// application and the extension `.toml`.
+/// application and the extension `.toml`. A directory that the developer
+/// named as a subdirectory holds the same file, and belongs to the directory
+/// that contains it.
+///
+/// A subdirectory that leaves its directory fails the search before it reads
+/// the file system. Such a value comes from the application, not from the
+/// user, and it is the same mistake in every environment. The report is
+/// therefore the same in every environment as well, and it does not depend
+/// on a working directory that the process can fail to name.
 ///
 /// # Errors
 ///
-/// Returns an error when the working directory is unknown, when no location
-/// holds the file, or when a location holds a directory with the name of the
-/// file.
+/// Returns an error when a subdirectory is not a relative path inside its
+/// directory, when the working directory is unknown, when no location holds
+/// the file, or when a location holds a directory with the name of the file.
 // config[impl discover.ancestors.error.unknown-directory]
 // config[impl discover.ancestors.name]
 // config[impl discover.ancestors.order]
 // config[impl discover.ancestors.parents]
+// config[impl discover.ancestors.subdirectories.error.outside]
+// config[impl discover.ancestors.subdirectories.walk]
 // config[impl discover.ancestors.working-directory]
 fn find_in_ancestors(
     working_directory: std::io::Result<PathBuf>,
-    application: &ApplicationName,
+    search: &AncestorsSearch,
 ) -> Result<ConfigurationPath, DiscoverConfigurationError> {
+    let subdirectories = search.subdirectories();
+
+    if let Some(subdirectory) = subdirectories.iter().find(|entry| !is_inside(entry)) {
+        return Err(DiscoverConfigurationError::OutsideSubdirectory {
+            subdirectory: subdirectory.clone(),
+        });
+    }
+
     let working_directory = working_directory
         .map_err(|source| DiscoverConfigurationError::UnknownWorkingDirectory { source })?;
 
-    let file_name = format!("{application}.toml");
+    let file_name = format!("{}.toml", search.application());
     let locations = working_directory
         .ancestors()
-        .map(|directory| ConfigurationPath::new(directory.join(&file_name)))
+        .flat_map(|directory| locations_in(directory, subdirectories, &file_name))
         .collect::<Vec<_>>();
 
-    search(SearchedLocations::new(locations))
+    first_file(SearchedLocations::new(locations))
+}
+
+/// Returns the locations that one directory of the walk contributes
+///
+/// The directory itself comes first, so a project that names a subdirectory
+/// still finds the file that it kept in the directory before. The
+/// subdirectories follow in the order in which the developer named them,
+/// which is the order in which they win.
+///
+/// A subdirectory that does not exist is still a location. The search reads
+/// what the file system reports about each location, and a location that it
+/// reports nothing about holds no configuration file.
+// config[impl discover.ancestors.subdirectories]
+// config[impl discover.ancestors.subdirectories.order]
+fn locations_in(
+    directory: &Path,
+    subdirectories: &[Subdirectory],
+    file_name: &str,
+) -> Vec<ConfigurationPath> {
+    std::iter::once(directory.to_path_buf())
+        .chain(
+            subdirectories
+                .iter()
+                .map(|subdirectory| directory.join(subdirectory.get())),
+        )
+        .map(|directory| ConfigurationPath::new(directory.join(file_name)))
+        .collect()
+}
+
+/// Reports whether a subdirectory names a directory inside another directory
+///
+/// A path that joins onto a directory can leave it again. An absolute path
+/// replaces the directory, and a `..` component moves above it. Either one
+/// takes the search to a place that the walk never reaches, and an absolute
+/// path takes every directory of the walk to the same place.
+///
+/// A path that names no directory at all, such as an empty path or `.`, is
+/// no subdirectory either: it repeats the location that the directory
+/// already contributes.
+fn is_inside(subdirectory: &Subdirectory) -> bool {
+    let mut names_a_directory = false;
+
+    for component in subdirectory.get().components() {
+        match component {
+            Component::Normal(_) => names_a_directory = true,
+            Component::CurDir => {}
+            Component::ParentDir | Component::Prefix(_) | Component::RootDir => return false,
+        }
+    }
+
+    names_a_directory
 }
 
 /// Finds the configuration file of an application in the directory of the user
@@ -454,7 +564,7 @@ fn find_in_user_directory(
         directory.ok_or(DiscoverConfigurationError::UnknownConfigurationDirectory {})?;
     let location = directory.get().join(application.get()).join("config.toml");
 
-    search(SearchedLocations::new(vec![ConfigurationPath::new(
+    first_file(SearchedLocations::new(vec![ConfigurationPath::new(
         location,
     )]))
 }
@@ -462,8 +572,9 @@ fn find_in_user_directory(
 /// Returns the first location in the list that holds a configuration file
 ///
 /// A location that the file system cannot report on holds no configuration
-/// file. A parent directory that does not exist, and one that the user
-/// cannot read, are therefore not failures of the search.
+/// file. A parent directory that does not exist, a subdirectory that only
+/// some projects have, and a directory that the user cannot read, are
+/// therefore not failures of the search.
 ///
 /// A directory with the name of the configuration file ends the search. Such
 /// a directory is a mistake that is hard to see, and a file from a location
@@ -479,9 +590,12 @@ fn find_in_user_directory(
 /// Returns an error when no location holds the file, or when a location
 /// holds a directory with the name of the file.
 // config[impl discover.ancestors.precedence]
+// config[impl discover.ancestors.subdirectories.missing]
 // config[impl discover.error]
 // config[impl discover.error.directory]
-fn search(locations: SearchedLocations) -> Result<ConfigurationPath, DiscoverConfigurationError> {
+fn first_file(
+    locations: SearchedLocations,
+) -> Result<ConfigurationPath, DiscoverConfigurationError> {
     for location in locations.as_slice() {
         let Ok(metadata) = std::fs::metadata(location.get()) else {
             continue;
@@ -619,6 +733,20 @@ mod tests {
         child
     }
 
+    /// Writes a configuration file in a subdirectory and returns its path
+    ///
+    /// The subdirectory does not have to exist yet, and it can name more than
+    /// one level.
+    fn file_in(parent: &std::path::Path, subdirectory: &str) -> PathBuf {
+        let directory = parent.join(subdirectory);
+        std::fs::create_dir_all(&directory).unwrap();
+
+        let path = directory.join("kawauso.toml");
+        std::fs::write(&path, "port = 8080").unwrap();
+
+        path
+    }
+
     /// Returns the locations that a failed search read
     fn locations_of(error: &DiscoverConfigurationError) -> Vec<PathBuf> {
         let DiscoverConfigurationError::MissingFile { locations } = error else {
@@ -640,7 +768,7 @@ mod tests {
 
         let error = find_in_ancestors(
             Ok(root.path().to_path_buf()),
-            &ApplicationName::new("kawauso"),
+            &AncestorsSearch::new("kawauso"),
         )
         .unwrap_err();
 
@@ -659,7 +787,7 @@ mod tests {
 
         let error = find_in_ancestors(
             Ok(root.path().to_path_buf()),
-            &ApplicationName::new("kawauso"),
+            &AncestorsSearch::new("kawauso"),
         )
         .unwrap_err();
 
@@ -680,9 +808,25 @@ mod tests {
         std::fs::write(root.path().join("kawauso.toml"), "port = 8080").unwrap();
 
         let path =
-            find_in_ancestors(Ok(working_directory), &ApplicationName::new("kawauso")).unwrap();
+            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap();
 
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
+    }
+
+    // config[verify discover.ancestors.subdirectories]
+    #[test]
+    fn find_in_ancestors_with_a_file_in_a_subdirectory_returns_it() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        let expected = file_in(&working_directory, ".github");
+
+        let path = find_in_ancestors(
+            Ok(working_directory),
+            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+        )
+        .unwrap();
+
+        assert_eq!(path.get(), expected);
     }
 
     // config[verify discover.ancestors.working-directory]
@@ -694,11 +838,30 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &ApplicationName::new("kawauso"),
+            &AncestorsSearch::new("kawauso"),
         )
         .unwrap();
 
         assert_eq!(path.get(), working_directory.join("kawauso.toml"));
+    }
+
+    // A subdirectory is a convention, not a promise: most projects have none
+    // of them, and a search that failed on the first project without a
+    // `.github` would be useless.
+    // config[verify discover.ancestors.subdirectories.missing]
+    #[test]
+    fn find_in_ancestors_with_a_missing_subdirectory_continues_the_search() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        std::fs::write(root.path().join("kawauso.toml"), "port = 8080").unwrap();
+
+        let path = find_in_ancestors(
+            Ok(working_directory),
+            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+        )
+        .unwrap();
+
+        assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
 
     // A named pipe is the case that matters: a read of one blocks until
@@ -714,9 +877,69 @@ mod tests {
         std::fs::write(root.path().join("kawauso.toml"), "port = 8080").unwrap();
 
         let path =
-            find_in_ancestors(Ok(working_directory), &ApplicationName::new("kawauso")).unwrap();
+            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap();
 
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
+    }
+
+    // config[verify discover.ancestors.subdirectories.error.outside]
+    #[test]
+    fn find_in_ancestors_with_a_subdirectory_above_the_directory_returns_an_error() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+
+        let error = find_in_ancestors(
+            Ok(working_directory),
+            &AncestorsSearch::new("kawauso").subdirectory("../secrets"),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            DiscoverConfigurationError::OutsideSubdirectory { .. }
+        ));
+    }
+
+    // The walk is the outer loop, so the last location of the working
+    // directory comes before the first location of its parent. A rule that
+    // read one subdirectory across every directory first would let the parent
+    // win here.
+    // config[verify discover.ancestors.subdirectories.walk]
+    #[test]
+    fn find_in_ancestors_with_a_subdirectory_of_the_working_directory_beats_a_parent() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        let expected = file_in(&working_directory, ".github");
+        std::fs::write(root.path().join("kawauso.toml"), "port = 9090").unwrap();
+
+        let path = find_in_ancestors(
+            Ok(working_directory),
+            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+        )
+        .unwrap();
+
+        assert_eq!(path.get(), expected);
+    }
+
+    // An absolute subdirectory takes every directory of the walk to the same
+    // place, and that place can be outside the project.
+    // config[verify discover.ancestors.subdirectories.error.outside]
+    #[test]
+    fn find_in_ancestors_with_an_absolute_subdirectory_returns_an_error() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        let absolute = root.path().to_str().unwrap();
+
+        let error = find_in_ancestors(
+            Ok(working_directory),
+            &AncestorsSearch::new("kawauso").subdirectory(absolute),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            DiscoverConfigurationError::OutsideSubdirectory { .. }
+        ));
     }
 
     // config[verify discover.ancestors.name]
@@ -728,9 +951,29 @@ mod tests {
         std::fs::write(root.path().join("kawauso.toml"), "port = 8080").unwrap();
 
         let path =
-            find_in_ancestors(Ok(working_directory), &ApplicationName::new("kawauso")).unwrap();
+            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap();
 
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
+    }
+
+    // A subdirectory is an addition, not a replacement. A project that keeps
+    // the file where it always kept it must not lose it to a subdirectory
+    // that the application started to accept later.
+    // config[verify discover.ancestors.subdirectories.order]
+    #[test]
+    fn find_in_ancestors_with_files_in_a_directory_and_its_subdirectory_returns_the_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        file_in(&working_directory, ".github");
+        std::fs::write(working_directory.join("kawauso.toml"), "port = 8080").unwrap();
+
+        let path = find_in_ancestors(
+            Ok(working_directory.clone()),
+            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+        )
+        .unwrap();
+
+        assert_eq!(path.get(), working_directory.join("kawauso.toml"));
     }
 
     // config[verify discover.ancestors.precedence]
@@ -743,11 +986,33 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &ApplicationName::new("kawauso"),
+            &AncestorsSearch::new("kawauso"),
         )
         .unwrap();
 
         assert_eq!(path.get(), working_directory.join("kawauso.toml"));
+    }
+
+    // The subdirectories are named in the reverse of their alphabetical
+    // order, so a result of `.github` can only come from the order of the
+    // calls that named them.
+    // config[verify discover.ancestors.subdirectories.order]
+    #[test]
+    fn find_in_ancestors_with_files_in_two_subdirectories_returns_the_first_named() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        let expected = file_in(&working_directory, ".github");
+        file_in(&working_directory, ".config");
+
+        let path = find_in_ancestors(
+            Ok(working_directory),
+            &AncestorsSearch::new("kawauso")
+                .subdirectory(".github")
+                .subdirectory(".config"),
+        )
+        .unwrap();
+
+        assert_eq!(path.get(), expected);
     }
 
     // config[verify discover.ancestors.order]
@@ -761,7 +1026,35 @@ mod tests {
             .collect::<Vec<_>>();
 
         let error =
-            find_in_ancestors(Ok(working_directory), &ApplicationName::new("kawauso")).unwrap_err();
+            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap_err();
+
+        assert_eq!(locations_of(&error), expected);
+    }
+
+    // The report of a failed search has to teach the user where the file can
+    // go, and a subdirectory is a place that the user cannot guess. The list
+    // therefore holds both locations of every directory, in the order in
+    // which they win.
+    // config[verify discover.ancestors.subdirectories.walk]
+    #[test]
+    fn find_in_ancestors_without_a_file_lists_the_locations_of_each_subdirectory() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        let expected = working_directory
+            .ancestors()
+            .flat_map(|directory| {
+                [
+                    directory.join("kawauso.toml"),
+                    directory.join(".github").join("kawauso.toml"),
+                ]
+            })
+            .collect::<Vec<_>>();
+
+        let error = find_in_ancestors(
+            Ok(working_directory.clone()),
+            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+        )
+        .unwrap_err();
 
         assert_eq!(locations_of(&error), expected);
     }
@@ -778,7 +1071,7 @@ mod tests {
             .join(", ");
 
         let error =
-            find_in_ancestors(Ok(working_directory), &ApplicationName::new("kawauso")).unwrap_err();
+            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap_err();
 
         assert_eq!(
             error.to_string(),
@@ -793,7 +1086,7 @@ mod tests {
 
         let result = find_in_ancestors(
             Ok(root.path().to_path_buf()),
-            &ApplicationName::new("kawauso"),
+            &AncestorsSearch::new("kawauso"),
         );
 
         assert!(result.is_err());
@@ -804,7 +1097,7 @@ mod tests {
     fn find_in_ancestors_without_a_working_directory_returns_an_error() {
         let failure = std::io::Error::from(ErrorKind::NotFound);
 
-        let error = find_in_ancestors(Err(failure), &ApplicationName::new("kawauso")).unwrap_err();
+        let error = find_in_ancestors(Err(failure), &AncestorsSearch::new("kawauso")).unwrap_err();
 
         assert!(matches!(
             error,
@@ -853,6 +1146,64 @@ mod tests {
             error,
             DiscoverConfigurationError::UnknownConfigurationDirectory { .. }
         ));
+    }
+
+    #[test]
+    fn is_inside_with_a_current_directory_prefix_returns_true() {
+        let subdirectory = Subdirectory::from("./.github");
+
+        let inside = is_inside(&subdirectory);
+
+        assert!(inside);
+    }
+
+    #[test]
+    fn is_inside_with_a_current_directory_returns_false() {
+        let subdirectory = Subdirectory::from(".");
+
+        let inside = is_inside(&subdirectory);
+
+        assert!(!inside);
+    }
+
+    #[test]
+    fn is_inside_with_a_name_returns_true() {
+        let subdirectory = Subdirectory::from(".github");
+
+        let inside = is_inside(&subdirectory);
+
+        assert!(inside);
+    }
+
+    #[test]
+    fn is_inside_with_a_nested_name_returns_true() {
+        let subdirectory = Subdirectory::from(".config/kawauso");
+
+        let inside = is_inside(&subdirectory);
+
+        assert!(inside);
+    }
+
+    // A `..` that follows a name still leaves the directory, so the check
+    // reads every component and not only the first one.
+    #[test]
+    fn is_inside_with_a_parent_directory_returns_false() {
+        let subdirectory = Subdirectory::from(".github/..");
+
+        let inside = is_inside(&subdirectory);
+
+        assert!(!inside);
+    }
+
+    // An empty path names no directory, and it has no component that the
+    // check can reject. It therefore needs an answer of its own.
+    #[test]
+    fn is_inside_with_an_empty_path_returns_false() {
+        let subdirectory = Subdirectory::from("");
+
+        let inside = is_inside(&subdirectory);
+
+        assert!(!inside);
     }
 
     // config[verify discover.load]
