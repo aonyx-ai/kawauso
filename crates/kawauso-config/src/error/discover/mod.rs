@@ -6,6 +6,7 @@ use thiserror::Error;
 
 pub use self::searched_locations::SearchedLocations;
 use crate::loader::ConfigurationPath;
+use crate::loader::Subdirectory;
 
 /// The error returned when a search does not produce a configuration file
 ///
@@ -32,6 +33,27 @@ pub enum DiscoverConfigurationError {
     MissingFile {
         /// The locations that the search read, in the order of the search
         locations: SearchedLocations,
+    },
+
+    /// A subdirectory of the search is not inside the directory that it belongs to
+    ///
+    /// The application named a subdirectory that is absolute, that moves
+    /// above its directory, or that names no directory at all. Such a value
+    /// takes the search to a place that it never reaches on its own, so the
+    /// search stops before it reads the file system.
+    ///
+    /// The value comes from the application, not from the user of the
+    /// application. A user who reads this message has to report it to the
+    /// developers.
+    ///
+    /// The variant carries no cause: the value is the full diagnosis, and no
+    /// other operation failed.
+    // config[impl discover.ancestors.subdirectories.error.outside]
+    #[error("the subdirectory `{subdirectory}` is not a relative path inside a searched directory")]
+    #[non_exhaustive]
+    OutsideSubdirectory {
+        /// The subdirectory that is not inside the directory that it belongs to
+        subdirectory: Subdirectory,
     },
 
     /// A location holds a directory with the name of the configuration file

@@ -10,6 +10,7 @@
 #![allow(clippy::missing_panics_doc)]
 
 use indoc::indoc;
+use kawauso_config::AncestorsSearch;
 use kawauso_config::Loader;
 use kawauso_config::error::LoadConfigurationError;
 use serde::Deserialize;
@@ -198,6 +199,28 @@ fn load_with_missing_file_returns_an_error() {
     let result = Loader::path(&path).load::<Configuration>();
 
     assert!(result.is_err());
+}
+
+// A subdirectory that leaves its directory is a mistake in the application,
+// not in a file that the user wrote. The report therefore names the value
+// that the application gave, so that the user can pass it on to the
+// developers.
+// config[verify discover.ancestors.subdirectories.error.outside]
+#[test]
+fn load_with_outside_subdirectory_reports_the_subdirectory() {
+    let search = AncestorsSearch::new("kawauso").subdirectory("../secrets");
+
+    let error = Loader::ancestors(search)
+        .load::<Configuration>()
+        .unwrap_err();
+
+    let LoadConfigurationError::UndiscoverableFile { source, .. } = error else {
+        panic!("expected the UndiscoverableFile variant, got {error:?}");
+    };
+    assert_eq!(
+        source.to_string(),
+        "the subdirectory `../secrets` is not a relative path inside a searched directory"
+    );
 }
 
 // config[verify load.file.error.unreadable]

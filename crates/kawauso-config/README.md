@@ -16,6 +16,11 @@ root of the file system. An application whose configuration belongs to a user
 uses [`user`], which reads the directory that the platform defines for the
 configuration of a user.
 
+A project does not always keep the configuration of a tool in the directory
+itself. An [`AncestorsSearch`] names the subdirectories in which the
+application also accepts the file, such as `.github`, and each directory of
+the walk then contributes one location for each of them.
+
 ## Usage
 
 ```rust
@@ -53,6 +58,7 @@ for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
 
 [`ancestors`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html#method.ancestors
+[`AncestorsSearch`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/ancestors_search/struct.AncestorsSearch.html
 [`load`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html#method.load
 [`Loader`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html
 [`user`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html#method.user
