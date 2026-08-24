@@ -1,6 +1,6 @@
 [package]
 name = "kawauso"
-description = "A toolkit for building applications quickly"
+description = "A toolkit for building Rust applications"
 
 version = "0.0.0"
 
