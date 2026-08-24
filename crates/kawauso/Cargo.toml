@@ -1,6 +1,6 @@
 [package]
 name = "kawauso"
-description = "A toolkit for building applications quickly"
+description = "A toolkit for building Rust applications"
 
 version.workspace = true
 edition.workspace = true
