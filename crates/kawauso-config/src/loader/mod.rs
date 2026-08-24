@@ -111,18 +111,21 @@ impl Loader {
     /// whose configuration belongs to a project.
     ///
     /// The name of an application is enough to start the search. A project
-    /// that keeps the file in a subdirectory, such as `.github`, needs an
-    /// [`AncestorsSearch`] that names that subdirectory. Each directory of
-    /// the walk then contributes one location for the directory itself, and
-    /// one for each subdirectory, and the search reads all locations of one
-    /// directory before it reads a location of the directory above it.
+    /// that keeps the file in a subdirectory needs an [`AncestorsSearch`].
+    /// It names the subdirectories, such as `.github`, that the application
+    /// also accepts.
+    ///
+    /// Each directory then has more than one location. The search reads the
+    /// directory itself first, and then each subdirectory in the order in
+    /// which the developer named them. It reads every location of one
+    /// directory before it reads a location of the directory above.
     ///
     /// The working directory is read when [`load`][load] runs, not at the
     /// time of this call.
     ///
     /// # Examples
     ///
-    /// A search that reads the directories of the walk:
+    /// A search that reads only the directories themselves:
     ///
     /// ```no_run
     /// use serde::Deserialize;
@@ -139,7 +142,7 @@ impl Loader {
     /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
     /// ```
     ///
-    /// A search that also reads `.github` in each of them:
+    /// A search that also reads `.github` in each directory:
     ///
     /// ```no_run
     /// use serde::Deserialize;

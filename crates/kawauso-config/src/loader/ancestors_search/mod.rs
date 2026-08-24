@@ -7,19 +7,19 @@ use crate::loader::ApplicationName;
 
 /// The search of the working directory and its ancestors
 ///
-/// The search needs the name of an application, and it accepts the
-/// subdirectories in which that application also keeps its configuration
-/// file. It carries what the search needs, and nothing that another source of
-/// a configuration needs, so an option of this search cannot reach a loader
-/// that reads a file at a path.
+/// The search needs the name of an application. It also accepts the
+/// subdirectories in which that application keeps its configuration file.
 ///
-/// A name alone converts into a search, which is why
-/// [`ancestors`][ancestors] accepts `"example"` as well as a value of this
-/// type.
+/// The type holds the options of this one search. An option therefore cannot
+/// reach a loader that reads a file at a path, where a subdirectory has no
+/// meaning.
+///
+/// A name alone converts into a search. [`ancestors`][ancestors] therefore
+/// accepts `"example"` as well as a value of this type.
 ///
 /// # Examples
 ///
-/// A search that reads only the directories of the walk:
+/// A search that reads only the directories themselves:
 ///
 /// ```
 /// use kawauso_config::AncestorsSearch;
@@ -29,7 +29,7 @@ use crate::loader::ApplicationName;
 /// assert!(search.subdirectories().is_empty());
 /// ```
 ///
-/// A search that also reads `.github` in each of them:
+/// A search that also reads `.github` in each directory:
 ///
 /// ```
 /// use kawauso_config::AncestorsSearch;
@@ -45,7 +45,7 @@ pub struct AncestorsSearch {
     /// The name of the application whose configuration file the search finds
     application: ApplicationName,
 
-    /// The subdirectories that each directory of the walk also contributes
+    /// The subdirectories that the search reads in each directory
     ///
     /// The order is the order in which the developer named them, because it
     /// decides which location the search reads first.
@@ -55,8 +55,9 @@ pub struct AncestorsSearch {
 impl AncestorsSearch {
     /// Creates a search for the configuration file of an application
     ///
-    /// The search reads the directories of the walk and nothing else.
-    /// [`subdirectory`][subdirectory] adds a subdirectory to each of them.
+    /// The search reads the working directory and its ancestors, and nothing
+    /// else. [`subdirectory`][subdirectory] adds a subdirectory to each of
+    /// these directories.
     ///
     /// # Examples
     ///
@@ -76,17 +77,17 @@ impl AncestorsSearch {
         }
     }
 
-    /// Adds a subdirectory that each directory of the walk also contributes
+    /// Adds a subdirectory that the search reads in each directory
     ///
-    /// The subdirectory is an addition. The directory itself keeps the
-    /// location that it had before this call, and the search reads it first.
-    /// A second call adds a second subdirectory, which the search reads after
-    /// the first one.
+    /// The subdirectory is an addition. Each directory keeps the location
+    /// that it had before this call, and the search reads that location
+    /// first. A second call adds a second subdirectory, which the search
+    /// reads after the first one.
     ///
-    /// The value must be a relative path that stays inside the directory to
-    /// which it belongs. A value that is absolute, or that leaves the
-    /// directory, fails the search instead of this call, so that a value that
-    /// the application computes cannot make a constructor fail.
+    /// The value must be a relative path that stays inside its directory. A
+    /// value that is absolute, or that leaves the directory, fails the search
+    /// and not this call. A value that the application computes therefore
+    /// cannot make a constructor fail.
     ///
     /// # Examples
     ///

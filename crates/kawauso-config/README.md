@@ -16,10 +16,10 @@ root of the file system. An application whose configuration belongs to a user
 uses [`user`], which reads the directory that the platform defines for the
 configuration of a user.
 
-A project does not always keep the configuration of a tool in the directory
-itself. An [`AncestorsSearch`] names the subdirectories in which the
-application also accepts the file, such as `.github`, and each directory of
-the walk then contributes one location for each of them.
+Some projects do not keep the configuration file in the directory that the
+search reads. A tool that belongs to GitHub, for example, keeps the file in
+`.github`. An [`AncestorsSearch`] adds such a subdirectory to [`ancestors`].
+The search then reads that subdirectory in each directory on its way up.
 
 ## Usage
 

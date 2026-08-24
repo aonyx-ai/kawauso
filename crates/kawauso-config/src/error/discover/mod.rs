@@ -35,16 +35,15 @@ pub enum DiscoverConfigurationError {
         locations: SearchedLocations,
     },
 
-    /// A subdirectory of the search is not inside the directory that it belongs to
+    /// A subdirectory is not a relative path inside a searched directory
     ///
     /// The application named a subdirectory that is absolute, that moves
     /// above its directory, or that names no directory at all. Such a value
-    /// takes the search to a place that it never reaches on its own, so the
-    /// search stops before it reads the file system.
+    /// takes the search outside the directories that it reads. The search
+    /// therefore stops before it reads the file system.
     ///
-    /// The value comes from the application, not from the user of the
-    /// application. A user who reads this message has to report it to the
-    /// developers.
+    /// The value comes from the application, and not from its user. A user
+    /// who reads this message has to report it to the developers.
     ///
     /// The variant carries no cause: the value is the full diagnosis, and no
     /// other operation failed.
