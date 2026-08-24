@@ -1,9 +1,8 @@
 # 🦦 Kawauso
 
-Kawauso, named after the Japanse river otter, is a toolkit for building
-applications in Rust with the help of AI agents. It provides a set of crates
-that can be used together or independently to implement features that most
-applications share.
+Kawauso, named after the Japanese river otter, is a toolkit for building
+applications in Rust. It provides a set of crates that can be used together or
+independently to implement features that most applications share.
 
 ## License
 

@@ -1,9 +1,9 @@
 # kawauso
 
-A toolkit for building Rust applications
+_A toolkit for building Rust applications_
 
 Kawauso is a framework, and each part of it is also a crate that an
-application can take on its own. This crate is the framework as a whole: it
+application can use on its own. This crate is the framework as a whole: it
 re-exports the other crates as modules, so that an application needs one
 dependency and one version requirement to reach all of them.
 
