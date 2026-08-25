@@ -35,15 +35,9 @@ impl Markers {
 /// Formats the markers as a list, with each path in backticks
 impl Display for Markers {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
-        for (index, marker) in self.0.iter().enumerate() {
-            if index > 0 {
-                formatter.write_str(", ")?;
-            }
+        let markers: Vec<String> = self.0.iter().map(|marker| format!("`{marker}`")).collect();
 
-            write!(formatter, "`{marker}`")?;
-        }
-
-        Ok(())
+        formatter.write_str(&markers.join(", "))
     }
 }
 

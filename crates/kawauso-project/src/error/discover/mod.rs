@@ -34,7 +34,9 @@ pub enum DiscoverProjectError {
     /// began, and the markers are in the order in which the search tested
     /// them.
     // project[impl discover.error.missing.message]
-    #[error("no directory at or above `{start}` holds any of these markers: {markers}")]
+    #[error(
+        "no project exists at or above `{start}`, because no directory holds any of these markers: {markers}"
+    )]
     #[non_exhaustive]
     MissingProject {
         /// The directory at which the walk started

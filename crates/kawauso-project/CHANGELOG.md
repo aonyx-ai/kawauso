@@ -11,8 +11,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ### Added
 
-- Find the directory of a project by walking up from a directory that the
-  caller names, until a directory holds one of the markers of the application
+- Find the directory of a project by walking up from a given directory until
+  one of the markers of the application matches
 
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html

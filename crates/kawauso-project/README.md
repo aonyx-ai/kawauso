@@ -2,21 +2,14 @@
 
 _Projects for Kawauso applications_
 
-This crate finds the project that a Kawauso application runs in. Every
-application finds its project in the same way, and it anchors the relative
-paths of its resources at the same directory.
+This crate finds the project that a Kawauso application runs in. A user can
+then start the application in any directory of the project, and the
+application still finds the files that it needs.
 
-[`Search`] describes how the crate finds a project. It names the directory at
-which the walk starts, and the markers that identify the project. A marker is
-an entry at a relative path, such as `.git`, `src/main.rs`, or
-`.config/example.toml`. The crate tests only whether the entry exists, and it
-never reads the entry.
-
-[`discover`] walks from the start up to the root of the file system. It tests
-every marker in one directory before it tests any marker in the directory
-above. The first directory that holds a marker is the project. The crate
-reports this directory together with the marker that matched, so no
-application derives the directory from the path of a file.
+[`Search`] describes how the crate finds a project. It starts the search in a
+given directory, and walks up the directory tree until it finds a marker that
+identifies the project. A marker is an entry at a relative path, such as
+`.git`, `src/main.rs`, or `.config/example.toml`.
 
 A search needs at least one marker, because a walk without one tests nothing.
 The type of a search records whether it has a marker, so a search without one
@@ -53,5 +46,4 @@ Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
 
-[`discover`]: https://docs.rs/kawauso-project/latest/kawauso_project/project/struct.Project.html#method.discover
 [`Search`]: https://docs.rs/kawauso-project/latest/kawauso_project/search/struct.Search.html

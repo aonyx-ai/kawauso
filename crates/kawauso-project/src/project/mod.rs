@@ -521,7 +521,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "no directory at or above `{}` holds any of these markers: `{ABSENT}`",
+                "no project exists at or above `{}`, because no directory holds any of these markers: `{ABSENT}`",
                 root.path().display()
             )
         );
