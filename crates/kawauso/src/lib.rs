@@ -21,3 +21,26 @@
 // kawauso[impl facade.identity]
 #[doc(inline)]
 pub use kawauso_config as config;
+/// Projects, from the crate `kawauso-project`
+///
+/// An application that wants this capability on its own, without the rest of
+/// the framework, depends on `kawauso-project` and reaches the same types.
+///
+/// # Examples
+///
+/// ```no_run
+/// use kawauso::project::Project;
+/// use kawauso::project::ProjectSearch;
+///
+/// // Finds the first directory at or above the working directory that holds
+/// // `.config/kawauso.toml` or `.git`
+/// let search = ProjectSearch::new("kawauso").marker(".git");
+/// let project = Project::discover(search)?;
+///
+/// assert!(project.root().get().is_absolute());
+/// # Ok::<(), kawauso::project::error::DiscoverProjectError>(())
+/// ```
+// kawauso[impl facade.module]
+// kawauso[impl facade.identity]
+#[doc(inline)]
+pub use kawauso_project as project;

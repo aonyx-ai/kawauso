@@ -31,3 +31,33 @@ fn config_module_provides_the_configuration_loader() {
 
     assert_eq!(configuration["port"], 8080);
 }
+
+// kawauso[verify facade.identity]
+#[test]
+fn project_module_is_the_kawauso_project_crate() {
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::create_dir(directory.path().join(".git")).unwrap();
+    // The annotation is the assertion: it only compiles when the module and
+    // the crate name one type.
+    let search: kawauso_project::ProjectSearch = kawauso::project::ProjectSearch::new("kawauso")
+        .marker(".git")
+        .start(directory.path());
+
+    let project = kawauso::project::Project::discover(search).unwrap();
+
+    assert_eq!(project.root().get(), directory.path());
+}
+
+// kawauso[verify facade.module]
+#[test]
+fn project_module_provides_the_project_search() {
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::create_dir(directory.path().join(".git")).unwrap();
+    let search = kawauso::project::ProjectSearch::new("kawauso")
+        .marker(".git")
+        .start(directory.path());
+
+    let project = kawauso::project::Project::discover(search).unwrap();
+
+    assert_eq!(project.root().get(), directory.path());
+}

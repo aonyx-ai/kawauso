@@ -115,6 +115,8 @@ name = "kawauso"
 version = "0.2.0"
 dependencies = [
  "kawauso-config",
+ "kawauso-project",
+ "tempfile",
 ]
 
 [[package]]
@@ -128,6 +130,17 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml",
+ "typed-fields",
+]
+
+[[package]]
+name = "kawauso-project"
+version = "0.0.0"
+dependencies = [
+ "kawauso-config",
+ "serde",
+ "tempfile",
+ "thiserror",
  "typed-fields",
 ]
 
