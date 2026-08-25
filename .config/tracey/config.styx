@@ -29,4 +29,16 @@ specs (
             }
         )
     }
+    {
+        name kawauso-project
+        source_url https://github.com/aonyx-ai/kawauso
+        include (crates/kawauso-project/SPECIFICATION.md)
+        impls (
+            {
+                name rust
+                include (crates/kawauso-project/src/**/*.rs)
+                test_include (crates/kawauso-project/tests/**/*.rs)
+            }
+        )
+    }
 )
