@@ -134,6 +134,11 @@ dependencies = [
 [[package]]
 name = "kawauso-project"
 version = "0.0.0"
+dependencies = [
+ "tempfile",
+ "thiserror",
+ "typed-fields",
+]
 
 [[package]]
 name = "libc"
