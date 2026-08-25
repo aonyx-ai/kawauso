@@ -47,6 +47,10 @@ A walk that reaches the root of the file system found no project. The crate
 then returns an error. Without this error, an application that creates files
 can write them into a directory that no marker identifies.
 
+Some applications also run outside a project, with default settings. Their
+developer can select the start directory as the project instead of the error.
+This project has no marker, because no marker matched.
+
 project[discover.walk]
 The crate MUST search the start directory and each of its ancestors, up to
 the root of the file system.
@@ -89,6 +93,11 @@ any directory of the walk.
 project[discover.error.missing.message]
 The message of the error MUST name the start directory and every marker, in
 the order of the test.
+
+project[discover.fallback]
+The crate MUST report the start directory as the project when the developer
+selects this fallback and no marker matches. This project MUST have no
+marker.
 
 ### Start
 

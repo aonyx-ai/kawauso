@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog], and this project adheres to
   one of the markers of the application matches
 - Start the search at the working directory of the process, for an application
   that takes no path from its user
+- Report the start directory as the project when no marker matches, for an
+  application that also runs outside a project
 
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html

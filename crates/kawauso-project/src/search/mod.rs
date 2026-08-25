@@ -10,12 +10,14 @@
 //!
 //! [discover]: crate::Project::discover
 
+pub mod fallback;
 pub mod marker;
 pub mod start_directory;
 pub mod state;
 
 use std::marker::PhantomData;
 
+pub use self::fallback::Fallback;
 pub use self::marker::Marker;
 pub use self::start_directory::StartDirectory;
 use self::state::Marked;
@@ -68,6 +70,9 @@ pub struct Search<S: State> {
     /// decides which marker the search tests first in each directory.
     markers: Vec<Marker>,
 
+    /// What the search reports when no marker matches
+    fallback: Fallback,
+
     /// Whether the search names a marker
     ///
     /// The field carries no data. It gives the type parameter a place in the
@@ -109,6 +114,7 @@ impl Search<Unmarked> {
         Self {
             start: start.into(),
             markers: Vec::new(),
+            fallback: Fallback::Error,
             state: PhantomData,
         }
     }
@@ -180,13 +186,55 @@ impl<S: State> Search<S> {
         Search {
             start: self.start,
             markers,
+            fallback: self.fallback,
             state: PhantomData,
         }
+    }
+
+    /// Returns what the search reports when no marker matches
+    pub fn fallback(&self) -> Fallback {
+        self.fallback
     }
 
     /// Returns the markers of the search, in the order of the test
     pub fn markers(&self) -> &[Marker] {
         &self.markers
+    }
+
+    /// Reports the start directory as the project when no marker matches
+    ///
+    /// A search without this option returns an error when the walk reaches
+    /// the root of the file system, because an application that creates files
+    /// must not write them into a directory that nothing identifies as a
+    /// project.
+    ///
+    /// Use this option for an application that also runs outside a project,
+    /// with default settings. The project that the search then reports has no
+    /// marker, so [`marker`][marker] returns `None` for it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// let directory = tempfile::tempdir()?;
+    ///
+    /// let search = Search::start(directory.path())
+    ///     .marker(".no-such-project-marker")
+    ///     .or_start();
+    /// let project = Project::discover(&search)?;
+    ///
+    /// assert!(project.marker().is_none());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [marker]: crate::Project::marker
+    // project[impl discover.fallback]
+    pub fn or_start(mut self) -> Self {
+        self.fallback = Fallback::Start;
+
+        self
     }
 
     /// Returns the directory at which the walk starts
