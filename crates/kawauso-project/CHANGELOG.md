@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog], and this project adheres to
   removed and the symbolic links resolved
 - Report the start directory as the project when no marker matches, for an
   application that also runs outside a project
+- Report the condition that ended a failed search in the message of the error,
+  so that a report of one line names the start and the markers
 - Describe a project with a builder, then find it and read its configuration
   file in one step with `Project::load`
 - Read the configuration file of a project from `.config/<application>.toml`,
