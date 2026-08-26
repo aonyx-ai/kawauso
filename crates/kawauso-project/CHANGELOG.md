@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 - Read the configuration file of a project from `.config/<application>.toml`,
   or from a location that the application names, and deserialize it into a
   type that the application defines
+- Declare with `without_configuration` that an application has no
+  configuration file, so that its project reads none
 
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html

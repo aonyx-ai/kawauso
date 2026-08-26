@@ -31,6 +31,13 @@ A project without the file is a normal state and not a failure.
 `configuration` reports `None` for it, and `configuration_path` tells the user
 where to put the file.
 
+Some applications have no configuration file at all, and want only the
+directory of their project. Such an application declares this with
+`without_configuration`, and the project then reads no file. A file at the
+conventional location belongs to something else, and the project leaves it
+alone. `configuration_path` still reports that location, so an application
+that writes the file later knows where the file goes.
+
 ## Usage
 
 ```rust

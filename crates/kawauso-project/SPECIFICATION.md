@@ -174,6 +174,13 @@ A file that exists and cannot be read or deserialized is a different case. The
 user wrote that file and expects the application to use it, so the crate
 reports the failure instead of the absence.
 
+Some applications have no configuration file at all. Such an application wants
+only the directory of its project, and a file at the conventional location
+belongs to something else. The developer therefore declares that the
+application has no configuration file. The crate then reads no file, and it
+reports no configuration. It still reports the conventional location, because
+an application that writes the file later needs to know where the file goes.
+
 project[configuration.location]
 The configuration file of an application MUST be the file
 `<application>.toml` in the subdirectory `.config` of the project.
@@ -193,6 +200,11 @@ the project has no configuration file.
 project[configuration.error]
 The crate MUST return an error, and MUST NOT panic, when the configuration
 file of the project exists and cannot be loaded.
+
+project[configuration.none]
+The crate MUST NOT read a configuration file, and MUST report no
+configuration, when the developer declares that the application has no
+configuration file.
 
 [adr-009]: ../../adrs/009-project-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119
