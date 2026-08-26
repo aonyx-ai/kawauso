@@ -9,6 +9,8 @@
 // would repeat that and give the reader no information.
 #![allow(clippy::missing_panics_doc)]
 
+use std::path::PathBuf;
+
 use kawauso_project::Project;
 use kawauso_project::Search;
 use kawauso_project::project::NoConfiguration;
@@ -33,6 +35,23 @@ const MARKER: &str = ".git";
 #[derive(Debug, Deserialize)]
 struct Configuration {
     port: u16,
+}
+
+/// Returns the canonical path of a temporary directory
+///
+/// A temporary directory can sit below a symbolic link, which is what macOS
+/// does for `/var`. A project reports canonical paths, so a test that names a
+/// location in the directory canonicalizes it first.
+///
+/// The lints that ban `unwrap` and `expect` make an exception for a test, and
+/// a helper of a test is not one. The failure therefore travels to the test,
+/// which is allowed to panic on it.
+///
+/// # Errors
+///
+/// Returns an error when the directory has no canonical path.
+fn canonical(directory: &TempDir) -> std::io::Result<PathBuf> {
+    std::fs::canonicalize(directory.path())
 }
 
 /// Creates a project with a marker, and a file at the path when one is given
@@ -106,7 +125,10 @@ fn load_with_a_custom_location_reads_the_file_at_that_location() {
 
     assert_eq!(
         project.configuration_path().get(),
-        directory.path().join(".github").join("example.toml")
+        canonical(&directory)
+            .unwrap()
+            .join(".github")
+            .join("example.toml")
     );
 }
 
@@ -123,7 +145,10 @@ fn load_with_an_application_name_reads_the_conventional_location() {
 
     assert_eq!(
         project.configuration_path().get(),
-        directory.path().join(".config").join("example.toml")
+        canonical(&directory)
+            .unwrap()
+            .join(".config")
+            .join("example.toml")
     );
 }
 

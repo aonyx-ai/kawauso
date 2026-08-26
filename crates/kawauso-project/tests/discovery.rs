@@ -94,7 +94,13 @@ fn discover_with_a_start_in_one_of_two_projects_returns_that_project() {
         .load(&search)
         .unwrap();
 
-    assert_eq!(project.root().get(), second);
+    // A temporary directory can sit below a symbolic link, which is what
+    // macOS does for `/var`. The project reports a canonical path, so the
+    // test canonicalizes the directory that it expects.
+    assert_eq!(
+        project.root().get(),
+        std::fs::canonicalize(&second).unwrap()
+    );
 }
 
 // project[verify discover.start.working-directory]

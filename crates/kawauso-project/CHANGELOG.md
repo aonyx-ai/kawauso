@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog], and this project adheres to
   one of the markers of the application matches
 - Start the search at the working directory of the process, for an application
   that takes no path from its user
+- Report the canonical path of the project, with the `.` and `..` components
+  removed and the symbolic links resolved
 - Report the start directory as the project when no marker matches, for an
   application that also runs outside a project
 - Describe a project with a builder, then find it and read its configuration
