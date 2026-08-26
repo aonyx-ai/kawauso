@@ -16,6 +16,10 @@ A search needs at least one marker, because a walk without one tests nothing.
 The type of a search records whether it has a marker, so a search without one
 does not compile.
 
+A search that finds no project returns an error, so an application that
+creates files never writes them outside a project. An application that also
+runs outside a project can ask for the start directory instead.
+
 ## Usage
 
 ```rust

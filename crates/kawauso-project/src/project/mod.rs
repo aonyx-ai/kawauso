@@ -12,6 +12,7 @@ use std::path::PathBuf;
 pub use self::project_root::ProjectRoot;
 use crate::error::DiscoverProjectError;
 use crate::error::discover::Markers;
+use crate::search::Fallback;
 use crate::search::Marker;
 use crate::search::Search;
 use crate::search::StartDirectory;
@@ -50,7 +51,10 @@ pub struct Project {
     root: ProjectRoot,
 
     /// The marker that identified the project
-    marker: Marker,
+    ///
+    /// `None` when no marker matched and the search fell back to the start
+    /// directory.
+    marker: Option<Marker>,
 }
 
 impl Project {
@@ -106,7 +110,7 @@ impl Project {
     /// let search = Search::start(root.join("crates").join("example")).marker(".git");
     /// let project = Project::discover(&search)?;
     ///
-    /// assert_eq!(project.marker().get(), std::path::Path::new(".git"));
+    /// assert_eq!(project.marker().unwrap().get(), std::path::Path::new(".git"));
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
@@ -120,12 +124,15 @@ impl Project {
     pub fn discover(search: &Search<Marked>) -> Result<Self, DiscoverProjectError> {
         let start = resolve(search.start_directory().get(), std::env::current_dir())?;
 
-        walk(&start, search.markers())
+        walk(&start, search.markers(), search.fallback())
     }
 
     /// Returns the marker that identified the project
-    pub fn marker(&self) -> &Marker {
-        &self.marker
+    ///
+    /// Returns `None` when no marker matched and the search fell back to the
+    /// start directory.
+    pub fn marker(&self) -> Option<&Marker> {
+        self.marker.as_ref()
     }
 
     /// Returns the directory of the project
@@ -268,7 +275,11 @@ fn resolve(
 // project[impl discover.precedence]
 // project[impl discover.result]
 // project[impl discover.walk]
-fn walk(start: &Path, markers: &[Marker]) -> Result<Project, DiscoverProjectError> {
+fn walk(
+    start: &Path,
+    markers: &[Marker],
+    fallback: Fallback,
+) -> Result<Project, DiscoverProjectError> {
     if let Some(marker) = markers.iter().find(|marker| !is_inside(marker)) {
         return Err(DiscoverProjectError::OutsideMarker {
             marker: marker.clone(),
@@ -280,16 +291,23 @@ fn walk(start: &Path, markers: &[Marker]) -> Result<Project, DiscoverProjectErro
             if exists(&directory.join(marker.get())) {
                 return Ok(Project {
                     root: ProjectRoot::new(directory.to_path_buf()),
-                    marker: marker.clone(),
+                    marker: Some(marker.clone()),
                 });
             }
         }
     }
 
-    Err(DiscoverProjectError::MissingProject {
-        start: StartDirectory::new(start.to_path_buf()),
-        markers: Markers::new(markers.to_vec()),
-    })
+    match fallback {
+        // project[impl discover.fallback]
+        Fallback::Start => Ok(Project {
+            root: ProjectRoot::new(start.to_path_buf()),
+            marker: None,
+        }),
+        Fallback::Error => Err(DiscoverProjectError::MissingProject {
+            start: StartDirectory::new(start.to_path_buf()),
+            markers: Markers::new(markers.to_vec()),
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -396,7 +414,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         directory(&root, ".git");
 
-        let project = walk(root.path(), &[Marker::from(".git")]).unwrap();
+        let project = walk(root.path(), &[Marker::from(".git")], Fallback::Error).unwrap();
 
         assert_eq!(project.root().get(), root.path());
     }
@@ -406,7 +424,7 @@ mod tests {
     fn walk_with_a_marker_above_the_directory_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
 
-        let error = walk(root.path(), &[Marker::from("../.git")]).unwrap_err();
+        let error = walk(root.path(), &[Marker::from("../.git")], Fallback::Error).unwrap_err();
 
         assert!(matches!(error, DiscoverProjectError::OutsideMarker { .. }));
     }
@@ -418,7 +436,7 @@ mod tests {
         file(&root, "Cargo.toml");
         let start = directory(&root, "crates/example/src");
 
-        let project = walk(&start, &[Marker::from("Cargo.toml")]).unwrap();
+        let project = walk(&start, &[Marker::from("Cargo.toml")], Fallback::Error).unwrap();
 
         assert_eq!(project.root().get(), root.path());
     }
@@ -430,9 +448,9 @@ mod tests {
         directory(&root, ".git");
         let start = directory(&root, "src");
 
-        let project = walk(&start, &[Marker::from(".git")]).unwrap();
+        let project = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
 
-        assert_eq!(project.marker().get(), Path::new(".git"));
+        assert_eq!(project.marker().unwrap().get(), Path::new(".git"));
     }
 
     // project[verify discover.order]
@@ -444,7 +462,7 @@ mod tests {
         directory(&root, "crates/.git");
         let start = directory(&root, "crates/example");
 
-        let project = walk(&start, &[Marker::from(".git")]).unwrap();
+        let project = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
 
         assert_eq!(project.root().get(), parent);
     }
@@ -454,7 +472,7 @@ mod tests {
     fn walk_with_a_marker_that_names_no_entry_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
 
-        let error = walk(root.path(), &[Marker::from(".")]).unwrap_err();
+        let error = walk(root.path(), &[Marker::from(".")], Fallback::Error).unwrap_err();
 
         assert!(matches!(error, DiscoverProjectError::OutsideMarker { .. }));
     }
@@ -464,7 +482,7 @@ mod tests {
     fn walk_with_an_absolute_marker_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
 
-        let error = walk(root.path(), &[Marker::from("/etc")]).unwrap_err();
+        let error = walk(root.path(), &[Marker::from("/etc")], Fallback::Error).unwrap_err();
 
         assert!(matches!(error, DiscoverProjectError::OutsideMarker { .. }));
     }
@@ -477,7 +495,7 @@ mod tests {
         let start = directory(&root, "crates/example");
         directory(&root, "crates/example/.git");
 
-        let project = walk(&start, &[Marker::from(".git")]).unwrap();
+        let project = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
 
         assert_eq!(project.root().get(), start);
     }
@@ -490,7 +508,12 @@ mod tests {
         let start = directory(&root, "crates/example");
         file(&root, "crates/example/Cargo.toml");
 
-        let project = walk(&start, &[Marker::from(".git"), Marker::from("Cargo.toml")]).unwrap();
+        let project = walk(
+            &start,
+            &[Marker::from(".git"), Marker::from("Cargo.toml")],
+            Fallback::Error,
+        )
+        .unwrap();
 
         assert_eq!(project.root().get(), start);
     }
@@ -505,10 +528,31 @@ mod tests {
         let project = walk(
             root.path(),
             &[Marker::from(".git"), Marker::from("Cargo.toml")],
+            Fallback::Error,
         )
         .unwrap();
 
-        assert_eq!(project.marker().get(), Path::new(".git"));
+        assert_eq!(project.marker().unwrap().get(), Path::new(".git"));
+    }
+
+    // project[verify discover.fallback]
+    #[test]
+    fn walk_without_a_match_and_the_fallback_returns_no_marker() {
+        let root = tempfile::tempdir().unwrap();
+
+        let project = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Start).unwrap();
+
+        assert!(project.marker().is_none());
+    }
+
+    // project[verify discover.fallback]
+    #[test]
+    fn walk_without_a_match_and_the_fallback_returns_the_start() {
+        let root = tempfile::tempdir().unwrap();
+
+        let project = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Start).unwrap();
+
+        assert_eq!(project.root().get(), root.path());
     }
 
     // project[verify discover.error.missing.message]
@@ -516,7 +560,7 @@ mod tests {
     fn walk_without_a_match_names_the_start_and_the_markers() {
         let root = tempfile::tempdir().unwrap();
 
-        let error = walk(root.path(), &[Marker::from(ABSENT)]).unwrap_err();
+        let error = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Error).unwrap_err();
 
         assert_eq!(
             error.to_string(),
@@ -532,7 +576,7 @@ mod tests {
     fn walk_without_a_match_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
 
-        let error = walk(root.path(), &[Marker::from(ABSENT)]).unwrap_err();
+        let error = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Error).unwrap_err();
 
         assert!(matches!(error, DiscoverProjectError::MissingProject { .. }));
     }
