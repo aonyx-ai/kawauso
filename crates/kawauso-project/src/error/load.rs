@@ -27,7 +27,13 @@ pub enum LoadProjectError {
     ///
     /// The walk found no marker, or it could not begin. The cause carries
     /// which of the two happened.
-    #[error("failed to discover the project")]
+    ///
+    /// The message of this variant is the message of its cause. A search that
+    /// matched nothing names the start and the markers that it tested, and a
+    /// search that never began names the reason. A caller that reports only
+    /// the first line of an error therefore still tells its user what to
+    /// correct.
+    #[error(transparent)]
     #[non_exhaustive]
     UndiscoverableProject {
         /// The cause of the failure

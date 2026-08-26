@@ -27,6 +27,12 @@ use std::process::Output;
 use kawauso_project::Project;
 use kawauso_project::Search;
 
+/// A marker that no directory of the file system holds
+///
+/// A search that must not match needs a marker that no ancestor of a
+/// temporary directory holds, up to the root of the file system.
+const ABSENT: &str = ".kawauso-project-absent-marker";
+
 /// The name of the application whose project the tests find
 const APPLICATION: &str = "example";
 
@@ -124,6 +130,23 @@ fn discover_with_the_working_directory_returns_the_working_directory() {
 /// starts the child. Only that test can give this one the working directory
 /// that it needs, so `#[ignore]` keeps a run of the suite from reaching it on
 /// its own.
+// A caller that reports one line of an error still names what its user has to
+// correct, because the message of the load is the message of the search that
+// produced no project.
+// project[verify discover.error.missing.message]
+#[test]
+fn discover_without_a_match_reports_the_markers() {
+    let directory = tempfile::tempdir().unwrap();
+    let search = Search::start(directory.path()).marker(ABSENT);
+
+    let outcome: Result<Project, _> = Project::builder()
+        .application(APPLICATION)
+        .without_configuration()
+        .load(&search);
+
+    assert!(outcome.unwrap_err().to_string().contains(ABSENT));
+}
+
 mod child {
     use kawauso_project::Project;
     use kawauso_project::Search;
