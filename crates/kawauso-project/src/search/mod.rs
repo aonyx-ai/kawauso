@@ -1,6 +1,6 @@
 //! The search for the project of an application
 //!
-//! A search describes how [`discover`][discover] finds a project: the
+//! A search describes how [`load`][load] finds a project: the
 //! directory at which the walk starts, and the markers that identify the
 //! project. The module holds the search and the types of its parts.
 //!
@@ -8,7 +8,7 @@
 //! An application can therefore build the search once, keep it in a field,
 //! and discover the project more than once.
 //!
-//! [discover]: crate::Project::discover
+//! [load]: crate::Project::builder
 
 pub mod fallback;
 pub mod marker;
@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 pub use self::fallback::Fallback;
 pub use self::marker::Marker;
 pub use self::start_directory::StartDirectory;
-use self::state::Marked;
+pub use self::state::Marked;
 pub use self::state::State;
 use self::state::Unmarked;
 
@@ -33,7 +33,7 @@ use self::state::Unmarked;
 ///
 /// The type parameter records whether the search names a marker. A search
 /// without one cannot find a project, because the walk tests nothing in every
-/// directory. [`discover`][discover] therefore takes a `Search<Marked>`, and
+/// directory. [`load`][load] therefore takes a `Search<Marked>`, and
 /// a search that never received a marker does not compile.
 ///
 /// # Examples
@@ -58,7 +58,7 @@ use self::state::Unmarked;
 /// assert_eq!(search.markers().len(), 2);
 /// ```
 ///
-/// [discover]: crate::Project::discover
+/// [load]: crate::Project::builder
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Search<S: State> {
     /// The directory at which the walk starts
@@ -223,7 +223,7 @@ impl<S: State> Search<S> {
     /// let search = Search::start(directory.path())
     ///     .marker(".no-such-project-marker")
     ///     .or_start();
-    /// let project = Project::discover(&search)?;
+    /// let project: Project = Project::builder().load(&search)?;
     ///
     /// assert!(project.marker().is_none());
     /// # Ok::<(), Box<dyn std::error::Error>>(())

@@ -148,6 +148,52 @@ project[discover.start.error.unknown-directory]
 The crate MUST return an error, and MUST NOT panic, when it needs the working
 directory of the process and cannot determine it.
 
+## Configuration
+
+Our projects keep the configuration file of a tool in the subdirectory
+`.config`, with the name of the application and the extension `.toml`. The
+crate states this convention once, so that an application does not repeat it
+and a user finds the file of every tool in the same place. An application
+whose host dictates another location, such as a GitHub Action that reads
+`.github`, names that location instead.
+
+The developer describes the project once, before the crate finds it: where the
+search starts, which markers identify the project, and which file holds the
+configuration. The crate then reads the file and deserializes it into a type
+that the developer defines. A caller that holds the project can therefore ask
+for the configuration and get a value, and no caller reads the file a second
+time.
+
+Not every project has a configuration file. A project without one is a normal
+state, not a failure, so the crate reports no configuration and the
+application decides what to do. An application whose configuration is
+required states that itself, and an application that runs with default
+settings asks its type for them.
+
+A file that exists and cannot be read or deserialized is a different case. The
+user wrote that file and expects the application to use it, so the crate
+reports the failure instead of the absence.
+
+project[configuration.location]
+The configuration file of an application MUST be the file
+`<application>.toml` in the subdirectory `.config` of the project.
+
+project[configuration.location.custom]
+The crate MUST use the relative path that the developer names as the
+configuration file instead, when the developer names one.
+
+project[configuration.load]
+The crate MUST deserialize the configuration file of the project into a type
+that the developer defines.
+
+project[configuration.missing]
+The crate MUST report no configuration, and MUST NOT return an error, when
+the project has no configuration file.
+
+project[configuration.error]
+The crate MUST return an error, and MUST NOT panic, when the configuration
+file of the project exists and cannot be loaded.
+
 [adr-009]: ../../adrs/009-project-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119
 [tracey]: https://tracey.bearcove.eu/

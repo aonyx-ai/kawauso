@@ -86,7 +86,7 @@ fn discover_with_a_start_in_one_of_two_projects_returns_that_project() {
     std::fs::create_dir_all(second.join("src")).unwrap();
 
     let search = Search::start(second.join("src")).marker(MARKER);
-    let project = Project::discover(&search).unwrap();
+    let project: Project = Project::builder().load(&search).unwrap();
 
     assert_eq!(project.root().get(), second);
 }
@@ -123,7 +123,7 @@ mod child {
     fn discover_with_the_working_directory() {
         let search = Search::working_directory().marker(MARKER);
 
-        let project = Project::discover(&search).unwrap();
+        let project: Project = Project::builder().load(&search).unwrap();
 
         assert_eq!(project.root().get(), std::env::current_dir().unwrap());
     }

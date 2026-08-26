@@ -20,16 +20,35 @@ A search that finds no project returns an error, so an application that
 creates files never writes them outside a project. An application that also
 runs outside a project can ask for the start directory instead.
 
+[`Project::builder`] describes the project, and `load` then finds it. An
+application opts into a configuration when it declares where the file is.
+`application` puts the file at `.config/<application>.toml`, which is where
+our projects keep it, and `configuration_file` names another location for an
+application whose host dictates one. An application that declares neither
+gets a project without a configuration.
+
+`configuration` reports `None` for such a project, and also when no file
+exists at the location that the application declared.
+
 ## Usage
 
 ```rust
 use kawauso_project::Project;
 use kawauso_project::Search;
 
-let search = Search::working_directory().marker(".git");
-let project = Project::discover(&search)?;
+use serde::Deserialize;
 
-let manifest = project.root().get().join("Cargo.toml");
+#[derive(Deserialize)]
+struct Configuration {
+    port: u16,
+}
+
+let search = Search::working_directory().marker(".git");
+let project: Project<Configuration> = Project::builder()
+    .application("example")
+    .load(&search)?;
+
+let port = project.configuration().map(|configuration| configuration.port);
 ```
 
 ## License
@@ -51,4 +70,5 @@ Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
 
+[`Project::builder`]: https://docs.rs/kawauso-project/latest/kawauso_project/project/struct.Project.html#method.builder
 [`Search`]: https://docs.rs/kawauso-project/latest/kawauso_project/search/struct.Search.html

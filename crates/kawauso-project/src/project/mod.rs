@@ -3,14 +3,27 @@
 //! A project is a directory that a marker identifies. This module holds the
 //! project and the walk that finds it.
 
+pub mod application_name;
+pub mod configuration_file;
+pub mod configuration_path;
+pub mod no_configuration;
 pub mod project_root;
 
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 
+use bon::bon;
+use kawauso_config::Loader;
+use serde::de::DeserializeOwned;
+
+pub use self::application_name::ApplicationName;
+pub use self::configuration_file::ConfigurationFile;
+pub use self::configuration_path::ConfigurationPath;
+pub use self::no_configuration::NoConfiguration;
 pub use self::project_root::ProjectRoot;
 use crate::error::DiscoverProjectError;
+use crate::error::LoadProjectError;
 use crate::error::discover::Markers;
 use crate::search::Fallback;
 use crate::search::Marker;
@@ -28,6 +41,19 @@ use crate::search::state::Marked;
 /// it from the path of a file, because such a calculation repeats the
 /// convention of the search and breaks when the convention changes.
 ///
+/// The type parameter is the configuration of the project. An application
+/// that declares a configuration file writes the type that the file
+/// deserializes into, such as `Project<Configuration>`.
+///
+/// The parameter defaults to [`NoConfiguration`] for an application that
+/// declares no configuration file. Without the default, such an application
+/// would still have to name a type that it never uses, because nothing else
+/// in its code would say what the parameter is. It writes `Project` instead.
+///
+/// Every project of an application is one type, whether or not a file exists
+/// at the location that it declared, so a caller can hold more than one
+/// project in a collection.
+///
 /// # Examples
 ///
 /// ```
@@ -40,13 +66,13 @@ use crate::search::state::Marked;
 /// std::fs::write(root.join("Cargo.toml"), "")?;
 ///
 /// let search = Search::start(root.join("src")).marker("Cargo.toml");
-/// let project = Project::discover(&search)?;
+/// let project: Project = Project::builder().load(&search)?;
 ///
 /// assert_eq!(project.root().get(), root);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct Project {
+pub struct Project<T = NoConfiguration> {
     /// The directory of the project
     root: ProjectRoot,
 
@@ -55,20 +81,39 @@ pub struct Project {
     /// `None` when no marker matched and the search fell back to the start
     /// directory.
     marker: Option<Marker>,
+
+    /// The configuration that the project holds
+    ///
+    /// `None` when the developer named no configuration file, and when the
+    /// project has no file at the location that they named.
+    configuration: Option<T>,
+
+    /// The path at which the project keeps its configuration file
+    ///
+    /// `None` when the developer named no configuration file. The path is
+    /// present when they named one, whether or not a file exists at it, so
+    /// that an application can tell its user where to put the file.
+    configuration_path: Option<ConfigurationPath>,
 }
 
-impl Project {
-    /// Finds the project of an application
+#[bon]
+impl<T> Project<T>
+where
+    T: DeserializeOwned,
+{
+    /// Describes a project, then finds it and loads its configuration
     ///
-    /// The walk starts at the directory that the search names and goes up one
-    /// directory at a time, up to the root of the file system. In each
-    /// directory it tests the markers of the search, in the order in which
-    /// the developer named them. The first directory that holds any marker is
-    /// the project.
+    /// The developer describes the project once: which file holds the
+    /// configuration, and, through the [`Search`], where the walk starts and
+    /// which markers identify the project. [`load`][load] then runs the
+    /// search and reads the file.
     ///
-    /// A relative start resolves against the working directory of the
-    /// process. The resolution happens when this method runs, and not when
-    /// the search is built.
+    /// Name the application with [`application`][application] to put the
+    /// configuration file at the conventional location, `.config/<name>.toml`
+    /// inside the project. Name a location with
+    /// [`configuration_file`][configuration-file] when the host of the
+    /// application dictates another one. An application that names neither
+    /// gets a project without a configuration.
     ///
     /// The search must name at least one marker. A search without one does
     /// not compile:
@@ -78,53 +123,122 @@ impl Project {
     /// use kawauso_project::Search;
     ///
     /// let search = Search::start("src");
-    /// let project = Project::discover(&search);
+    /// let project: Project = Project::builder().load(&search).unwrap();
     /// ```
     ///
     /// # Errors
     ///
-    /// Returns [`MissingProject`][missing] when no marker exists in any
-    /// directory up to the root of the file system.
+    /// Returns [`UndiscoverableProject`][undiscoverable] when the search
+    /// produces no project: no marker matched, or the walk could not begin.
     ///
-    /// Returns [`OutsideMarker`][outside] when a marker is not a relative
-    /// path inside a directory.
-    ///
-    /// Returns [`UnreadableStart`][unreadable] when the start does not exist
-    /// or cannot be read.
-    ///
-    /// Returns [`UnknownWorkingDirectory`][unknown] when the start is
-    /// relative and the operating system does not report the working
-    /// directory of the process.
+    /// Returns [`UnloadableConfiguration`][unloadable] when a configuration
+    /// file exists at the location of the project and cannot be read, parsed,
+    /// or deserialized.
     ///
     /// # Examples
     ///
     /// ```
+    /// use serde::Deserialize;
+    ///
     /// use kawauso_project::Project;
     /// use kawauso_project::Search;
     ///
+    /// #[derive(Deserialize)]
+    /// struct Configuration {
+    ///     port: u16,
+    /// }
+    ///
     /// let directory = tempfile::tempdir()?;
-    /// let root = directory.path().join("repository");
-    /// std::fs::create_dir_all(root.join("crates").join("example"))?;
-    /// std::fs::create_dir(root.join(".git"))?;
+    /// std::fs::create_dir_all(directory.path().join(".config"))?;
+    /// std::fs::write(
+    ///     directory.path().join(".config").join("example.toml"),
+    ///     "port = 8080",
+    /// )?;
     ///
-    /// let search = Search::start(root.join("crates").join("example")).marker(".git");
-    /// let project = Project::discover(&search)?;
+    /// let search = Search::start(directory.path()).marker(".config/example.toml");
+    /// let project: Project<Configuration> =
+    ///     Project::builder().application("example").load(&search)?;
     ///
-    /// assert_eq!(project.marker().unwrap().get(), std::path::Path::new(".git"));
+    /// assert_eq!(project.configuration().unwrap().port, 8080);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
-    /// [missing]: DiscoverProjectError::MissingProject
-    /// [outside]: DiscoverProjectError::OutsideMarker
-    /// [unknown]: DiscoverProjectError::UnknownWorkingDirectory
-    /// [unreadable]: DiscoverProjectError::UnreadableStart
+    /// [application]: ProjectBuilder::application
+    /// [configuration-file]: ProjectBuilder::configuration_file
+    /// [load]: ProjectBuilder::load
+    /// [undiscoverable]: LoadProjectError::UndiscoverableProject
+    /// [unloadable]: LoadProjectError::UnloadableConfiguration
+    // The original function stays private, so `builder` is the only way to
+    // describe a project. Its own visibility is set here, because bon gives
+    // the generated functions the visibility of the function that it wraps.
+    #[builder(
+        builder_type(vis = "pub"),
+        state_mod(vis = "pub"),
+        start_fn(name = builder, vis = "pub"),
+        finish_fn(name = load, vis = "pub")
+    )]
+    // project[impl configuration.load]
+    // project[impl configuration.location]
     // project[impl discover.markers.required]
-    // project[impl discover.start.caller]
     // project[verify discover.markers.required]
-    pub fn discover(search: &Search<Marked>) -> Result<Self, DiscoverProjectError> {
-        let start = resolve(search.start_directory().get(), std::env::current_dir())?;
+    // project[impl configuration.location.custom]
+    // project[impl configuration.missing]
+    // project[impl discover.start.caller]
+    fn new(
+        // bon requires the argument of the finishing function before the
+        // members that get a setter.
+        #[builder(finish_fn)] search: &Search<Marked>,
+        #[builder(into)] application: Option<ApplicationName>,
+        #[builder(into)] configuration_file: Option<ConfigurationFile>,
+    ) -> Result<Self, LoadProjectError> {
+        let start = resolve(search.start_directory().get(), std::env::current_dir())
+            .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
 
-        walk(&start, search.markers(), search.fallback())
+        let discovery = walk(&start, search.markers(), search.fallback())
+            .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
+
+        // A location that the developer names wins over the one that the name
+        // of the application implies, and an application that names neither
+        // gets no configuration.
+        let configuration_path = configuration_file
+            .or_else(|| application.as_ref().map(configuration_file_of))
+            .map(|file| ConfigurationPath::new(discovery.root.get().join(file.get())));
+
+        let configuration = match &configuration_path {
+            Some(path) if exists(path.get()) => Some(load_configuration(path)?),
+            _ => None,
+        };
+
+        Ok(Self {
+            root: discovery.root,
+            marker: discovery.marker,
+            configuration,
+            configuration_path,
+        })
+    }
+}
+
+impl<T> Project<T> {
+    /// Returns the configuration that the project holds
+    ///
+    /// Returns `None` when the developer named no configuration file, and
+    /// when the project has no file at the location that they named.
+    /// [`configuration_path`][configuration-path] names the location, so that
+    /// an application whose configuration is required can tell its user where
+    /// to put the file.
+    ///
+    /// [configuration-path]: Project::configuration_path
+    pub fn configuration(&self) -> Option<&T> {
+        self.configuration.as_ref()
+    }
+
+    /// Returns the path at which the project keeps its configuration file
+    ///
+    /// Returns `None` when the developer named no configuration file. The
+    /// path is present when they named one, whether or not a file exists at
+    /// it.
+    pub fn configuration_path(&self) -> Option<&ConfigurationPath> {
+        self.configuration_path.as_ref()
     }
 
     /// Returns the marker that identified the project
@@ -139,6 +253,54 @@ impl Project {
     pub fn root(&self) -> &ProjectRoot {
         &self.root
     }
+}
+
+/// What the walk found: a directory, and the marker that identified it
+///
+/// The walk runs before the crate knows the configuration of the project, so
+/// it cannot produce a [`Project`] on its own. This type carries its result
+/// until the configuration joins it.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+struct Discovery {
+    /// The directory of the project
+    root: ProjectRoot,
+
+    /// The marker that identified the project, if one matched
+    marker: Option<Marker>,
+}
+
+/// Returns the conventional location of the configuration file
+///
+/// Our projects keep the file of a tool in the subdirectory `.config`, with
+/// the name of the application and the extension `.toml`. The crate states
+/// this convention here, so that no application repeats it.
+// project[impl configuration.location]
+fn configuration_file_of(application: &ApplicationName) -> ConfigurationFile {
+    ConfigurationFile::new(PathBuf::from(".config").join(format!("{application}.toml")))
+}
+
+/// Reads a configuration file and deserializes it
+///
+/// The read and the deserialization belong to `kawauso-config`, so a failure
+/// in a file of a project is reported in the same words as for every other
+/// configuration file. The cause is boxed, because the type that produced it
+/// belongs to a dependency and never crosses the boundary of this crate.
+///
+/// # Errors
+///
+/// Returns an error when the file cannot be read, parsed, or deserialized.
+// project[impl configuration.error]
+// project[impl configuration.load]
+fn load_configuration<T>(path: &ConfigurationPath) -> Result<T, LoadProjectError>
+where
+    T: DeserializeOwned,
+{
+    Loader::path(path.get())
+        .load()
+        .map_err(|source| LoadProjectError::UnloadableConfiguration {
+            path: path.clone(),
+            source: Box::new(source),
+        })
 }
 
 /// Reports whether an entry exists at a path
@@ -279,7 +441,7 @@ fn walk(
     start: &Path,
     markers: &[Marker],
     fallback: Fallback,
-) -> Result<Project, DiscoverProjectError> {
+) -> Result<Discovery, DiscoverProjectError> {
     if let Some(marker) = markers.iter().find(|marker| !is_inside(marker)) {
         return Err(DiscoverProjectError::OutsideMarker {
             marker: marker.clone(),
@@ -289,7 +451,7 @@ fn walk(
     for directory in start.ancestors() {
         for marker in markers {
             if exists(&directory.join(marker.get())) {
-                return Ok(Project {
+                return Ok(Discovery {
                     root: ProjectRoot::new(directory.to_path_buf()),
                     marker: Some(marker.clone()),
                 });
@@ -299,7 +461,7 @@ fn walk(
 
     match fallback {
         // project[impl discover.fallback]
-        Fallback::Start => Ok(Project {
+        Fallback::Start => Ok(Discovery {
             root: ProjectRoot::new(start.to_path_buf()),
             marker: None,
         }),
@@ -414,9 +576,9 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         directory(&root, ".git");
 
-        let project = walk(root.path(), &[Marker::from(".git")], Fallback::Error).unwrap();
+        let discovery = walk(root.path(), &[Marker::from(".git")], Fallback::Error).unwrap();
 
-        assert_eq!(project.root().get(), root.path());
+        assert_eq!(discovery.root.get(), root.path());
     }
 
     // project[verify discover.markers.error.outside]
@@ -436,9 +598,9 @@ mod tests {
         file(&root, "Cargo.toml");
         let start = directory(&root, "crates/example/src");
 
-        let project = walk(&start, &[Marker::from("Cargo.toml")], Fallback::Error).unwrap();
+        let discovery = walk(&start, &[Marker::from("Cargo.toml")], Fallback::Error).unwrap();
 
-        assert_eq!(project.root().get(), root.path());
+        assert_eq!(discovery.root.get(), root.path());
     }
 
     // project[verify discover.result]
@@ -448,9 +610,9 @@ mod tests {
         directory(&root, ".git");
         let start = directory(&root, "src");
 
-        let project = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
+        let discovery = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
 
-        assert_eq!(project.marker().unwrap().get(), Path::new(".git"));
+        assert_eq!(discovery.marker.unwrap().get(), Path::new(".git"));
     }
 
     // project[verify discover.order]
@@ -462,9 +624,9 @@ mod tests {
         directory(&root, "crates/.git");
         let start = directory(&root, "crates/example");
 
-        let project = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
+        let discovery = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
 
-        assert_eq!(project.root().get(), parent);
+        assert_eq!(discovery.root.get(), parent);
     }
 
     // project[verify discover.markers.error.outside]
@@ -495,9 +657,9 @@ mod tests {
         let start = directory(&root, "crates/example");
         directory(&root, "crates/example/.git");
 
-        let project = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
+        let discovery = walk(&start, &[Marker::from(".git")], Fallback::Error).unwrap();
 
-        assert_eq!(project.root().get(), start);
+        assert_eq!(discovery.root.get(), start);
     }
 
     // project[verify discover.markers.walk]
@@ -508,14 +670,14 @@ mod tests {
         let start = directory(&root, "crates/example");
         file(&root, "crates/example/Cargo.toml");
 
-        let project = walk(
+        let discovery = walk(
             &start,
             &[Marker::from(".git"), Marker::from("Cargo.toml")],
             Fallback::Error,
         )
         .unwrap();
 
-        assert_eq!(project.root().get(), start);
+        assert_eq!(discovery.root.get(), start);
     }
 
     // project[verify discover.markers.order]
@@ -525,14 +687,14 @@ mod tests {
         directory(&root, ".git");
         file(&root, "Cargo.toml");
 
-        let project = walk(
+        let discovery = walk(
             root.path(),
             &[Marker::from(".git"), Marker::from("Cargo.toml")],
             Fallback::Error,
         )
         .unwrap();
 
-        assert_eq!(project.marker().unwrap().get(), Path::new(".git"));
+        assert_eq!(discovery.marker.unwrap().get(), Path::new(".git"));
     }
 
     // project[verify discover.fallback]
@@ -540,9 +702,9 @@ mod tests {
     fn walk_without_a_match_and_the_fallback_returns_no_marker() {
         let root = tempfile::tempdir().unwrap();
 
-        let project = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Start).unwrap();
+        let discovery = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Start).unwrap();
 
-        assert!(project.marker().is_none());
+        assert!(discovery.marker.is_none());
     }
 
     // project[verify discover.fallback]
@@ -550,9 +712,9 @@ mod tests {
     fn walk_without_a_match_and_the_fallback_returns_the_start() {
         let root = tempfile::tempdir().unwrap();
 
-        let project = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Start).unwrap();
+        let discovery = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Start).unwrap();
 
-        assert_eq!(project.root().get(), root.path());
+        assert_eq!(discovery.root.get(), root.path());
     }
 
     // project[verify discover.error.missing.message]

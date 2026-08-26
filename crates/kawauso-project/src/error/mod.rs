@@ -7,5 +7,7 @@
 //! the message of the error.
 
 pub mod discover;
+pub mod load;
 
 pub use self::discover::DiscoverProjectError;
+pub use self::load::LoadProjectError;
