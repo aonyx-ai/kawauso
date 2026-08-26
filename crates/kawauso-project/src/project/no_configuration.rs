@@ -10,10 +10,16 @@ use serde::Deserialize;
 /// the directory of its project therefore writes `Project` and names no type
 /// of its own.
 ///
-/// No project ever holds a value of this type. A project without a
-/// configuration file reports `None`.
+/// The type holds no field, and it accepts no field. A project that reads a
+/// file with contents into this type therefore fails, which tells the
+/// developer that the application reads a file that it never described. An
+/// application that wants only the directory declares this with
+/// [`without_configuration`][without-configuration], and the project then
+/// reads no file at all.
 ///
 /// [project]: crate::Project
+/// [without-configuration]: crate::project::ProjectBuilder::without_configuration
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize)]
 #[non_exhaustive]
+#[serde(deny_unknown_fields)]
 pub struct NoConfiguration {}

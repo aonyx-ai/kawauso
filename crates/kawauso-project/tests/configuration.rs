@@ -11,6 +11,7 @@
 
 use kawauso_project::Project;
 use kawauso_project::Search;
+use kawauso_project::project::NoConfiguration;
 use serde::Deserialize;
 use tempfile::TempDir;
 
@@ -138,4 +139,57 @@ fn load_without_a_configuration_file_reports_no_configuration() {
         .unwrap();
 
     assert!(project.configuration().is_none());
+}
+
+// A file at the conventional location belongs to something else when the
+// application declared that it has no configuration file. The project leaves
+// that file alone, so contents that no type of the application describes
+// cannot fail the load.
+// project[verify configuration.none]
+#[test]
+fn load_without_a_configuration_ignores_a_file_at_the_location() {
+    let directory = project(Some((".config/example.toml", "port = "))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let project: Result<Project, _> = Project::builder()
+        .application(APPLICATION)
+        .without_configuration()
+        .load(&search);
+
+    assert!(project.is_ok());
+}
+
+// project[verify configuration.none]
+#[test]
+fn load_without_a_configuration_reports_no_configuration() {
+    let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let project: Project = Project::builder()
+        .application(APPLICATION)
+        .without_configuration()
+        .load(&search)
+        .unwrap();
+
+    assert!(project.configuration().is_none());
+}
+
+// A project that reads a file into `NoConfiguration` gets contents that no
+// type of the application describes. The load fails, which tells the
+// developer that the application reads a file that it never described.
+#[test]
+fn load_without_a_configuration_type_and_with_a_file_returns_an_error() {
+    let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let error = Project::<NoConfiguration>::builder()
+        .application(APPLICATION)
+        .load(&search)
+        .unwrap_err();
+
+    assert!(
+        error
+            .to_string()
+            .contains("failed to load the configuration")
+    );
 }

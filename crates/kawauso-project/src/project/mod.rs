@@ -111,7 +111,10 @@ where
     /// application decides where the configuration file is:
     /// `.config/<name>.toml` inside the project. An application whose host
     /// dictates another location names it with
-    /// [`configuration_file`][configuration-file] instead.
+    /// [`configuration_file`][configuration-file] instead. An application
+    /// that has no configuration file declares this with
+    /// [`without_configuration`][without-configuration], and the project
+    /// then reads no file.
     ///
     /// The search must name at least one marker. A search without one does
     /// not compile:
@@ -164,6 +167,7 @@ where
     /// [application]: ProjectBuilder::application
     /// [configuration-file]: ProjectBuilder::configuration_file
     /// [load]: ProjectBuilder::load
+    /// [without-configuration]: ProjectBuilder::without_configuration
     /// [undiscoverable]: LoadProjectError::UndiscoverableProject
     /// [unloadable]: LoadProjectError::UnloadableConfiguration
     // The original function stays private, so `builder` is the only way to
@@ -181,19 +185,18 @@ where
     // project[verify discover.markers.required]
     // project[impl configuration.location.custom]
     // project[impl configuration.missing]
+    // project[impl configuration.none]
     // project[impl discover.start.caller]
     fn new(
         // bon requires the argument of the finishing function before the
         // members that get a setter.
         #[builder(finish_fn)] search: &Search<Marked>,
-        // The body never reads the name: it reaches the crate through the
-        // default of `configuration_file`, which bon evaluates in the
-        // finishing function that it generates.
-        #[allow(unused_variables)]
-        #[builder(into)]
-        application: ApplicationName,
-        #[builder(into, default = configuration_file_of(&application))]
-        configuration_file: ConfigurationFile,
+        #[builder(into)] application: ApplicationName,
+        // The generated setter is private. The two public methods on the
+        // builder wrap it, and each one requires this member to be unset, so
+        // a caller cannot both name a file and opt out of the configuration.
+        #[builder(default = ConfigurationSource::Conventional, setters(name = configuration_source, vis = ""))]
+        configuration: ConfigurationSource,
     ) -> Result<Self, LoadProjectError> {
         let start = resolve(search.start_directory().get(), std::env::current_dir())
             .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
@@ -201,13 +204,28 @@ where
         let discovery = walk(&start, search.markers(), search.fallback())
             .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
 
+        let configuration_file = match &configuration {
+            ConfigurationSource::File(file) => file.clone(),
+            ConfigurationSource::Conventional | ConfigurationSource::None => {
+                configuration_file_of(&application)
+            }
+        };
+
         let configuration_path =
             ConfigurationPath::new(discovery.root.get().join(configuration_file.get()));
 
-        let configuration = if exists(configuration_path.get()) {
-            Some(load_configuration(&configuration_path)?)
-        } else {
-            None
+        let configuration = match configuration {
+            // The application declared that it has no configuration file, so
+            // a file at the location belongs to something else and stays
+            // untouched.
+            ConfigurationSource::None => None,
+            ConfigurationSource::Conventional | ConfigurationSource::File(_) => {
+                if exists(configuration_path.get()) {
+                    Some(load_configuration(&configuration_path)?)
+                } else {
+                    None
+                }
+            }
         };
 
         Ok(Self {
@@ -216,6 +234,139 @@ where
             configuration,
             configuration_path,
         })
+    }
+}
+
+/// Where a project gets its configuration
+///
+/// The default is the conventional location, which the name of the
+/// application decides. A developer whose host dictates another location
+/// names it, and a developer whose application has no configuration file at
+/// all opts out.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+enum ConfigurationSource {
+    /// The conventional location, `.config/<application>.toml`
+    Conventional,
+
+    /// A location that the developer names
+    File(ConfigurationFile),
+
+    /// The application has no configuration file
+    None,
+}
+
+impl<'search, T, S: project_builder::State> ProjectBuilder<'search, T, S>
+where
+    T: DeserializeOwned,
+{
+    /// Names the file that holds the configuration of the project
+    ///
+    /// The value is a path relative to the directory of the project. Use this
+    /// method for an application whose host dictates a location, such as a
+    /// GitHub Action that reads `.github`. An application that keeps its file
+    /// at the conventional `.config/<application>.toml` names no file.
+    ///
+    /// This method and [`without_configuration`][without] describe the same
+    /// thing. A builder that calls both does not compile.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use serde::Deserialize;
+    ///
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct Configuration {
+    ///     port: u16,
+    /// }
+    ///
+    /// let directory = tempfile::tempdir()?;
+    /// std::fs::create_dir_all(directory.path().join(".github"))?;
+    /// std::fs::write(
+    ///     directory.path().join(".github").join("example.toml"),
+    ///     "port = 8080",
+    /// )?;
+    ///
+    /// let search = Search::start(directory.path()).marker(".github/example.toml");
+    /// let project: Project<Configuration> = Project::builder()
+    ///     .application("example")
+    ///     .configuration_file(".github/example.toml")
+    ///     .load(&search)?;
+    ///
+    /// assert_eq!(project.configuration().unwrap().port, 8080);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [without]: ProjectBuilder::without_configuration
+    pub fn configuration_file(
+        self,
+        configuration_file: impl Into<ConfigurationFile>,
+    ) -> ProjectBuilder<'search, T, project_builder::SetConfiguration<S>>
+    where
+        S::Configuration: project_builder::IsUnset,
+    {
+        self.configuration_source(ConfigurationSource::File(configuration_file.into()))
+    }
+
+    /// Declares that the application has no configuration file
+    ///
+    /// The project reads no file, and [`configuration`][configuration]
+    /// reports `None` for it. Use this method for an application that wants
+    /// only the directory of its project. A file at the conventional
+    /// location then belongs to something else, and the project leaves it
+    /// alone.
+    ///
+    /// [`configuration_path`][configuration-path] still reports the
+    /// conventional location. An application that writes the file later
+    /// therefore knows where the file goes.
+    ///
+    /// This method and [`configuration_file`][file] describe the same thing.
+    /// A builder that calls both does not compile:
+    ///
+    /// ```compile_fail
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// let search = Search::start(".").marker(".git");
+    /// let project: Project = Project::builder()
+    ///     .application("example")
+    ///     .configuration_file(".github/example.toml")
+    ///     .without_configuration()
+    ///     .load(&search)
+    ///     .unwrap();
+    /// ```
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// let directory = tempfile::tempdir()?;
+    /// std::fs::write(directory.path().join(".git"), "")?;
+    ///
+    /// let search = Search::start(directory.path()).marker(".git");
+    /// let project: Project = Project::builder()
+    ///     .application("example")
+    ///     .without_configuration()
+    ///     .load(&search)?;
+    ///
+    /// assert!(project.configuration().is_none());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [configuration]: Project::configuration
+    /// [configuration-path]: Project::configuration_path
+    /// [file]: ProjectBuilder::configuration_file
+    pub fn without_configuration(
+        self,
+    ) -> ProjectBuilder<'search, T, project_builder::SetConfiguration<S>>
+    where
+        S::Configuration: project_builder::IsUnset,
+    {
+        self.configuration_source(ConfigurationSource::None)
     }
 }
 
