@@ -92,9 +92,14 @@ the order of the test.
 
 ### Start
 
-The developer names the directory at which the walk starts. An application
-that takes a path, such as a linter that examines one file, needs the project
-that governs that path. The user gives this path as an argument.
+Most applications run inside the project that they work on. The user starts
+them in the project, or in a directory below it, so the working directory is
+already inside the project. An application that takes no path from its user
+therefore starts the search there.
+
+Some applications, linters for example, take a path as an argument. That path
+can be outside the working directory, so the developer can also name another
+directory as the start of the search.
 
 A start can be relative, and it can contain `.` and `..` components. The walk
 goes up from the start one component at a time. A `..` component moves the
@@ -109,6 +114,10 @@ governs a file is the project of the directory that holds the file. The walk
 therefore starts at that directory. A start that does not exist is usually a
 mistake in the argument of the user. A report that no project exists hides
 this mistake, so the crate reports the start instead.
+
+project[discover.start.working-directory]
+The crate MUST start the walk at the working directory of the process when
+the developer declares no explicit start.
 
 project[discover.start.caller]
 The crate MUST start the walk at the directory that the developer names.

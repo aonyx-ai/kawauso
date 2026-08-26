@@ -83,6 +83,10 @@ impl Search<Unmarked> {
     /// runs, and not when the search is built. A start that names a file
     /// starts the walk at the directory that holds the file.
     ///
+    /// Use this constructor for an application that takes a path from its
+    /// user, and [`working_directory`][working-directory] for one that does
+    /// not.
+    ///
     /// The search has no marker yet, and it cannot discover a project.
     /// [`marker`][marker] adds the first one.
     ///
@@ -100,12 +104,47 @@ impl Search<Unmarked> {
     /// ```
     ///
     /// [marker]: Search::marker
+    /// [working-directory]: Search::working_directory
     pub fn start(start: impl Into<StartDirectory>) -> Self {
         Self {
             start: start.into(),
             markers: Vec::new(),
             state: PhantomData,
         }
+    }
+
+    /// Creates a search that starts at the working directory of the process
+    ///
+    /// A user runs an application in the project, or in a directory of the
+    /// project, so the working directory finds the project without an
+    /// argument. Use this constructor for an application that takes no path
+    /// of its own, and [`start`][start] for one that does.
+    ///
+    /// The working directory is read when the search runs, and not when it is
+    /// built. An application can therefore build the search once and discover
+    /// the project again after the working directory changed.
+    ///
+    /// The search has no marker yet, and it cannot discover a project.
+    /// [`marker`][marker] adds the first one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::Search;
+    ///
+    /// let search = Search::working_directory().marker(".git");
+    ///
+    /// assert_eq!(search.markers().len(), 1);
+    /// ```
+    ///
+    /// [marker]: Search::marker
+    /// [start]: Search::start
+    // project[impl discover.start.working-directory]
+    pub fn working_directory() -> Self {
+        // A relative start resolves against the working directory, and `.`
+        // resolves to the working directory itself. The walk needs no case of
+        // its own for this start.
+        Self::start(".")
     }
 }
 

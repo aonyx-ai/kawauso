@@ -7,9 +7,10 @@ then start the application in any directory of the project, and the
 application still finds the files that it needs.
 
 [`Search`] describes how the crate finds a project. It starts the search in a
-given directory, and walks up the directory tree until it finds a marker that
-identifies the project. A marker is an entry at a relative path, such as
-`.git`, `src/main.rs`, or `.config/example.toml`.
+given directory, or in the working directory of the process, and walks up the
+directory tree until it finds a marker that identifies the project. A marker
+is an entry at a relative path, such as `.git`, `src/main.rs`, or
+`.config/example.toml`.
 
 A search needs at least one marker, because a walk without one tests nothing.
 The type of a search records whether it has a marker, so a search without one
@@ -21,7 +22,7 @@ does not compile.
 use kawauso_project::Project;
 use kawauso_project::Search;
 
-let search = Search::start("src/main.rs").marker(".git");
+let search = Search::working_directory().marker(".git");
 let project = Project::discover(&search)?;
 
 let manifest = project.root().get().join("Cargo.toml");
