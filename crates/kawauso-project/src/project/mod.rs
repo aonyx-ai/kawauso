@@ -42,17 +42,18 @@ use crate::search::state::Marked;
 /// convention of the search and breaks when the convention changes.
 ///
 /// The type parameter is the configuration of the project. An application
-/// that declares a configuration file writes the type that the file
-/// deserializes into, such as `Project<Configuration>`.
+/// that reads a configuration writes the type that its file deserializes
+/// into, such as `Project<Configuration>`.
 ///
 /// The parameter defaults to [`NoConfiguration`] for an application that
-/// declares no configuration file. Without the default, such an application
-/// would still have to name a type that it never uses, because nothing else
-/// in its code would say what the parameter is. It writes `Project` instead.
+/// never reads its configuration file. Without the default, such an
+/// application would still have to name a type that it never uses, because
+/// nothing else in its code would say what the parameter is. It writes
+/// `Project` instead.
 ///
 /// Every project of an application is one type, whether or not a file exists
-/// at the location that it declared, so a caller can hold more than one
-/// project in a collection.
+/// at its configuration path, so a caller can hold more than one project in a
+/// collection.
 ///
 /// # Examples
 ///
@@ -66,7 +67,7 @@ use crate::search::state::Marked;
 /// std::fs::write(root.join("Cargo.toml"), "")?;
 ///
 /// let search = Search::start(root.join("src")).marker("Cargo.toml");
-/// let project: Project = Project::builder().load(&search)?;
+/// let project: Project = Project::builder().application("example").load(&search)?;
 ///
 /// assert_eq!(project.root().get(), root);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -84,16 +85,14 @@ pub struct Project<T = NoConfiguration> {
 
     /// The configuration that the project holds
     ///
-    /// `None` when the developer named no configuration file, and when the
-    /// project has no file at the location that they named.
+    /// `None` when no file exists at the configuration path of the project.
     configuration: Option<T>,
 
     /// The path at which the project keeps its configuration file
     ///
-    /// `None` when the developer named no configuration file. The path is
-    /// present when they named one, whether or not a file exists at it, so
-    /// that an application can tell its user where to put the file.
-    configuration_path: Option<ConfigurationPath>,
+    /// The path is known whether or not a file exists at it, so that an
+    /// application can tell its user where to put the file.
+    configuration_path: ConfigurationPath,
 }
 
 #[bon]
@@ -108,12 +107,11 @@ where
     /// which markers identify the project. [`load`][load] then runs the
     /// search and reads the file.
     ///
-    /// Name the application with [`application`][application] to put the
-    /// configuration file at the conventional location, `.config/<name>.toml`
-    /// inside the project. Name a location with
-    /// [`configuration_file`][configuration-file] when the host of the
-    /// application dictates another one. An application that names neither
-    /// gets a project without a configuration.
+    /// Every project belongs to an application, and the name of the
+    /// application decides where the configuration file is:
+    /// `.config/<name>.toml` inside the project. An application whose host
+    /// dictates another location names it with
+    /// [`configuration_file`][configuration-file] instead.
     ///
     /// The search must name at least one marker. A search without one does
     /// not compile:
@@ -188,8 +186,14 @@ where
         // bon requires the argument of the finishing function before the
         // members that get a setter.
         #[builder(finish_fn)] search: &Search<Marked>,
-        #[builder(into)] application: Option<ApplicationName>,
-        #[builder(into)] configuration_file: Option<ConfigurationFile>,
+        // The body never reads the name: it reaches the crate through the
+        // default of `configuration_file`, which bon evaluates in the
+        // finishing function that it generates.
+        #[allow(unused_variables)]
+        #[builder(into)]
+        application: ApplicationName,
+        #[builder(into, default = configuration_file_of(&application))]
+        configuration_file: ConfigurationFile,
     ) -> Result<Self, LoadProjectError> {
         let start = resolve(search.start_directory().get(), std::env::current_dir())
             .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
@@ -197,16 +201,13 @@ where
         let discovery = walk(&start, search.markers(), search.fallback())
             .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
 
-        // A location that the developer names wins over the one that the name
-        // of the application implies, and an application that names neither
-        // gets no configuration.
-        let configuration_path = configuration_file
-            .or_else(|| application.as_ref().map(configuration_file_of))
-            .map(|file| ConfigurationPath::new(discovery.root.get().join(file.get())));
+        let configuration_path =
+            ConfigurationPath::new(discovery.root.get().join(configuration_file.get()));
 
-        let configuration = match &configuration_path {
-            Some(path) if exists(path.get()) => Some(load_configuration(path)?),
-            _ => None,
+        let configuration = if exists(configuration_path.get()) {
+            Some(load_configuration(&configuration_path)?)
+        } else {
+            None
         };
 
         Ok(Self {
@@ -221,11 +222,11 @@ where
 impl<T> Project<T> {
     /// Returns the configuration that the project holds
     ///
-    /// Returns `None` when the developer named no configuration file, and
-    /// when the project has no file at the location that they named.
-    /// [`configuration_path`][configuration-path] names the location, so that
-    /// an application whose configuration is required can tell its user where
-    /// to put the file.
+    /// Returns `None` when no file exists at the configuration path of the
+    /// project, which is a normal state and not a failure. An application
+    /// whose configuration is required reports that itself, and
+    /// [`configuration_path`][configuration-path] tells its user where to put
+    /// the file.
     ///
     /// [configuration-path]: Project::configuration_path
     pub fn configuration(&self) -> Option<&T> {
@@ -234,11 +235,9 @@ impl<T> Project<T> {
 
     /// Returns the path at which the project keeps its configuration file
     ///
-    /// Returns `None` when the developer named no configuration file. The
-    /// path is present when they named one, whether or not a file exists at
-    /// it.
-    pub fn configuration_path(&self) -> Option<&ConfigurationPath> {
-        self.configuration_path.as_ref()
+    /// The path is known whether or not a file exists at it.
+    pub fn configuration_path(&self) -> &ConfigurationPath {
+        &self.configuration_path
     }
 
     /// Returns the marker that identified the project

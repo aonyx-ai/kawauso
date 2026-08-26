@@ -98,11 +98,15 @@ fn load_with_a_custom_location_reads_the_file_at_that_location() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
         .configuration_file(".github/example.toml")
         .load(&search)
         .unwrap();
 
-    assert!(project.configuration().is_some());
+    assert_eq!(
+        project.configuration_path().get(),
+        directory.path().join(".github").join("example.toml")
+    );
 }
 
 // project[verify configuration.location]
@@ -117,7 +121,7 @@ fn load_with_an_application_name_reads_the_conventional_location() {
         .unwrap();
 
     assert_eq!(
-        project.configuration_path().unwrap().get(),
+        project.configuration_path().get(),
         directory.path().join(".config").join("example.toml")
     );
 }

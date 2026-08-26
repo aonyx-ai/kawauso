@@ -20,15 +20,16 @@ A search that finds no project returns an error, so an application that
 creates files never writes them outside a project. An application that also
 runs outside a project can ask for the start directory instead.
 
-[`Project::builder`] describes the project, and `load` then finds it. An
-application opts into a configuration when it declares where the file is.
-`application` puts the file at `.config/<application>.toml`, which is where
-our projects keep it, and `configuration_file` names another location for an
-application whose host dictates one. An application that declares neither
-gets a project without a configuration.
+[`Project::builder`] describes the project, and `load` then finds it and
+reads its configuration file. Every project belongs to an application, and the
+name of the application decides where that file is:
+`.config/<application>.toml`, which is where our projects keep it. An
+application whose host dictates another location names it with
+`configuration_file`.
 
-`configuration` reports `None` for such a project, and also when no file
-exists at the location that the application declared.
+A project without the file is a normal state and not a failure.
+`configuration` reports `None` for it, and `configuration_path` tells the user
+where to put the file.
 
 ## Usage
 
