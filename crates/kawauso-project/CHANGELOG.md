@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog], and this project adheres to
   that takes no path from its user
 - Report the start directory as the project when no marker matches, for an
   application that also runs outside a project
+- Describe a project with a builder, then find it and read its configuration
+  file in one step with `Project::load`
+- Read the configuration file of a project from `.config/<application>.toml`,
+  or from a location that the application names, and deserialize it into a
+  type that the application defines
 
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html

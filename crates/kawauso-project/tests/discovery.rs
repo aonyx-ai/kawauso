@@ -27,6 +27,9 @@ use std::process::Output;
 use kawauso_project::Project;
 use kawauso_project::Search;
 
+/// The name of the application whose project the tests find
+const APPLICATION: &str = "example";
+
 /// The marker that identifies the projects of these tests
 const MARKER: &str = ".git";
 
@@ -86,7 +89,10 @@ fn discover_with_a_start_in_one_of_two_projects_returns_that_project() {
     std::fs::create_dir_all(second.join("src")).unwrap();
 
     let search = Search::start(second.join("src")).marker(MARKER);
-    let project = Project::discover(&search).unwrap();
+    let project: Project = Project::builder()
+        .application(APPLICATION)
+        .load(&search)
+        .unwrap();
 
     assert_eq!(project.root().get(), second);
 }
@@ -116,6 +122,7 @@ mod child {
     use kawauso_project::Project;
     use kawauso_project::Search;
 
+    use super::APPLICATION;
     use super::MARKER;
 
     #[test]
@@ -123,7 +130,10 @@ mod child {
     fn discover_with_the_working_directory() {
         let search = Search::working_directory().marker(MARKER);
 
-        let project = Project::discover(&search).unwrap();
+        let project: Project = Project::builder()
+            .application(APPLICATION)
+            .load(&search)
+            .unwrap();
 
         assert_eq!(project.root().get(), std::env::current_dir().unwrap());
     }

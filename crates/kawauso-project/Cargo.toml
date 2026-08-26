@@ -25,6 +25,9 @@ include = [
 ]
 
 [dependencies]
+bon = { workspace = true }
+kawauso-config = { workspace = true }
+serde = { workspace = true }
 thiserror = { workspace = true }
 typed-fields = { workspace = true }
 
