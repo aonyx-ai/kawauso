@@ -6,18 +6,19 @@ path!(
     /// The directory at which the walk of a search starts
     ///
     /// The search stores the value as the developer gave it. When the search
-    /// runs, a relative path resolves against the working directory of the
-    /// process, and the `.` and `..` components go, so that the walk never
-    /// passes through a directory that the developer did not name. Symbolic
-    /// links are not resolved, so the walk sees the tree that the developer
-    /// named.
+    /// runs, the value becomes a canonical path: a relative path resolves
+    /// against the working directory of the process, the `.` and `..`
+    /// components go, and the symbolic links resolve. The walk therefore
+    /// never passes through a directory that the developer did not name.
     ///
     /// The value can name a file. The walk then starts at the directory that
     /// holds the file, because the project that governs a file is the project
     /// of that directory.
     ///
     /// An error that names the start shows it in the resolved form, because
-    /// that is where the walk began.
+    /// that is where the walk began. A start that the crate cannot read has
+    /// no canonical path, and the error then shows the start as the developer
+    /// gave it, resolved against the working directory.
     StartDirectory
 );
 

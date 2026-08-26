@@ -114,9 +114,14 @@ A start can be relative, and it can contain `.` and `..` components. The walk
 goes up from the start one component at a time. A `..` component moves the
 walk through a directory that the caller never named. The crate therefore
 resolves a relative start against the working directory of the process, and
-it removes these components before the walk. The crate does not resolve
-symbolic links. The walk therefore sees the tree that the caller named, and
-it reports paths that the caller recognizes.
+it removes these components before the walk.
+
+The crate also resolves the symbolic links of the start. A `..` component
+after a symbolic link leaves the tree that the link points into. A walk that
+keeps the link therefore passes through a directory that the user never
+entered. The crate reports a canonical path for the project. An application
+that joins a path onto that directory reaches the entry that the walk saw. An
+application that shows the path that its user typed keeps that path itself.
 
 The path that an application takes often names a file. The project that
 governs a file is the project of the directory that holds the file. The walk
@@ -131,10 +136,10 @@ the developer declares no explicit start.
 project[discover.start.caller]
 The crate MUST start the walk at the directory that the developer names.
 
-project[discover.start.absolute]
+project[discover.start.absolute+2]
 The crate MUST resolve a relative start against the working directory of the
-process. It MUST also remove the `.` and `..` components of the start before
-the walk.
+process. It MUST also remove the `.` and `..` components of the start, and
+resolve its symbolic links, before the walk.
 
 project[discover.start.file]
 The crate MUST start the walk at the directory that holds the start when the

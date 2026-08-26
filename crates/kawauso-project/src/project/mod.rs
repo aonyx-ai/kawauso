@@ -69,7 +69,8 @@ use crate::search::state::Marked;
 /// let search = Search::start(root.join("src")).marker("Cargo.toml");
 /// let project: Project = Project::builder().application("example").load(&search)?;
 ///
-/// assert_eq!(project.root().get(), root);
+/// // The project reports the canonical path of the directory
+/// assert_eq!(project.root().get(), std::fs::canonicalize(&root)?);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -488,36 +489,18 @@ fn is_inside(marker: &Marker) -> bool {
     names_an_entry
 }
 
-/// Removes the `.` and `..` components of an absolute path
-///
-/// The removal is lexical: a `..` component removes the component before it,
-/// whether or not that component is a symbolic link. This is how a shell
-/// interprets a path that the user typed, and the result is a path that the
-/// user recognizes.
-fn normalize(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-
-    for component in path.components() {
-        match component {
-            Component::ParentDir => {
-                normalized.pop();
-            }
-            Component::CurDir => {}
-            component => normalized.push(component),
-        }
-    }
-
-    normalized
-}
-
-/// Resolves the start of the walk to an absolute directory
+/// Resolves the start of the walk to the canonical path of a directory
 ///
 /// A relative start resolves against the working directory of the process,
-/// which the caller supplies, so that a test can name one. The `.` and `..`
-/// components go, because the walk goes up one component at a time, and a
-/// `..` component would take it through a directory that the caller never
-/// named. Symbolic links stay, so the walk sees the tree that the caller
-/// named, and the paths that it reports are paths that the caller recognizes.
+/// which the caller supplies, so that a test can name one. The result is the
+/// canonical path: the `.` and `..` components go, and the symbolic links
+/// resolve.
+///
+/// The walk goes up one component at a time. A `..` component after a
+/// symbolic link would otherwise take the walk through a directory that the
+/// caller never entered. The directory that the walk reports is the directory
+/// that holds the marker, and a caller that joins a path onto it reaches the
+/// entry that the walk saw.
 ///
 /// A start that names a file yields the directory that holds the file,
 /// because the project that governs a file is the project of that directory.
@@ -526,7 +509,7 @@ fn normalize(path: &Path) -> PathBuf {
 ///
 /// Returns an error when the start is relative and the working directory is
 /// unknown, or when the start does not exist or cannot be read.
-// project[impl discover.start.absolute]
+// project[impl discover.start.absolute+2]
 // project[impl discover.start.error.unknown-directory]
 // project[impl discover.start.error.unreadable]
 // project[impl discover.start.file]
@@ -546,15 +529,20 @@ fn resolve(
         working_directory.join(start)
     };
 
-    let start = normalize(&absolute);
-
-    let metadata =
-        std::fs::metadata(&start).map_err(|source| DiscoverProjectError::UnreadableStart {
-            start: StartDirectory::new(start.clone()),
+    // Canonicalization reads the file system, so a start that does not exist,
+    // or that the process cannot read, fails here. The report names the start
+    // as the caller gave it, resolved against the working directory, because
+    // the canonical path of such a start does not exist.
+    let start = std::fs::canonicalize(&absolute).map_err(|source| {
+        DiscoverProjectError::UnreadableStart {
+            start: StartDirectory::new(absolute),
             source,
-        })?;
+        }
+    })?;
 
-    if metadata.is_dir() {
+    // Canonicalization already read the path, so the file system answers this
+    // question, and a path that it cannot answer for is no directory.
+    if start.is_dir() {
         return Ok(start);
     }
 
@@ -640,6 +628,15 @@ mod tests {
     /// temporary directory holds, up to the root of the file system.
     const ABSENT: &str = ".kawauso-project-absent-marker";
 
+    /// Returns the canonical path of the temporary directory
+    ///
+    /// A temporary directory can sit below a symbolic link, which is what
+    /// macOS does for `/var`. The walk reports canonical paths, so a test
+    /// that names a location in the directory canonicalizes it first.
+    fn canonical(root: &TempDir) -> PathBuf {
+        std::fs::canonicalize(root.path()).unwrap()
+    }
+
     /// Creates a directory below the temporary directory and returns its path
     fn directory(root: &TempDir, path: &str) -> PathBuf {
         let directory = root.path().join(path);
@@ -665,10 +662,10 @@ mod tests {
 
         let start = resolve(&root.path().join("src").join("main.rs"), Ok(PathBuf::new())).unwrap();
 
-        assert_eq!(start, root.path().join("src"));
+        assert_eq!(start, canonical(&root).join("src"));
     }
 
-    // project[verify discover.start.absolute]
+    // project[verify discover.start.absolute+2]
     #[test]
     fn resolve_with_a_relative_start_resolves_against_the_working_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -676,7 +673,7 @@ mod tests {
 
         let start = resolve(Path::new("src"), Ok(root.path().to_path_buf())).unwrap();
 
-        assert_eq!(start, root.path().join("src"));
+        assert_eq!(start, canonical(&root).join("src"));
     }
 
     // project[verify discover.start.error.unreadable]
@@ -692,7 +689,24 @@ mod tests {
         ));
     }
 
-    // project[verify discover.start.absolute]
+    // A `..` component after a symbolic link leaves the tree that the link
+    // points into. A walk that keeps the link therefore passes through a
+    // directory that the user never entered, which this test holds the
+    // resolution to.
+    // project[verify discover.start.absolute+2]
+    #[cfg(unix)]
+    #[test]
+    fn resolve_with_a_symbolic_link_returns_the_real_path() {
+        let root = tempfile::tempdir().unwrap();
+        directory(&root, "real/inner");
+        std::os::unix::fs::symlink(root.path().join("real"), root.path().join("link")).unwrap();
+
+        let start = resolve(&root.path().join("link").join("inner"), Ok(PathBuf::new())).unwrap();
+
+        assert_eq!(start, canonical(&root).join("real").join("inner"));
+    }
+
+    // project[verify discover.start.absolute+2]
     #[test]
     fn resolve_with_dot_components_removes_them() {
         let root = tempfile::tempdir().unwrap();
@@ -704,7 +718,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(start, root.path().join("src"));
+        assert_eq!(start, canonical(&root).join("src"));
     }
 
     // project[verify discover.start.error.unknown-directory]
