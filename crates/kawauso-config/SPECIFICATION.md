@@ -61,26 +61,36 @@ working directory wins, so a project can override the configuration of the
 directory that contains it.
 
 A project does not always keep the configuration of a tool in the directory
-itself. The tools of GitHub read `.github`, and other tools read `.config`.
-The developer therefore names the subdirectories in which their application
-accepts the file. Each directory of the walk then contributes one location
-for the directory itself, and one for each subdirectory.
+itself. The tools of GitHub read `.github`, and other tools keep their
+configuration in `.config`. The developer therefore adds the locations in
+which their application accepts the file. A location is an addition: the
+directory of the walk always keeps the first location, and a location that
+the developer adds follows it.
 
-The subdirectories are an addition, not a replacement. The directory itself
-keeps the first location, so a project that names no subdirectory searches
-what it searched before. The walk stays the outer loop: every location of one
-directory comes before every location of the directory above it. A directory
-above a project therefore cannot override the project.
+A subdirectory is one kind of location. The dot-config convention is another.
+It gives the application a directory of its own, `.config/<name>`, in which
+it keeps the file `config.toml`. The convention fixes the directory and the
+name of the file, so the developer names neither. In each directory the walk
+reads the file `.config/<name>.toml` before the file `config.toml` in
+`.config/<name>`, so an application that creates its directory for the other
+files it owns does not change which configuration file its user has.
 
-A subdirectory that does not exist holds no file, and the search continues. A
+The walk stays the outer loop: every location of one directory comes before
+every location of the directory above it, so a directory above a project
+cannot override the project. The order of a call decides which location wins,
+so a location that the developer names first beats one that they name after.
+
+A location that does not exist holds no file, and the search continues. A
 subdirectory that is absolute, or that leaves the directory of the walk, is a
 mistake in the application. Such a value moves the search to a place that the
 walk never reaches, so the crate reports it. A value that names no directory
-at all is a mistake as well.
+at all is a mistake as well. The dot-config convention never leaves its
+directory, so it needs no such report.
 
-config[discover.ancestors.name]
-The crate MUST search for a file that has the name of the application and the
-extension `.toml`.
+config[discover.ancestors.name+2]
+The crate MUST use a file whose name is the name of the application followed
+by the extension `.toml`, in the directory of the walk and in each
+subdirectory that the developer names.
 
 config[discover.ancestors.working-directory]
 The crate MUST search the working directory of the process.
@@ -101,9 +111,9 @@ config[discover.ancestors.subdirectories]
 In each directory of the walk, the crate MUST also search each subdirectory
 that the developer names.
 
-config[discover.ancestors.subdirectories.order]
-The crate MUST search a directory of the walk before its subdirectories, and
-the subdirectories in the order in which the developer names them.
+config[discover.ancestors.subdirectories.order+2]
+The crate MUST search a directory of the walk before the locations that it
+adds, and the locations in the order in which the developer names them.
 
 config[discover.ancestors.subdirectories.walk]
 The crate MUST search every location of a directory of the walk before every
@@ -116,6 +126,15 @@ directory of the walk.
 config[discover.ancestors.subdirectories.error.outside]
 The crate MUST return an error, and MUST NOT panic, when a subdirectory is
 not a relative path inside a directory of the walk.
+
+config[discover.ancestors.dot]
+The crate MUST search the two layouts of the dot-config convention,
+`.config/<name>.toml` and `.config/<name>/config.toml`, in each directory of
+the walk when the developer selects the convention.
+
+config[discover.ancestors.dot.files]
+The crate MUST search the file `.config/<name>.toml` before the file
+`config.toml` in `.config/<name>` in a directory of the walk.
 
 config[discover.ancestors.error.unknown-directory]
 The crate MUST return an error, and MUST NOT panic, when it cannot determine

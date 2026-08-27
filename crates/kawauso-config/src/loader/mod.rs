@@ -113,8 +113,9 @@ impl Loader {
     ///
     /// The name of an application is enough to start the search. A project
     /// that keeps the file somewhere else needs an [`AncestorsSearch`]. It
-    /// adds the locations that the application also accepts, such as a
-    /// subdirectory that many tools share, for example `.github`.
+    /// adds the locations that the application also accepts: a subdirectory
+    /// that many tools share, such as `.github`, and the dot-config
+    /// convention, which gives the application a directory of its own.
     ///
     /// Each directory then has more than one location. The search reads the
     /// directory itself first, and then each location in the order in which
@@ -158,6 +159,26 @@ impl Loader {
     ///
     /// // Reads `kawauso.toml`, then `.github/kawauso.toml`, in each directory
     /// let search = AncestorsSearch::new("kawauso").subdirectory(".github");
+    /// let configuration: Configuration = Loader::ancestors(search).load()?;
+    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// ```
+    ///
+    /// A search that also follows the dot-config convention:
+    ///
+    /// ```no_run
+    /// use serde::Deserialize;
+    ///
+    /// use kawauso_config::AncestorsSearch;
+    /// use kawauso_config::Loader;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct Configuration {
+    ///     port: u16,
+    /// }
+    ///
+    /// // Reads `kawauso.toml`, then `.config/kawauso.toml`, then
+    /// // `.config/kawauso/config.toml`, in each directory
+    /// let search = AncestorsSearch::new("kawauso").dot_config();
     /// let configuration: Configuration = Loader::ancestors(search).load()?;
     /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
     /// ```
@@ -443,14 +464,15 @@ where
 /// The locations are the working directory and each of its ancestors, in
 /// that order, and each of them holds a file with the name of the
 /// application and the extension `.toml`. A location that the developer
-/// added, such as a subdirectory, holds its own file in the directory that
-/// contains the location.
+/// added, a subdirectory or the dot-config convention, holds its own file in
+/// the directory that contains the location.
 ///
 /// A subdirectory that leaves its directory fails the search before it reads
 /// the file system. Such a value comes from the application, not from the
 /// user, and it is the same mistake in every environment. The report is
 /// therefore the same in every environment as well, and it does not depend
-/// on a working directory that the process can fail to name.
+/// on a working directory that the process can fail to name. The dot-config
+/// convention never leaves its directory, so it needs no such check.
 ///
 /// # Errors
 ///
@@ -458,7 +480,7 @@ where
 /// directory, when the working directory is unknown, when no location holds
 /// the file, or when a location holds a directory with the name of the file.
 // config[impl discover.ancestors.error.unknown-directory]
-// config[impl discover.ancestors.name]
+// config[impl discover.ancestors.name+2]
 // config[impl discover.ancestors.order]
 // config[impl discover.ancestors.parents]
 // config[impl discover.ancestors.subdirectories.error.outside]
@@ -474,7 +496,7 @@ fn find_in_ancestors(
         Location::Subdirectory(subdirectory) if !is_inside(subdirectory) => {
             Some(subdirectory.clone())
         }
-        Location::Subdirectory(_) => None,
+        Location::Subdirectory(_) | Location::DotConfig => None,
     }) {
         return Err(DiscoverConfigurationError::OutsideSubdirectory { subdirectory });
     }
@@ -486,7 +508,7 @@ fn find_in_ancestors(
     let file_name = format!("{application}.toml");
     let searched = working_directory
         .ancestors()
-        .flat_map(|directory| locations_in(directory, locations, &file_name))
+        .flat_map(|directory| locations_in(directory, application, locations, &file_name))
         .collect::<Vec<_>>();
 
     first_file(SearchedLocations::new(searched))
@@ -494,30 +516,40 @@ fn find_in_ancestors(
 
 /// Returns the locations that one directory of the walk contributes
 ///
-/// The directory itself comes first, so a project that adds a location still
-/// finds the file that it kept in the directory before. The locations follow
-/// in the order in which the developer named them, which is the order in
-/// which they win. A location resolves the paths that it reads, so a location
-/// that reads more than one file needs no change here.
+/// The directory itself comes first, so a project that names a subdirectory
+/// or the dot-config convention still finds the file that it kept in the
+/// directory before. The locations follow in the order in which the developer
+/// named them, which is the order in which they win. The dot-config
+/// convention contributes two paths, and its file comes before its directory.
+/// A location that contributes the same path as an earlier one contributes no
+/// second location, so a subdirectory `.config` next to the convention does
+/// not read the same file twice.
 ///
 /// A location that does not exist is still a location. The search reads what
 /// the file system reports about each location, and a location that it
 /// reports nothing about holds no configuration file.
+// config[impl discover.ancestors.dot]
+// config[impl discover.ancestors.dot.files]
 // config[impl discover.ancestors.subdirectories]
-// config[impl discover.ancestors.subdirectories.order]
+// config[impl discover.ancestors.subdirectories.order+2]
 fn locations_in(
     directory: &Path,
+    application: &ApplicationName,
     locations: &[Location],
     file_name: &str,
 ) -> Vec<ConfigurationPath> {
-    std::iter::once(directory.join(file_name))
-        .chain(
-            locations
-                .iter()
-                .flat_map(|location| location.paths_in(directory, file_name)),
-        )
-        .map(ConfigurationPath::new)
-        .collect()
+    let mut paths = Vec::new();
+    paths.push(directory.join(file_name));
+
+    for location in locations {
+        for path in location.paths_in(directory, application, file_name) {
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
+    }
+
+    paths.into_iter().map(ConfigurationPath::new).collect()
 }
 
 /// Reports whether a subdirectory names a directory inside another directory
@@ -906,6 +938,44 @@ mod tests {
         ));
     }
 
+    // The order of the calls decides which location wins, so a subdirectory
+    // that the developer names before the dot-config convention beats it in a
+    // directory of the walk.
+    // config[verify discover.ancestors.subdirectories.order+2]
+    #[test]
+    fn find_in_ancestors_with_a_subdirectory_before_the_convention_returns_the_subdirectory() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        std::fs::create_dir(working_directory.join(".github")).unwrap();
+        std::fs::write(
+            working_directory.join(".github").join("kawauso.toml"),
+            "port = 8080",
+        )
+        .unwrap();
+        std::fs::create_dir_all(working_directory.join(".config").join("kawauso")).unwrap();
+        std::fs::write(
+            working_directory
+                .join(".config")
+                .join("kawauso")
+                .join("config.toml"),
+            "port = 9090",
+        )
+        .unwrap();
+
+        let path = find_in_ancestors(
+            Ok(working_directory.clone()),
+            &AncestorsSearch::new("kawauso")
+                .subdirectory(".github")
+                .dot_config(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            path.get(),
+            working_directory.join(".github").join("kawauso.toml")
+        );
+    }
+
     // The walk is the outer loop, so the last location of the working
     // directory comes before the first location of its parent. A rule that
     // read one subdirectory across every directory first would let the parent
@@ -948,7 +1018,7 @@ mod tests {
         ));
     }
 
-    // config[verify discover.ancestors.name]
+    // config[verify discover.ancestors.name+2]
     #[test]
     fn find_in_ancestors_with_another_file_in_the_working_directory_skips_it() {
         let root = tempfile::tempdir().unwrap();
@@ -962,10 +1032,120 @@ mod tests {
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
 
+    // The file layout wins over the directory layout, so an application that
+    // creates its directory for the other files it owns does not change which
+    // configuration file its user has.
+    // config[verify discover.ancestors.dot.files]
+    #[test]
+    fn find_in_ancestors_with_both_dot_config_layouts_returns_the_file() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        std::fs::create_dir_all(working_directory.join(".config").join("kawauso")).unwrap();
+        std::fs::write(
+            working_directory
+                .join(".config")
+                .join("kawauso")
+                .join("config.toml"),
+            "port = 9090",
+        )
+        .unwrap();
+        std::fs::write(
+            working_directory.join(".config").join("kawauso.toml"),
+            "port = 8080",
+        )
+        .unwrap();
+
+        let path = find_in_ancestors(
+            Ok(working_directory.clone()),
+            &AncestorsSearch::new("kawauso").dot_config(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            path.get(),
+            working_directory.join(".config").join("kawauso.toml")
+        );
+    }
+
+    // config[verify discover.ancestors.dot]
+    #[test]
+    fn find_in_ancestors_with_config_in_dot_config_file_returns_it() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        std::fs::create_dir(working_directory.join(".config")).unwrap();
+        std::fs::write(
+            working_directory.join(".config").join("kawauso.toml"),
+            "port = 8080",
+        )
+        .unwrap();
+
+        let path = find_in_ancestors(
+            Ok(working_directory.clone()),
+            &AncestorsSearch::new("kawauso").dot_config(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            path.get(),
+            working_directory.join(".config").join("kawauso.toml")
+        );
+    }
+
+    // config[verify discover.ancestors.dot]
+    #[test]
+    fn find_in_ancestors_with_config_in_the_dot_config_directory_returns_it() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        std::fs::create_dir_all(working_directory.join(".config").join("kawauso")).unwrap();
+        std::fs::write(
+            working_directory
+                .join(".config")
+                .join("kawauso")
+                .join("config.toml"),
+            "port = 8080",
+        )
+        .unwrap();
+
+        let path = find_in_ancestors(
+            Ok(working_directory.clone()),
+            &AncestorsSearch::new("kawauso").dot_config(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            path.get(),
+            working_directory
+                .join(".config")
+                .join("kawauso")
+                .join("config.toml")
+        );
+    }
+
+    // A subdirectory `.config` contributes the same file as the first layout
+    // of the convention, so the report must not name it twice.
+    #[test]
+    fn find_in_ancestors_with_dot_config_and_a_config_subdirectory_lists_each_location_once() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+
+        let error = find_in_ancestors(
+            Ok(working_directory.clone()),
+            &AncestorsSearch::new("kawauso")
+                .subdirectory(".config")
+                .dot_config(),
+        )
+        .unwrap_err();
+
+        let locations = locations_of(&error);
+        let distinct = locations.iter().collect::<std::collections::HashSet<_>>();
+
+        assert_eq!(locations.len(), distinct.len());
+    }
+
     // A subdirectory is an addition, not a replacement. A project that keeps
     // the file where it always kept it must not lose it to a subdirectory
     // that the application started to accept later.
-    // config[verify discover.ancestors.subdirectories.order]
+    // config[verify discover.ancestors.subdirectories.order+2]
     #[test]
     fn find_in_ancestors_with_files_in_a_directory_and_its_subdirectory_returns_the_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1002,7 +1182,7 @@ mod tests {
     // The subdirectories are named in the reverse of their alphabetical
     // order, so a result of `.github` can only come from the order of the
     // calls that named them.
-    // config[verify discover.ancestors.subdirectories.order]
+    // config[verify discover.ancestors.subdirectories.order+2]
     #[test]
     fn find_in_ancestors_with_files_in_two_subdirectories_returns_the_first_named() {
         let root = tempfile::tempdir().unwrap();
@@ -1019,6 +1199,47 @@ mod tests {
         .unwrap();
 
         assert_eq!(path.get(), expected);
+    }
+
+    // The order of the calls decides which one wins, so a convention that the
+    // developer names before a subdirectory beats it in a directory of the
+    // walk, and the file that the convention reads comes first.
+    // config[verify discover.ancestors.subdirectories.order+2]
+    #[test]
+    fn find_in_ancestors_with_the_convention_before_a_subdirectory_returns_the_convention() {
+        let root = tempfile::tempdir().unwrap();
+        let working_directory = child_of(root.path());
+        std::fs::create_dir_all(working_directory.join(".config").join("kawauso")).unwrap();
+        std::fs::write(
+            working_directory
+                .join(".config")
+                .join("kawauso")
+                .join("config.toml"),
+            "port = 8080",
+        )
+        .unwrap();
+        std::fs::create_dir(working_directory.join(".github")).unwrap();
+        std::fs::write(
+            working_directory.join(".github").join("kawauso.toml"),
+            "port = 9090",
+        )
+        .unwrap();
+
+        let path = find_in_ancestors(
+            Ok(working_directory.clone()),
+            &AncestorsSearch::new("kawauso")
+                .dot_config()
+                .subdirectory(".github"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            path.get(),
+            working_directory
+                .join(".config")
+                .join("kawauso")
+                .join("config.toml")
+        );
     }
 
     // config[verify discover.ancestors.order]

@@ -21,6 +21,12 @@ search reads. A tool that belongs to GitHub, for example, keeps the file in
 `.github`. An [`AncestorsSearch`] adds such a subdirectory to [`ancestors`].
 The search then reads that subdirectory in each directory on its way up.
 
+An application that owns a directory of its own in `.config` uses the
+dot-config convention instead. [`dot_config`] on the search reads the file
+`.config/<application>.toml` and the file `config.toml` in
+`.config/<application>`, in each directory of the walk. The convention fixes
+the directory and the name of the file, so the application names itself once.
+
 ## Usage
 
 ```rust
@@ -59,6 +65,7 @@ dual licensed as above, without any additional terms or conditions.
 
 [`ancestors`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html#method.ancestors
 [`AncestorsSearch`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/ancestors_search/struct.AncestorsSearch.html
+[`dot_config`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/ancestors_search/struct.AncestorsSearch.html#method.dot_config
 [`load`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html#method.load
 [`Loader`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html
 [`user`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html#method.user

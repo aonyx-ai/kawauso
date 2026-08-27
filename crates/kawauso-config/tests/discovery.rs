@@ -133,6 +133,45 @@ fn load_with_ancestors_and_a_file_in_a_subdirectory_returns_the_configuration() 
     assert!(report.contains(PASSED), "{report}");
 }
 
+// The dot-config convention also keeps the file with the name of the
+// application in the shared directory `.config`, and the search finds it
+// there.
+// config[verify discover.ancestors.dot]
+#[test]
+fn load_with_ancestors_and_a_file_in_dot_config_file_returns_the_configuration() {
+    let working_directory = tempfile::tempdir().unwrap();
+    let directory = working_directory.path().join(".config");
+    std::fs::create_dir(&directory).unwrap();
+    std::fs::write(directory.join(format!("{APPLICATION}.toml")), CONTENTS).unwrap();
+
+    let output = child("child::load_with_ancestors_and_dot_config_file")
+        .current_dir(working_directory.path())
+        .output()
+        .unwrap();
+
+    let report = report_of(&output);
+    assert!(report.contains(PASSED), "{report}");
+}
+
+// The dot-config convention gives the application a directory of its own,
+// and its configuration file sits inside it.
+// config[verify discover.ancestors.dot]
+#[test]
+fn load_with_ancestors_and_a_file_in_the_dot_config_directory_returns_the_configuration() {
+    let working_directory = tempfile::tempdir().unwrap();
+    let directory = working_directory.path().join(".config").join(APPLICATION);
+    std::fs::create_dir_all(&directory).unwrap();
+    std::fs::write(directory.join("config.toml"), CONTENTS).unwrap();
+
+    let output = child("child::load_with_ancestors_and_dot_config_directory")
+        .current_dir(working_directory.path())
+        .output()
+        .unwrap();
+
+    let report = report_of(&output);
+    assert!(report.contains(PASSED), "{report}");
+}
+
 // config[verify discover.ancestors.working-directory]
 #[test]
 fn load_with_ancestors_and_a_file_in_the_working_directory_returns_the_configuration() {
@@ -198,6 +237,26 @@ mod child {
     #[ignore = "needs the working directory that the first half of the test prepares"]
     fn load_with_ancestors_and_a_subdirectory() {
         let search = AncestorsSearch::new(APPLICATION).subdirectory(".github");
+
+        let configuration: Configuration = Loader::ancestors(search).load().unwrap();
+
+        assert_eq!(configuration, CONFIGURATION);
+    }
+
+    #[test]
+    #[ignore = "needs the working directory that the first half of the test prepares"]
+    fn load_with_ancestors_and_dot_config_directory() {
+        let search = AncestorsSearch::new(APPLICATION).dot_config();
+
+        let configuration: Configuration = Loader::ancestors(search).load().unwrap();
+
+        assert_eq!(configuration, CONFIGURATION);
+    }
+
+    #[test]
+    #[ignore = "needs the working directory that the first half of the test prepares"]
+    fn load_with_ancestors_and_dot_config_file() {
+        let search = AncestorsSearch::new(APPLICATION).dot_config();
 
         let configuration: Configuration = Loader::ancestors(search).load().unwrap();
 
