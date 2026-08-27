@@ -27,6 +27,11 @@ name of the application decides where that file is:
 application whose host dictates another location names it with
 `configuration_file`.
 
+An application that owns more than a configuration file keeps its directory in
+`.config` and selects it with `with_configuration_directory`. The project then
+reads `config.toml` in `.config/<application>`, which the application names
+once.
+
 A project without the file is a normal state and not a failure.
 `configuration` reports `None` for it, and `configuration_path` tells the user
 where to put the file.
