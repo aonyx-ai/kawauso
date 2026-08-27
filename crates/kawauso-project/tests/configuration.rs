@@ -15,6 +15,7 @@ use kawauso_project::Project;
 use kawauso_project::Search;
 use kawauso_project::project::NoConfiguration;
 use serde::Deserialize;
+use serde::Serialize;
 use tempfile::TempDir;
 
 /// The name of the application whose project the tests load
@@ -26,16 +27,34 @@ const CONTENTS: &str = "port = 8080";
 /// The marker that identifies the projects of these tests
 const MARKER: &str = ".git";
 
+/// The contents of a configuration file that its author formatted
+///
+/// A serializer that writes the whole document loses the comment and the
+/// blank line. A test that asserts that the crate wrote nothing therefore
+/// sees the difference.
+const FORMATTED_CONTENTS: &str = "# The port that the application listens on\n\nport = 8080\n";
+
 /// The configuration of an imaginary application
 ///
 /// An application of the crate defines a type like this one for its own
 /// configuration file. One field is enough here, because these tests are
 /// about the file that the project reads, not about the shape of a
 /// configuration.
-#[derive(Debug, Deserialize)]
+///
+/// The type serializes as well, because a project creates its configuration
+/// file from a value of the type of the application.
+#[derive(Debug, Deserialize, Serialize)]
 struct Configuration {
     port: u16,
 }
+
+/// A configuration that no TOML document can hold
+///
+/// A TOML document is always a table, and a number is not one, so a
+/// serializer rejects this value. The type gives a test a configuration that
+/// the crate cannot write, without a file system that refuses the write.
+#[derive(Debug, Deserialize, Serialize)]
+struct UnserializableConfiguration(u16);
 
 /// Returns the canonical path of a temporary directory
 ///
@@ -77,6 +96,146 @@ fn project(configuration: Option<(&str, &str)>) -> std::io::Result<TempDir> {
     }
 
     Ok(directory)
+}
+
+// A file that the type of the application rejects fails the load. The crate
+// reports the problem instead of a repair that loses what the author wrote.
+// project[verify configuration.create.existing]
+#[test]
+fn load_or_create_with_a_broken_configuration_file_keeps_the_file() {
+    let directory = project(Some((".config/example.toml", "port = "))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let _ = Project::<Configuration>::builder()
+        .application(APPLICATION)
+        .load_or_create(&search, || Configuration { port: 9090 });
+
+    assert_eq!(
+        std::fs::read_to_string(directory.path().join(".config").join("example.toml")).unwrap(),
+        "port = "
+    );
+}
+
+// project[verify configuration.create.existing]
+#[test]
+fn load_or_create_with_a_broken_configuration_file_returns_an_error() {
+    let directory = project(Some((".config/example.toml", "port = "))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let error = Project::<Configuration>::builder()
+        .application(APPLICATION)
+        .load_or_create(&search, || Configuration { port: 9090 })
+        .unwrap_err();
+
+    assert!(
+        error
+            .to_string()
+            .contains("failed to load the configuration")
+    );
+}
+
+// project[verify configuration.create.existing]
+#[test]
+fn load_or_create_with_a_configuration_file_keeps_the_file() {
+    let directory = project(Some((".config/example.toml", FORMATTED_CONTENTS))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let _: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .load_or_create(&search, || Configuration { port: 9090 })
+        .unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(directory.path().join(".config").join("example.toml")).unwrap(),
+        FORMATTED_CONTENTS
+    );
+}
+
+// project[verify configuration.create.existing]
+#[test]
+fn load_or_create_with_a_configuration_file_reads_it() {
+    let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let project: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .load_or_create(&search, || Configuration { port: 9090 })
+        .unwrap();
+
+    assert_eq!(project.configuration().unwrap().port, 8080);
+}
+
+// project[verify configuration.create.error]
+#[test]
+fn load_or_create_with_an_unserializable_configuration_returns_an_error() {
+    let directory = project(None).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let error = Project::<UnserializableConfiguration>::builder()
+        .application(APPLICATION)
+        .load_or_create(&search, || UnserializableConfiguration(8080))
+        .unwrap_err();
+
+    assert!(
+        error
+            .to_string()
+            .contains("failed to create the configuration")
+    );
+}
+
+// project[verify configuration.create]
+#[test]
+fn load_or_create_without_a_configuration_file_creates_it() {
+    let directory = project(None).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let _: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .load_or_create(&search, || Configuration { port: 8080 })
+        .unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(directory.path().join(".config").join("example.toml")).unwrap(),
+        "port = 8080\n"
+    );
+}
+
+// The conventional directory adds a second level below the project, and a
+// project that never held a configuration file has neither of them.
+// project[verify configuration.create.directories]
+#[test]
+fn load_or_create_without_a_configuration_file_creates_the_directories() {
+    let directory = project(None).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let _: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .with_configuration_directory()
+        .load_or_create(&search, || Configuration { port: 8080 })
+        .unwrap();
+
+    assert!(
+        directory
+            .path()
+            .join(".config")
+            .join(APPLICATION)
+            .join("config.toml")
+            .is_file()
+    );
+}
+
+// project[verify configuration.create.result]
+#[test]
+fn load_or_create_without_a_configuration_file_reports_the_value() {
+    let directory = project(None).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let project: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .load_or_create(&search, || Configuration { port: 9090 })
+        .unwrap();
+
+    assert_eq!(project.configuration().unwrap().port, 9090);
 }
 
 // project[verify configuration.error]
@@ -204,6 +363,23 @@ fn load_with_an_application_name_reads_the_conventional_location() {
             .join(".config")
             .join("example.toml")
     );
+}
+
+// A read that writes surprises its caller, so a project without a
+// configuration file stays without one until an application asks for the
+// creation.
+// project[verify configuration.create.load]
+#[test]
+fn load_without_a_configuration_file_creates_no_file() {
+    let directory = project(None).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let _: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .load(&search)
+        .unwrap();
+
+    assert!(!directory.path().join(".config").exists());
 }
 
 // project[verify configuration.missing]

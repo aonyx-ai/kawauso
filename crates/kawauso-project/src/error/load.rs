@@ -12,7 +12,8 @@ use crate::project::ConfigurationPath;
 /// The variants separate what the user of the application has to do next. A
 /// search that produced no project needs a marker, or a start inside a
 /// project. A configuration file that cannot be read or deserialized needs a
-/// correction in the file, and the message names the path.
+/// correction in the file, and the message names the path. A configuration
+/// file that the crate cannot create needs a writable directory.
 ///
 /// A project without a configuration file is no failure of this operation.
 /// The project then reports no configuration, and the application decides
@@ -38,6 +39,26 @@ pub enum LoadProjectError {
     UndiscoverableProject {
         /// The cause of the failure
         source: DiscoverProjectError,
+    },
+
+    /// The configuration file of the project cannot be created
+    ///
+    /// No file exists at the path, and the caller asked for the creation.
+    /// Serializing the value, creating the directories above the file, or
+    /// writing the file failed. The application depends on the file for the
+    /// work that follows. The crate therefore reports the failure instead of
+    /// a project whose configuration lives only in memory.
+    ///
+    /// The cause is opaque. It exists for a report that walks the chain of an
+    /// error, and its type is not part of the API of this crate.
+    #[error("failed to create the configuration file of the project at `{path}`")]
+    #[non_exhaustive]
+    UncreatableConfiguration {
+        /// The path of the configuration file that cannot be created
+        path: ConfigurationPath,
+
+        /// The cause of the failure
+        source: Box<dyn Error + Send + Sync>,
     },
 
     /// The configuration file of the project cannot be loaded

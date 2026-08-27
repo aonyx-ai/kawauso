@@ -36,6 +36,13 @@ A project without the file is a normal state and not a failure.
 `configuration` reports `None` for it, and `configuration_path` tells the user
 where to put the file.
 
+An application whose work needs the file creates it with `load_or_create`. The
+caller supplies the value, because an application that keeps an identifier in
+the file makes that value for one project. No constant describes such a value.
+Creation is the only write: a file that a user wrote holds their comments and
+the order of their fields. The crate therefore reports a file that it cannot
+read, and never repairs one.
+
 Some applications have no configuration file at all, and want only the
 directory of their project. Such an application declares this with
 `without_configuration`, and the project then reads no file. A file at the
