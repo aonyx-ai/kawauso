@@ -1,42 +1,54 @@
 //! The search that reads the working directory and its ancestors
 
+mod location;
 pub mod subdirectory;
 
+pub(crate) use self::location::Location;
 pub use self::subdirectory::Subdirectory;
 use crate::loader::ApplicationName;
 
 /// The search of the working directory and its ancestors
 ///
-/// The search needs the name of an application. It also accepts the
-/// subdirectories in which that application keeps its configuration file.
+/// The search needs the name of an application. It also needs the locations
+/// in which that application keeps its configuration file, such as a
+/// subdirectory that the developer names.
 ///
 /// The type holds the options of this one search. An option therefore cannot
-/// reach a loader that reads a file at a path, where a subdirectory has no
+/// reach a loader that reads a file at a path, where a location has no
 /// meaning.
 ///
-/// A name alone converts into a search. [`ancestors`][ancestors] therefore
-/// accepts `"example"` as well as a value of this type.
+/// A name alone becomes a search. [`ancestors`][ancestors] therefore accepts
+/// `"example"` as well as a value of this type.
 ///
 /// # Examples
 ///
-/// A search that reads only the directories themselves:
+/// A name alone, which reads the directories themselves:
 ///
 /// ```
 /// use kawauso_config::AncestorsSearch;
 ///
 /// let search = AncestorsSearch::from("example");
 ///
-/// assert!(search.subdirectories().is_empty());
+/// assert_eq!(search.application().get(), "example");
 /// ```
 ///
-/// A search that also reads `.github` in each directory:
+/// A search that adds a location:
 ///
-/// ```
+/// ```no_run
+/// use serde::Deserialize;
+///
 /// use kawauso_config::AncestorsSearch;
+/// use kawauso_config::Loader;
 ///
+/// #[derive(Deserialize)]
+/// struct Configuration {
+///     port: u16,
+/// }
+///
+/// // In each directory, reads `example.toml`, then `.github/example.toml`
 /// let search = AncestorsSearch::new("example").subdirectory(".github");
-///
-/// assert_eq!(search.subdirectories().len(), 1);
+/// let configuration: Configuration = Loader::ancestors(search).load()?;
+/// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
 /// ```
 ///
 /// [ancestors]: crate::Loader::ancestors
@@ -45,11 +57,11 @@ pub struct AncestorsSearch {
     /// The name of the application whose configuration file the search finds
     application: ApplicationName,
 
-    /// The subdirectories that the search reads in each directory
+    /// The locations that the search reads in each directory
     ///
     /// The order is the order in which the developer named them, because it
     /// decides which location the search reads first.
-    subdirectories: Vec<Subdirectory>,
+    locations: Vec<Location>,
 }
 
 impl AncestorsSearch {
@@ -57,7 +69,8 @@ impl AncestorsSearch {
     ///
     /// The search reads the working directory and its ancestors, and nothing
     /// else. [`subdirectory`][subdirectory] adds a subdirectory to each of
-    /// these directories.
+    /// these directories. A name alone also becomes a search through
+    /// [`From`], which gives the same result as this method.
     ///
     /// # Examples
     ///
@@ -73,7 +86,7 @@ impl AncestorsSearch {
     pub fn new(application: impl Into<ApplicationName>) -> Self {
         Self {
             application: application.into(),
-            subdirectories: Vec::new(),
+            locations: Vec::new(),
         }
     }
 
@@ -81,8 +94,8 @@ impl AncestorsSearch {
     ///
     /// The subdirectory is an addition. Each directory keeps the location
     /// that it had before this call, and the search reads that location
-    /// first. A second call adds a second subdirectory, which the search
-    /// reads after the first one.
+    /// first. A second call adds a second location, which the search reads
+    /// after the first one.
     ///
     /// The value must be a relative path that stays inside its directory. A
     /// value that is absolute, or that leaves the directory, fails the search
@@ -91,18 +104,26 @@ impl AncestorsSearch {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// use serde::Deserialize;
+    ///
     /// use kawauso_config::AncestorsSearch;
+    /// use kawauso_config::Loader;
     ///
-    /// let search = AncestorsSearch::new("example")
-    ///     .subdirectory(".github")
-    ///     .subdirectory(".config");
+    /// #[derive(Deserialize)]
+    /// struct Configuration {
+    ///     port: u16,
+    /// }
     ///
-    /// assert_eq!(search.subdirectories().len(), 2);
+    /// // In each directory, reads `example.toml`, then `.github/example.toml`
+    /// let search = AncestorsSearch::new("example").subdirectory(".github");
+    /// let configuration: Configuration = Loader::ancestors(search).load()?;
+    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
     /// ```
     #[must_use]
     pub fn subdirectory(mut self, subdirectory: impl Into<Subdirectory>) -> Self {
-        self.subdirectories.push(subdirectory.into());
+        self.locations
+            .push(Location::Subdirectory(subdirectory.into()));
 
         self
     }
@@ -112,9 +133,9 @@ impl AncestorsSearch {
         &self.application
     }
 
-    /// Returns the subdirectories in the order in which the developer named them
-    pub fn subdirectories(&self) -> &[Subdirectory] {
-        &self.subdirectories
+    /// Returns the locations in the order in which the developer named them
+    pub(crate) fn locations(&self) -> &[Location] {
+        &self.locations
     }
 }
 
@@ -165,8 +186,8 @@ mod tests {
         assert_eq!(search.application().get(), "example");
     }
 
-    // The order of the calls is the order in which the subdirectories win, so
-    // the type must not sort them or remove a repeat.
+    // The order of the calls is the order in which the locations win, so the
+    // type must not sort them or remove a repeat.
     #[test]
     fn subdirectory_keeps_the_order_of_the_calls() {
         let search = AncestorsSearch::new("example")
@@ -174,8 +195,11 @@ mod tests {
             .subdirectory(".config");
 
         assert_eq!(
-            search.subdirectories(),
-            vec![Subdirectory::from(".github"), Subdirectory::from(".config")]
+            search.locations(),
+            vec![
+                Location::Subdirectory(Subdirectory::from(".github")),
+                Location::Subdirectory(Subdirectory::from(".config"))
+            ]
         );
     }
 }
