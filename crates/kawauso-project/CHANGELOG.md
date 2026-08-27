@@ -7,27 +7,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning].
 
-## [Unreleased]
+## [0.1.0] - 2026-08-27
 
 ### Added
 
-- Find the directory of a project by walking up from a given directory until
-  one of the markers of the application matches
-- Start the search at the working directory of the process, for an application
-  that takes no path from its user
-- Report the canonical path of the project, with the `.` and `..` components
-  removed and the symbolic links resolved
-- Report the start directory as the project when no marker matches, for an
-  application that also runs outside a project
-- Report the condition that ended a failed search in the message of the error,
-  so that a report of one line names the start and the markers
-- Describe a project with a builder, then find it and read its configuration
-  file in one step with `Project::load`
-- Read the configuration file of a project from `.config/<application>.toml`,
-  or from a location that the application names, and deserialize it into a
-  type that the application defines
-- Declare with `without_configuration` that an application has no
-  configuration file, so that its project reads none
+- Report the condition that ended a failed search in the error message (#81)
+- Report the canonical path of the project, with symbolic links resolved (#80)
+- Declare with `without_configuration` that an application reads no
+  configuration file (#77)
+- Describe a project with a builder and read its configuration in one step
+  with `Project::load` (#73)
+- Read the configuration file from `.config/<application>.toml` and
+  deserialize it into a type that the application defines (#73)
+- Fall back to the start directory when no marker matches (#72)
+- Start the search at the working directory of the process (#71)
+- Find the project by walking up from a directory until a marker matches
+  (#69)
 
+[0.1.0]: https://github.com/aonyx-ai/kawauso/releases/tag/kawauso-project@0.1.0
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
