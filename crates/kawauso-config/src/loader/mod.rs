@@ -36,6 +36,7 @@ use std::path::PathBuf;
 use serde::de::DeserializeOwned;
 
 pub use self::ancestors_search::AncestorsSearch;
+use self::ancestors_search::Location;
 pub use self::ancestors_search::Subdirectory;
 pub use self::application_name::ApplicationName;
 use self::configuration_directory::ConfigurationDirectory;
@@ -111,14 +112,14 @@ impl Loader {
     /// whose configuration belongs to a project.
     ///
     /// The name of an application is enough to start the search. A project
-    /// that keeps the file in a subdirectory needs an [`AncestorsSearch`].
-    /// It names the subdirectories, such as `.github`, that the application
-    /// also accepts.
+    /// that keeps the file somewhere else needs an [`AncestorsSearch`]. It
+    /// adds the locations that the application also accepts, such as a
+    /// subdirectory that many tools share, for example `.github`.
     ///
     /// Each directory then has more than one location. The search reads the
-    /// directory itself first, and then each subdirectory in the order in
-    /// which the developer named them. It reads every location of one
-    /// directory before it reads a location of the directory above.
+    /// directory itself first, and then each location in the order in which
+    /// the developer added them. It reads every location of one directory
+    /// before it reads a location of the directory above.
     ///
     /// The working directory is read when [`load`][load] runs, not at the
     /// time of this call.
@@ -441,9 +442,9 @@ where
 ///
 /// The locations are the working directory and each of its ancestors, in
 /// that order, and each of them holds a file with the name of the
-/// application and the extension `.toml`. A directory that the developer
-/// named as a subdirectory holds the same file, and belongs to the directory
-/// that contains it.
+/// application and the extension `.toml`. A location that the developer
+/// added, such as a subdirectory, holds its own file in the directory that
+/// contains the location.
 ///
 /// A subdirectory that leaves its directory fails the search before it reads
 /// the file system. Such a value comes from the application, not from the
@@ -467,50 +468,55 @@ fn find_in_ancestors(
     working_directory: std::io::Result<PathBuf>,
     search: &AncestorsSearch,
 ) -> Result<ConfigurationPath, DiscoverConfigurationError> {
-    let subdirectories = search.subdirectories();
+    let locations = search.locations();
 
-    if let Some(subdirectory) = subdirectories.iter().find(|entry| !is_inside(entry)) {
-        return Err(DiscoverConfigurationError::OutsideSubdirectory {
-            subdirectory: subdirectory.clone(),
-        });
+    if let Some(subdirectory) = locations.iter().find_map(|location| match location {
+        Location::Subdirectory(subdirectory) if !is_inside(subdirectory) => {
+            Some(subdirectory.clone())
+        }
+        Location::Subdirectory(_) => None,
+    }) {
+        return Err(DiscoverConfigurationError::OutsideSubdirectory { subdirectory });
     }
 
     let working_directory = working_directory
         .map_err(|source| DiscoverConfigurationError::UnknownWorkingDirectory { source })?;
 
-    let file_name = format!("{}.toml", search.application());
-    let locations = working_directory
+    let application = search.application();
+    let file_name = format!("{application}.toml");
+    let searched = working_directory
         .ancestors()
-        .flat_map(|directory| locations_in(directory, subdirectories, &file_name))
+        .flat_map(|directory| locations_in(directory, locations, &file_name))
         .collect::<Vec<_>>();
 
-    first_file(SearchedLocations::new(locations))
+    first_file(SearchedLocations::new(searched))
 }
 
 /// Returns the locations that one directory of the walk contributes
 ///
-/// The directory itself comes first, so a project that names a subdirectory
-/// still finds the file that it kept in the directory before. The
-/// subdirectories follow in the order in which the developer named them,
-/// which is the order in which they win.
+/// The directory itself comes first, so a project that adds a location still
+/// finds the file that it kept in the directory before. The locations follow
+/// in the order in which the developer named them, which is the order in
+/// which they win. A location resolves the paths that it reads, so a location
+/// that reads more than one file needs no change here.
 ///
-/// A subdirectory that does not exist is still a location. The search reads
-/// what the file system reports about each location, and a location that it
+/// A location that does not exist is still a location. The search reads what
+/// the file system reports about each location, and a location that it
 /// reports nothing about holds no configuration file.
 // config[impl discover.ancestors.subdirectories]
 // config[impl discover.ancestors.subdirectories.order]
 fn locations_in(
     directory: &Path,
-    subdirectories: &[Subdirectory],
+    locations: &[Location],
     file_name: &str,
 ) -> Vec<ConfigurationPath> {
-    std::iter::once(directory.to_path_buf())
+    std::iter::once(directory.join(file_name))
         .chain(
-            subdirectories
+            locations
                 .iter()
-                .map(|subdirectory| directory.join(subdirectory.get())),
+                .flat_map(|location| location.paths_in(directory, file_name)),
         )
-        .map(|directory| ConfigurationPath::new(directory.join(file_name)))
+        .map(ConfigurationPath::new)
         .collect()
 }
 
