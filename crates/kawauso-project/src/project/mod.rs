@@ -185,6 +185,7 @@ where
     // project[impl discover.markers.required]
     // project[verify discover.markers.required]
     // project[impl configuration.location.custom]
+    // project[impl configuration.location.directory]
     // project[impl configuration.missing]
     // project[impl configuration.none]
     // project[impl discover.start.caller]
@@ -210,6 +211,7 @@ where
             ConfigurationSource::Conventional | ConfigurationSource::None => {
                 configuration_file_of(&application)
             }
+            ConfigurationSource::Directory => configuration_directory_of(&application),
         };
 
         let configuration_path =
@@ -220,7 +222,9 @@ where
             // a file at the location belongs to something else and stays
             // untouched.
             ConfigurationSource::None => None,
-            ConfigurationSource::Conventional | ConfigurationSource::File(_) => {
+            ConfigurationSource::Conventional
+            | ConfigurationSource::File(_)
+            | ConfigurationSource::Directory => {
                 if exists(configuration_path.get()) {
                     Some(load_configuration(&configuration_path)?)
                 } else {
@@ -252,6 +256,9 @@ enum ConfigurationSource {
     /// A location that the developer names
     File(ConfigurationFile),
 
+    /// The conventional directory, `.config/<application>/config.toml`
+    Directory,
+
     /// The application has no configuration file
     None,
 }
@@ -267,8 +274,10 @@ where
     /// GitHub Action that reads `.github`. An application that keeps its file
     /// at the conventional `.config/<application>.toml` names no file.
     ///
-    /// This method and [`without_configuration`][without] describe the same
-    /// thing. A builder that calls both does not compile.
+    /// Where the project gets its configuration is one thing, so this method,
+    /// [`with_configuration_directory`][directory], and
+    /// [`without_configuration`][without] describe the same thing. A builder
+    /// that calls more than one of them does not compile.
     ///
     /// # Examples
     ///
@@ -300,6 +309,7 @@ where
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
+    /// [directory]: ProjectBuilder::with_configuration_directory
     /// [without]: ProjectBuilder::without_configuration
     pub fn configuration_file(
         self,
@@ -323,8 +333,10 @@ where
     /// conventional location. An application that writes the file later
     /// therefore knows where the file goes.
     ///
-    /// This method and [`configuration_file`][file] describe the same thing.
-    /// A builder that calls both does not compile:
+    /// Where the project gets its configuration is one thing, so this method,
+    /// [`configuration_file`][file], and
+    /// [`with_configuration_directory`][directory] describe the same thing. A
+    /// builder that calls more than one of them does not compile:
     ///
     /// ```compile_fail
     /// use kawauso_project::Project;
@@ -360,6 +372,7 @@ where
     ///
     /// [configuration]: Project::configuration
     /// [configuration-path]: Project::configuration_path
+    /// [directory]: ProjectBuilder::with_configuration_directory
     /// [file]: ProjectBuilder::configuration_file
     pub fn without_configuration(
         self,
@@ -368,6 +381,72 @@ where
         S::Configuration: project_builder::IsUnset,
     {
         self.configuration_source(ConfigurationSource::None)
+    }
+
+    /// Selects the configuration directory that the application owns in `.config`
+    ///
+    /// The configuration file becomes `config.toml` in
+    /// `.config/<application>`, the directory in which an application keeps
+    /// the other files it owns.
+    ///
+    /// Where the project gets its configuration is one thing, so this method,
+    /// [`configuration_file`][file], and [`without_configuration`][without]
+    /// describe the same thing. A builder that calls more than one of them
+    /// does not compile:
+    ///
+    /// ```compile_fail
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// let search = Search::start(".").marker(".git");
+    /// let project: Project = Project::builder()
+    ///     .application("example")
+    ///     .with_configuration_directory()
+    ///     .configuration_file(".github/example.toml")
+    ///     .load(&search)
+    ///     .unwrap();
+    /// ```
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use serde::Deserialize;
+    ///
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct Configuration {
+    ///     port: u16,
+    /// }
+    ///
+    /// let directory = tempfile::tempdir()?;
+    /// std::fs::write(directory.path().join(".git"), "")?;
+    /// std::fs::create_dir_all(directory.path().join(".config").join("example"))?;
+    /// std::fs::write(
+    ///     directory.path().join(".config").join("example").join("config.toml"),
+    ///     "port = 8080",
+    /// )?;
+    ///
+    /// let search = Search::start(directory.path()).marker(".git");
+    /// let project: Project<Configuration> = Project::builder()
+    ///     .application("example")
+    ///     .with_configuration_directory()
+    ///     .load(&search)?;
+    ///
+    /// assert_eq!(project.configuration().unwrap().port, 8080);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [file]: ProjectBuilder::configuration_file
+    /// [without]: ProjectBuilder::without_configuration
+    pub fn with_configuration_directory(
+        self,
+    ) -> ProjectBuilder<'search, T, project_builder::SetConfiguration<S>>
+    where
+        S::Configuration: project_builder::IsUnset,
+    {
+        self.configuration_source(ConfigurationSource::Directory)
     }
 }
 
@@ -428,6 +507,21 @@ struct Discovery {
 // project[impl configuration.location]
 fn configuration_file_of(application: &ApplicationName) -> ConfigurationFile {
     ConfigurationFile::new(PathBuf::from(".config").join(format!("{application}.toml")))
+}
+
+/// Returns the directory location of the configuration file
+///
+/// An application that owns the directory `.config/<application>` keeps its
+/// configuration in `config.toml` inside it, next to the other files that it
+/// writes. The directory, like the file layout, is conventional, so no
+/// application repeats it.
+// project[impl configuration.location.directory]
+fn configuration_directory_of(application: &ApplicationName) -> ConfigurationFile {
+    ConfigurationFile::new(
+        PathBuf::from(".config")
+            .join(application.get())
+            .join("config.toml"),
+    )
 }
 
 /// Reads a configuration file and deserializes it

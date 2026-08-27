@@ -97,6 +97,60 @@ fn load_with_a_broken_configuration_file_returns_an_error() {
     );
 }
 
+// The project reads one location, so a file at the other layout belongs to
+// something else and stays untouched.
+// project[verify configuration.location.directory]
+#[test]
+fn load_with_a_configuration_directory_ignores_the_file_layout() {
+    let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let project: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .with_configuration_directory()
+        .load(&search)
+        .unwrap();
+
+    assert!(project.configuration().is_none());
+}
+
+// project[verify configuration.location.directory]
+#[test]
+fn load_with_a_configuration_directory_reads_its_file() {
+    let directory = project(Some((".config/example/config.toml", CONTENTS))).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let project: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .with_configuration_directory()
+        .load(&search)
+        .unwrap();
+
+    assert_eq!(project.configuration().unwrap().port, 8080);
+}
+
+// project[verify configuration.location.directory]
+#[test]
+fn load_with_a_configuration_directory_reports_the_directory() {
+    let directory = project(None).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let project: Project<Configuration> = Project::builder()
+        .application(APPLICATION)
+        .with_configuration_directory()
+        .load(&search)
+        .unwrap();
+
+    assert_eq!(
+        project.configuration_path().get(),
+        canonical(&directory)
+            .unwrap()
+            .join(".config")
+            .join("example")
+            .join("config.toml")
+    );
+}
+
 // project[verify configuration.load]
 #[test]
 fn load_with_a_configuration_file_deserializes_it() {

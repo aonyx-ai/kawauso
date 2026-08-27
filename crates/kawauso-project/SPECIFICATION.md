@@ -162,6 +162,14 @@ and a user finds the file of every tool in the same place. An application
 whose host dictates another location, such as a GitHub Action that reads
 `.github`, names that location instead.
 
+The dot-config convention adds a second layout. An application that owns the
+directory `.config/<name>` keeps the file `config.toml` in it, next to the
+other files that it owns. A directory that belongs to one application does
+not repeat the name of that application in the file, so the application names
+itself once. The developer selects the directory with an option, and the
+crate then reads the file `config.toml` in it and reports that one path. The
+two layouts are two states, so a project never reads both.
+
 The developer describes the project once, before the crate finds it: where the
 search starts, which markers identify the project, and which file holds the
 configuration. The crate then reads the file and deserializes it into a type
@@ -193,6 +201,11 @@ The configuration file of an application MUST be the file
 project[configuration.location.custom]
 The crate MUST use the relative path that the developer names as the
 configuration file instead, when the developer names one.
+
+project[configuration.location.directory]
+The crate MUST use the file `config.toml` in the directory
+`.config/<application>` of the project as the configuration file, when the
+developer selects the configuration directory.
 
 project[configuration.load]
 The crate MUST deserialize the configuration file of the project into a type
