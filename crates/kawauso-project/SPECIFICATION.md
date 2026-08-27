@@ -224,6 +224,64 @@ The crate MUST NOT read a configuration file, and MUST report no
 configuration, when the developer declares that the application has no
 configuration file.
 
+### Creation
+
+Some applications need a configuration file that no user wrote. Such an
+application gives each project a value that it makes once, an identifier for
+example. It keeps that value in the file of the project. A project without the
+file therefore needs one before the application can do its work. Every such
+application writes the same file at the same location, so the crate writes it
+instead.
+
+The developer asks for the creation, and the crate then writes the file when
+the project has none. The developer supplies the value, because a value that
+an application makes for one project has no constant that describes it. The
+crate reports the value that it wrote as the configuration of the project. A
+caller therefore reads a configuration for a new project and for an old one.
+
+Creation is the only write. A file that a user wrote holds their comments and
+the order of their fields, and a serializer that writes the whole document
+loses both. The crate therefore does not repair a file that exists. A file
+that the type of the application rejects fails the load, the error names the
+problem, and the user corrects the file.
+
+A read that writes surprises the caller, so a load alone creates nothing. A
+project without a configuration file stays a normal state, and the developer
+states the intent to create with a different method. An application that
+declares that it has no configuration file creates none either. The two
+statements contradict each other, and the crate rejects the pair.
+
+The search runs before the write, and a search that finds no project fails.
+The crate therefore does not write a file outside a project.
+
+project[configuration.create]
+The crate MUST create the configuration file of the project from a value that
+the developer supplies, when the developer asks for the creation and the
+project has no configuration file.
+
+project[configuration.create.directories]
+The crate MUST create the directories that the configuration file needs.
+
+project[configuration.create.result]
+The crate MUST report the value that it wrote as the configuration of the
+project.
+
+project[configuration.create.existing]
+The crate MUST NOT write to the configuration file of the project when a file
+exists at its location.
+
+project[configuration.create.load]
+The crate MUST NOT create a configuration file when the developer does not ask
+for the creation.
+
+project[configuration.create.none]
+The crate MUST reject the creation of a configuration file for an application
+that declares that it has no configuration file.
+
+project[configuration.create.error]
+The crate MUST return an error, and MUST NOT panic, when it cannot create the
+configuration file of the project.
+
 [adr-009]: ../../adrs/009-project-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119
 [tracey]: https://tracey.bearcove.eu/

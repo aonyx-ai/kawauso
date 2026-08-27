@@ -9,12 +9,14 @@ pub mod configuration_path;
 pub mod no_configuration;
 pub mod project_root;
 
+use std::error::Error;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 
 use bon::bon;
 use kawauso_config::Loader;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 pub use self::application_name::ApplicationName;
@@ -106,7 +108,9 @@ where
     /// The developer describes the project once: which file holds the
     /// configuration, and, through the [`Search`], where the walk starts and
     /// which markers identify the project. [`load`][load] then runs the
-    /// search and reads the file.
+    /// search and reads the file, and
+    /// [`load_or_create`][load-or-create] writes the file when the project
+    /// has none.
     ///
     /// Every project belongs to an application, and the name of the
     /// application decides where the configuration file is:
@@ -125,7 +129,10 @@ where
     /// use kawauso_project::Search;
     ///
     /// let search = Search::start("src");
-    /// let project: Project = Project::builder().load(&search).unwrap();
+    /// let project: Project = Project::builder()
+    ///     .application("example")
+    ///     .load(&search)
+    ///     .unwrap();
     /// ```
     ///
     /// # Errors
@@ -168,17 +175,23 @@ where
     /// [application]: ProjectBuilder::application
     /// [configuration-file]: ProjectBuilder::configuration_file
     /// [load]: ProjectBuilder::load
+    /// [load-or-create]: ProjectBuilder::load_or_create
     /// [without-configuration]: ProjectBuilder::without_configuration
     /// [undiscoverable]: LoadProjectError::UndiscoverableProject
     /// [unloadable]: LoadProjectError::UnloadableConfiguration
     // The original function stays private, so `builder` is the only way to
     // describe a project. Its own visibility is set here, because bon gives
     // the generated functions the visibility of the function that it wraps.
+    //
+    // The generated finishing function stays private as well. A caller
+    // finishes with `load` or with `load_or_create`. The two differ in what
+    // they do with a project that has no configuration file, and bon
+    // generates one finishing function.
     #[builder(
         builder_type(vis = "pub"),
         state_mod(vis = "pub"),
         start_fn(name = builder, vis = "pub"),
-        finish_fn(name = load, vis = "pub")
+        finish_fn(name = finish, vis = "")
     )]
     // project[impl configuration.load]
     // project[impl configuration.location]
@@ -196,9 +209,15 @@ where
         #[builder(into)] application: ApplicationName,
         // The generated setter is private. The two public methods on the
         // builder wrap it, and each one requires this member to be unset, so
-        // a caller cannot both name a file and opt out of the configuration.
+        // a caller cannot name two locations for one file.
         #[builder(default = ConfigurationSource::Conventional, setters(name = configuration_source, vis = ""))]
         configuration: ConfigurationSource,
+        // The generated setters are private, and `without_configuration`
+        // wraps them. The member records the declaration in the state of the
+        // builder. `load_or_create` then requires it to be unset, because an
+        // application that reads no configuration file creates none either.
+        #[builder(default, setters(name = no_configuration_file, vis = ""))]
+        without_configuration: WithoutConfiguration,
     ) -> Result<Self, LoadProjectError> {
         let start = resolve(search.start_directory().get(), std::env::current_dir())
             .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
@@ -208,23 +227,19 @@ where
 
         let configuration_file = match &configuration {
             ConfigurationSource::File(file) => file.clone(),
-            ConfigurationSource::Conventional | ConfigurationSource::None => {
-                configuration_file_of(&application)
-            }
+            ConfigurationSource::Conventional => configuration_file_of(&application),
             ConfigurationSource::Directory => configuration_directory_of(&application),
         };
 
         let configuration_path =
             ConfigurationPath::new(discovery.root.get().join(configuration_file.get()));
 
-        let configuration = match configuration {
-            // The application declared that it has no configuration file, so
-            // a file at the location belongs to something else and stays
-            // untouched.
-            ConfigurationSource::None => None,
-            ConfigurationSource::Conventional
-            | ConfigurationSource::File(_)
-            | ConfigurationSource::Directory => {
+        let configuration = match without_configuration {
+            // An application that declared that it has no configuration file
+            // reads none. A file at the location belongs to something else,
+            // and it stays untouched.
+            WithoutConfiguration::Present => None,
+            WithoutConfiguration::Absent => {
                 if exists(configuration_path.get()) {
                     Some(load_configuration(&configuration_path)?)
                 } else {
@@ -242,12 +257,17 @@ where
     }
 }
 
-/// Where a project gets its configuration
+/// Where a project keeps its configuration file
 ///
 /// The default is the conventional location, which the name of the
 /// application decides. A developer whose host dictates another location
-/// names it, and a developer whose application has no configuration file at
-/// all opts out.
+/// names it, and a developer who owns a directory in `.config` selects it.
+///
+/// A developer whose application has no configuration file at all opts out
+/// with [`WithoutConfiguration`], which is a separate member of the builder.
+/// The location of the file is one question, and whether the application
+/// reads a file at all is another. An application that reads none still
+/// reports the conventional location to its user.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 enum ConfigurationSource {
     /// The conventional location, `.config/<application>.toml`
@@ -258,9 +278,27 @@ enum ConfigurationSource {
 
     /// The conventional directory, `.config/<application>/config.toml`
     Directory,
+}
 
-    /// The application has no configuration file
-    None,
+/// The declaration that an application has no configuration file
+///
+/// A developer makes the declaration with
+/// [`without_configuration`][without-configuration], which sets the member of
+/// the builder that holds this value. The state of that member records the
+/// declaration, and [`load_or_create`][load-or-create] requires it to be
+/// unset. An application that reads no configuration file creates none
+/// either, and the compiler reports a builder that contradicts itself.
+///
+/// [load-or-create]: ProjectBuilder::load_or_create
+/// [without-configuration]: ProjectBuilder::without_configuration
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
+enum WithoutConfiguration {
+    /// The developer made no declaration, and the project reads its file
+    #[default]
+    Absent,
+
+    /// The developer declared that the application has no configuration file
+    Present,
 }
 
 impl<'search, T, S: project_builder::State> ProjectBuilder<'search, T, S>
@@ -317,6 +355,7 @@ where
     ) -> ProjectBuilder<'search, T, project_builder::SetConfiguration<S>>
     where
         S::Configuration: project_builder::IsUnset,
+        S::WithoutConfiguration: project_builder::IsUnset,
     {
         self.configuration_source(ConfigurationSource::File(configuration_file.into()))
     }
@@ -332,6 +371,22 @@ where
     /// [`configuration_path`][configuration-path] still reports the
     /// conventional location. An application that writes the file later
     /// therefore knows where the file goes.
+    ///
+    /// An application that reads no configuration file creates none either,
+    /// so [`load_or_create`][load-or-create] does not compile on such a
+    /// builder:
+    ///
+    /// ```compile_fail
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// let search = Search::start(".").marker(".git");
+    /// let project: Project<u16> = Project::builder()
+    ///     .application("example")
+    ///     .without_configuration()
+    ///     .load_or_create(&search, || 8080)
+    ///     .unwrap();
+    /// ```
     ///
     /// Where the project gets its configuration is one thing, so this method,
     /// [`configuration_file`][file], and
@@ -374,13 +429,16 @@ where
     /// [configuration-path]: Project::configuration_path
     /// [directory]: ProjectBuilder::with_configuration_directory
     /// [file]: ProjectBuilder::configuration_file
+    /// [load-or-create]: ProjectBuilder::load_or_create
+    // project[verify configuration.create.none]
     pub fn without_configuration(
         self,
-    ) -> ProjectBuilder<'search, T, project_builder::SetConfiguration<S>>
+    ) -> ProjectBuilder<'search, T, project_builder::SetWithoutConfiguration<S>>
     where
         S::Configuration: project_builder::IsUnset,
+        S::WithoutConfiguration: project_builder::IsUnset,
     {
-        self.configuration_source(ConfigurationSource::None)
+        self.no_configuration_file(WithoutConfiguration::Present)
     }
 
     /// Selects the configuration directory that the application owns in `.config`
@@ -445,8 +503,167 @@ where
     ) -> ProjectBuilder<'search, T, project_builder::SetConfiguration<S>>
     where
         S::Configuration: project_builder::IsUnset,
+        S::WithoutConfiguration: project_builder::IsUnset,
     {
         self.configuration_source(ConfigurationSource::Directory)
+    }
+}
+
+impl<T, S> ProjectBuilder<'_, T, S>
+where
+    T: DeserializeOwned,
+    S: project_builder::IsComplete,
+{
+    /// Finds the project and reads its configuration file
+    ///
+    /// The search runs, and the project reads the file at its configuration
+    /// path when a file exists there. A project without the file is a normal
+    /// state, and [`configuration`][configuration] reports `None` for it.
+    ///
+    /// This method writes nothing. A read that writes surprises its caller,
+    /// so an application that needs the file states that with
+    /// [`load_or_create`][load-or-create].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UndiscoverableProject`][undiscoverable] when the search
+    /// produces no project: no marker matched, or the walk could not begin.
+    ///
+    /// Returns [`UnloadableConfiguration`][unloadable] when a configuration
+    /// file exists at the location of the project and cannot be read, parsed,
+    /// or deserialized.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use serde::Deserialize;
+    ///
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct Configuration {
+    ///     port: u16,
+    /// }
+    ///
+    /// let directory = tempfile::tempdir()?;
+    /// std::fs::write(directory.path().join(".git"), "")?;
+    ///
+    /// let search = Search::start(directory.path()).marker(".git");
+    /// let project: Project<Configuration> =
+    ///     Project::builder().application("example").load(&search)?;
+    ///
+    /// assert!(project.configuration().is_none());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [configuration]: Project::configuration
+    /// [load-or-create]: ProjectBuilder::load_or_create
+    /// [undiscoverable]: LoadProjectError::UndiscoverableProject
+    /// [unloadable]: LoadProjectError::UnloadableConfiguration
+    // project[impl configuration.create.load]
+    pub fn load(self, search: &Search<Marked>) -> Result<Project<T>, LoadProjectError> {
+        self.finish(search)
+    }
+
+    /// Finds the project, and creates its configuration file when it has none
+    ///
+    /// The search runs, and the project reads the file at its configuration
+    /// path when a file exists there. When none exists, the closure produces
+    /// the configuration, the project writes it to that path, and
+    /// [`configuration`][configuration] then reports the value that the file
+    /// holds. The crate creates the directories that the path needs as well.
+    ///
+    /// Use this method for an application that needs the file. Such an
+    /// application keeps a value in the file that it makes for one project,
+    /// an identifier for example. No constant describes such a value, so the
+    /// caller supplies it. The closure runs only when the project has no
+    /// configuration file.
+    ///
+    /// Creation is the only write. A file that a user wrote holds their
+    /// comments and the order of their fields. A serializer that writes the
+    /// whole document loses both, so this method does not repair a file that
+    /// exists. A file that the type of the application rejects fails the
+    /// load, and the message of the error names the problem for the user to
+    /// correct.
+    ///
+    /// The search runs before the write, and a search that finds no project
+    /// fails, so this method writes no file outside a project.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UndiscoverableProject`][undiscoverable] when the search
+    /// produces no project: no marker matched, or the walk could not begin.
+    ///
+    /// Returns [`UnloadableConfiguration`][unloadable] when a configuration
+    /// file exists at the location of the project and cannot be read, parsed,
+    /// or deserialized.
+    ///
+    /// Returns [`UncreatableConfiguration`][uncreatable] when the project has
+    /// no configuration file, and the value cannot be serialized or the file
+    /// cannot be written.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use serde::Deserialize;
+    /// use serde::Serialize;
+    ///
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    ///
+    /// #[derive(Deserialize, Serialize)]
+    /// struct Configuration {
+    ///     id: String,
+    /// }
+    ///
+    /// let directory = tempfile::tempdir()?;
+    /// std::fs::write(directory.path().join(".git"), "")?;
+    ///
+    /// let search = Search::start(directory.path()).marker(".git");
+    /// let project: Project<Configuration> = Project::builder()
+    ///     .application("example")
+    ///     .load_or_create(&search, || Configuration {
+    ///         id: "f2a1b7".to_owned(),
+    ///     })?;
+    ///
+    /// assert_eq!(project.configuration().unwrap().id, "f2a1b7");
+    /// assert!(project.configuration_path().get().is_file());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [configuration]: Project::configuration
+    /// [uncreatable]: LoadProjectError::UncreatableConfiguration
+    /// [undiscoverable]: LoadProjectError::UndiscoverableProject
+    /// [unloadable]: LoadProjectError::UnloadableConfiguration
+    // project[impl configuration.create]
+    // project[impl configuration.create.existing]
+    // project[impl configuration.create.none]
+    // project[impl configuration.create.result]
+    pub fn load_or_create<F>(
+        self,
+        search: &Search<Marked>,
+        configuration: F,
+    ) -> Result<Project<T>, LoadProjectError>
+    where
+        F: FnOnce() -> T,
+        S::WithoutConfiguration: project_builder::IsUnset,
+        T: Serialize,
+    {
+        let mut project = self.finish(search)?;
+
+        // A project reports a configuration when a file exists at its path,
+        // and the load already read that file. The closure therefore runs
+        // only for a project whose file this method creates.
+        if project.configuration.is_none() {
+            let configuration = configuration();
+
+            create_configuration(&project.configuration_path, &configuration)?;
+
+            project.configuration = Some(configuration);
+        }
+
+        Ok(project)
     }
 }
 
@@ -522,6 +739,46 @@ fn configuration_directory_of(application: &ApplicationName) -> ConfigurationFil
             .join(application.get())
             .join("config.toml"),
     )
+}
+
+/// Writes a configuration file, with the directories that its path needs
+///
+/// The caller established that no file exists at the path, so the write
+/// destroys no formatting of an author. The function creates the directories
+/// above the file as well. The conventional location lives in `.config`, and
+/// a project that never held a configuration file has no such directory.
+///
+/// The cause of a failure is boxed, because the type that produced it belongs
+/// to a dependency and never crosses the boundary of this crate.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be serialized, when the directories
+/// cannot be created, or when the file cannot be written.
+// project[impl configuration.create]
+// project[impl configuration.create.directories]
+// project[impl configuration.create.error]
+fn create_configuration<T>(
+    path: &ConfigurationPath,
+    configuration: &T,
+) -> Result<(), LoadProjectError>
+where
+    T: Serialize,
+{
+    let uncreatable =
+        |source: Box<dyn Error + Send + Sync>| LoadProjectError::UncreatableConfiguration {
+            path: path.clone(),
+            source,
+        };
+
+    let contents =
+        toml::to_string_pretty(configuration).map_err(|source| uncreatable(Box::new(source)))?;
+
+    if let Some(directory) = path.get().parent() {
+        std::fs::create_dir_all(directory).map_err(|source| uncreatable(Box::new(source)))?;
+    }
+
+    std::fs::write(path.get(), contents).map_err(|source| uncreatable(Box::new(source)))
 }
 
 /// Reads a configuration file and deserializes it
