@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning].
 
+## [0.2.0] - 2026-08-28
+
+### Added
+
+- Create the configuration file of a new project with `load_or_create` (#91)
+- Select the configuration directory with `with_configuration_directory` (#90)
+
 ## [0.1.0] - 2026-08-27
 
 ### Added
