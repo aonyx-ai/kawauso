@@ -25,7 +25,13 @@ include = [
 ]
 
 [dependencies]
+thiserror = { workspace = true }
+tokio = { workspace = true }
 typed-fields = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "time"] }
 
 [lints]
 workspace = true

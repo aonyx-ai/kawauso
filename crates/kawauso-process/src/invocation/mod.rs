@@ -7,6 +7,11 @@
 //! An invocation is a value, and nothing starts a program when an application
 //! builds one. An application can therefore describe a command once, write
 //! the command to a log, and name it in an error.
+//!
+//! The [run][run] method starts the command that the invocation describes,
+//! and it reports what the command produced.
+//!
+//! [run]: Invocation::run
 
 pub mod argument;
 pub mod program;
@@ -14,11 +19,18 @@ pub mod working_directory;
 
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::fmt::Result;
+use std::fmt::Result as FmtResult;
+use std::process::Stdio;
+use std::time::Instant;
+
+use tokio::process::Command;
 
 pub use self::argument::Argument;
 pub use self::program::Program;
 pub use self::working_directory::WorkingDirectory;
+use crate::error::RunCommandError;
+use crate::execution::Execution;
+use crate::execution::Output;
 
 /// The description of one external command
 ///
@@ -197,6 +209,117 @@ impl Invocation {
         &self.program
     }
 
+    /// Runs the command and reports what it produced
+    ///
+    /// The method starts the program, reads what the command writes to its
+    /// standard output and to its standard error, and waits for the command
+    /// to end. A command that fills a pipe stops until a reader empties it,
+    /// so the run reads both streams while it waits. A command that writes
+    /// more than a pipe holds therefore never stops the run.
+    ///
+    /// The command starts with a standard input that is null, so a command
+    /// that reads its input sees the end of the input at once. A program that
+    /// asks for a password ends instead of waiting for an answer. The command
+    /// inherits the environment of the process that runs it, and the crate
+    /// has no interface that changes it. The operating system resolves the
+    /// program with the rules of the platform, and the crate searches no path
+    /// of its own.
+    ///
+    /// A command that ends without success is no failure of this method. The
+    /// status travels in the result, and [`require_success`][require-success]
+    /// turns a status that is not a success into an error.
+    ///
+    /// The future of this method owns the command. A caller that drops the
+    /// future, after a timeout for example, ends the command with it.
+    ///
+    /// On Windows, a program whose name ends in `.cmd` or `.bat` starts
+    /// through `cmd.exe`. Rust escapes the arguments for that interpreter and
+    /// refuses an argument that it cannot pass safely, so an argument reaches
+    /// the program as the caller wrote it or the run fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UnstartableCommand`][unstartable] when the program does not
+    /// start, and [`IncompleteRun`][incomplete] when the command started and
+    /// the crate could not collect its result.
+    ///
+    /// # Panics
+    ///
+    /// Panics when no Tokio runtime drives the future. The runtime watches
+    /// the streams and the end of the command, and the crate has no way to
+    /// run the command without one.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let execution = Invocation::new("git").arg("status").run().await?;
+    ///
+    /// println!("{}", execution.stdout());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    /// [require-success]: Execution::require_success
+    /// [unstartable]: RunCommandError::UnstartableCommand
+    // process[impl run]
+    pub async fn run(&self) -> Result<Execution, RunCommandError> {
+        let start = Instant::now();
+
+        // The command carries no call that clears or changes the environment,
+        // so the command inherits the environment of this process. The
+        // program travels as the caller wrote it, and the operating system
+        // resolves a bare name.
+        // process[impl run.environment]
+        // process[impl run.resolution]
+        let mut command = Command::new(self.program.get());
+
+        command
+            .args(self.arguments.iter().map(Argument::get))
+            // process[impl run.stdin]
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            // process[impl run.abandonment]
+            .kill_on_drop(true);
+
+        if let Some(directory) = &self.working_directory {
+            command.current_dir(directory.get());
+        }
+
+        let child = command
+            .spawn()
+            .map_err(|source| RunCommandError::UnstartableCommand {
+                invocation: self.clone(),
+                source,
+            })?;
+
+        // The wait reads both streams while it waits for the end of the
+        // command. A wait that read one stream after the other, or that read
+        // nothing until the end, would stop on a command that fills a pipe.
+        // process[impl run.drain]
+        let output =
+            child
+                .wait_with_output()
+                .await
+                .map_err(|source| RunCommandError::IncompleteRun {
+                    invocation: self.clone(),
+                    source,
+                })?;
+
+        Ok(Execution::new(
+            self.clone(),
+            output.status,
+            Output::new(output.stdout),
+            Output::new(output.stderr),
+            start.elapsed(),
+        ))
+    }
+
     /// Returns the directory in which the command runs
     ///
     /// `None` when the caller named no directory. The command then runs where
@@ -216,7 +339,7 @@ impl Invocation {
 /// so it is not a command line that a shell has to accept.
 // process[impl invocation.display]
 impl Display for Invocation {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         write_word(formatter, &self.program.get().to_string_lossy())?;
 
         for argument in &self.arguments {
@@ -241,7 +364,7 @@ impl Display for Invocation {
 /// # Errors
 ///
 /// Returns the error of the formatter when it cannot take the text.
-fn write_word(formatter: &mut Formatter<'_>, word: &str) -> Result {
+fn write_word(formatter: &mut Formatter<'_>, word: &str) -> FmtResult {
     if word.is_empty() || word.contains(char::is_whitespace) {
         write!(formatter, "\"{word}\"")
     } else {
