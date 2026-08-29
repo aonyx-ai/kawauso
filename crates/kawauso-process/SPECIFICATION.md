@@ -130,6 +130,52 @@ The message of a check that failed MUST name the command line of the
 invocation, the exit status of the command, and what the command wrote to its
 standard error.
 
+## Streaming
+
+A run in one call reports after the command ended. An application that shows
+the progress of a command needs the output while the command runs. An
+application that turns the output into events of its own needs it as well. The
+crate therefore has a second form. A handle starts the command and gives the
+output to the caller as lines, in the order in which the lines arrive.
+
+A line comes from one of the two streams, and the reader has to know which
+one, because a diagnostic is not a result. A line is text, because a display
+takes text and not bytes. The decoding is lossy, and the capture of the run
+keeps the bytes as the command wrote them. Nothing that the command wrote is
+lost. A command on Windows ends a line with two characters, and a line carries
+neither of them.
+
+The handle ends the run in the same way as the one-call form, and it reports
+the same result. A caller that read no line still gets the whole capture. The
+two forms differ in what the caller sees during the run, and not in what the
+run reports. A caller that drops the handle ends the command, because a handle
+that leaves a command behind leaks a process.
+
+process[stream]
+The crate MUST offer a handle that gives the output of a command to the caller
+as lines while the command runs. The handle MUST give the lines to the caller
+in the order in which they arrive.
+
+process[stream.tag]
+Each line MUST name the stream that produced it.
+
+process[stream.decode]
+The crate MUST decode a line as text, and a byte that is part of no valid
+character MUST become the replacement character. The capture of the run MUST
+keep the bytes as the command wrote them.
+
+process[stream.crlf]
+A line MUST NOT carry the characters that end it, whether the command ends the
+line with `\n` or with `\r\n`.
+
+process[stream.wait]
+A wait on the handle MUST report the result that a run in one call reports.
+The result MUST hold the whole capture of both streams, whether or not the
+caller read a line.
+
+process[stream.abandonment]
+The crate MUST end a command that still runs when the caller drops the handle.
+
 [adr-011]: ../../adrs/011-process-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119
 [tracey]: https://tracey.bearcove.eu/
