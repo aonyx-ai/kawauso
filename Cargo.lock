@@ -197,6 +197,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kawauso-process"
+version = "0.0.0"
+
+[[package]]
 name = "kawauso-project"
 version = "0.2.0"
 dependencies = [
