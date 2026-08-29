@@ -16,37 +16,22 @@ This specification is a living document that grows with the crate.
 ## Invocation
 
 An application that starts an external program names the program and its
-arguments. An invocation carries this description. It separates the description
-of a command from the run of the command. An application can therefore build a
-command, write it to a log, and name it in an error.
+arguments. An invocation carries this description, and it separates the
+description of a command from the run of the command. An application can
+therefore build a command, write it to a log, and name it in an error.
 
-The arguments are a list, and each element of the list is one argument. The
-program gets each argument as the caller wrote it. No shell reads the command,
-so nothing splits an argument at a space, removes a quotation mark, or expands
-a character such as `*`. An argument with a space stays one argument, and an
-argument with a metacharacter reaches the program unchanged. An application
-that wants a shell names the shell as the program, and gives the command line
-to it as one argument.
+The arguments are a list, and each element of the list is one argument. No
+shell reads the command, so nothing splits an argument at a space, removes a
+quotation mark, or expands a character such as `*`. Some commands run in a
+directory of their own, such as a build tool that works on the project in its
+directory. The caller can therefore name a working directory, and most
+commands need none.
 
-Some commands run in a directory of their own. A build tool works on the
-project in its directory, and a formatter reads the configuration file that it
-finds there. The caller can therefore name a working directory for the command.
-Most commands need no directory of their own, so an invocation does not require
-one. A command without a working directory runs where the process runs.
-
-A log line and an error message have to name the command that they describe. A
-reader that sees `git status` knows which command failed. An invocation
-therefore renders as a command line, with the program first and the arguments
-after it.
-
-The rendering is for a person. No caller parses it, and no shell runs it. It
-therefore does not have to be a command line that a shell accepts.
-
-A space separates the words of the line. A word that holds a space would
-therefore read as two words, and a word that is empty would read as none. The
-rendering shows where such a word starts and where it ends. The marks belong to
-the line and not to the argument, and the program still receives the argument
-as the caller wrote it.
+A log line and an error message have to name the command that they describe,
+so an invocation renders as a command line. The rendering is for a person. No
+caller parses it, and no shell runs it. A space separates the words of the
+line. A word that holds a space, or a word that is empty, therefore needs
+marks that show where it starts and where it ends.
 
 process[invocation.program]
 An invocation MUST name the program of the command.
