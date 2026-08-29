@@ -66,6 +66,85 @@ The rendering MUST name the program and every argument, in the order in which
 the caller named them. It MUST show where a word of the line starts and where
 it ends, when the word holds a space or when the word is empty.
 
+## Running
+
+An invocation describes a command, and an application then runs it. The crate
+runs the command in one call. The result of the run reports how the command
+ended, what the command wrote to each of its streams, and how long the run
+took. The two streams stay apart, because a program separates its result from
+its diagnostics.
+
+A command that ends without success is no failure of the run. The check mode
+of a formatter ends without success when it finds a file to format. That
+status is the answer that the application asked for. The result therefore
+carries the status, and an error reports a run that did not happen.
+
+Three decisions apply to every command, and no caller states them. The
+standard input is null, the command inherits the environment of the process
+that runs it, and the operating system resolves the program. A run also reads
+both streams while it waits for the end of the command. A command that fills a
+pipe stops until a reader empties it, so a run that reads one stream after the
+other stops with it. A run that the caller abandons ends the command as well.
+
+A command that does not start is a failure of the run. Nothing ran, so the
+crate reports an error, and the message names the command line, because the
+reader of a log has to know which command did not start. A caller that must
+not accept a command that failed makes a check on the result. The message of
+that check names the command line, the status, and what the command wrote to
+its standard error, which is where a program states why it stopped.
+
+process[run]
+The crate MUST run the command of an invocation in one call, and it MUST report
+a result for the run.
+
+process[run.exit]
+The result of a run MUST carry the exit status of the command. The crate MUST
+NOT return an error when a command ran and its exit status is not a success.
+
+process[run.output]
+The result of a run MUST carry what the command wrote to its standard output
+and what it wrote to its standard error. It MUST keep the two apart, and it
+MUST keep the output as the command wrote it.
+
+process[run.duration]
+The result of a run MUST carry the time that the run took.
+
+process[run.drain]
+The crate MUST read the standard output and the standard error of the command
+while it waits for the exit. A run MUST complete when the command writes more
+than the capacity of a pipe to one stream or to both streams.
+
+process[run.stdin]
+The crate MUST open the standard input of the command as null. A command that
+reads the standard input MUST see the end of the input.
+
+process[run.environment]
+The command MUST inherit the environment of the process that runs it.
+
+process[run.resolution]
+The crate MUST let the operating system resolve the program of an invocation.
+The crate MUST NOT search `PATH` for the program.
+
+process[run.abandonment]
+The crate MUST end a command that still runs when the caller drops the run.
+
+process[run.error]
+The crate MUST return an error, and MUST NOT panic, when the command cannot
+start.
+
+process[run.error.message]
+The message of the error MUST name the command line of the invocation.
+
+process[run.success]
+The result of a run MUST offer a check that fails when the exit status of the
+command is not a success. The check MUST succeed when the exit status is a
+success.
+
+process[run.success.message]
+The message of a check that failed MUST name the command line of the
+invocation, the exit status of the command, and what the command wrote to its
+standard error.
+
 [adr-011]: ../../adrs/011-process-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119
 [tracey]: https://tracey.bearcove.eu/
