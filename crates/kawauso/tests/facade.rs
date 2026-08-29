@@ -31,3 +31,26 @@ fn config_module_provides_the_configuration_loader() {
 
     assert_eq!(configuration["port"], 8080);
 }
+
+// kawauso[verify facade.identity]
+#[test]
+fn project_module_is_the_kawauso_project_crate() {
+    // The annotation is the assertion: it only compiles when the module and
+    // the crate name one type.
+    let search: kawauso_project::Search<kawauso_project::search::Marked> =
+        kawauso::project::Search::start("src/main.rs").marker(".git");
+
+    let markers = search.markers().len();
+
+    assert_eq!(markers, 1);
+}
+
+// kawauso[verify facade.module]
+#[test]
+fn project_module_provides_the_project_search() {
+    let search = kawauso::project::Search::start("src/main.rs").marker(".git");
+
+    let markers = search.markers().len();
+
+    assert_eq!(markers, 1);
+}

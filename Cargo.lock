@@ -180,6 +180,7 @@ name = "kawauso"
 version = "0.2.0"
 dependencies = [
  "kawauso-config",
+ "kawauso-project",
 ]
 
 [[package]]

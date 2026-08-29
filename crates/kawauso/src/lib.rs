@@ -21,3 +21,22 @@
 // kawauso[impl facade.identity]
 #[doc(inline)]
 pub use kawauso_config as config;
+/// The project that an application runs in, from the crate
+/// `kawauso-project`
+///
+/// An application that wants this capability on its own, without the rest of
+/// the framework, depends on `kawauso-project` and reaches the same types.
+///
+/// # Examples
+///
+/// ```
+/// use kawauso::project::Search;
+///
+/// let search = Search::working_directory().marker(".git");
+///
+/// assert_eq!(search.markers().len(), 1);
+/// ```
+// kawauso[impl facade.module]
+// kawauso[impl facade.identity]
+#[doc(inline)]
+pub use kawauso_project as project;
