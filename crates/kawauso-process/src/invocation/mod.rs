@@ -9,9 +9,12 @@
 //! the command to a log, and name it in an error.
 //!
 //! The [run][run] method starts the command that the invocation describes,
-//! and it reports what the command produced.
+//! and it reports what the command produced. The [start][start] method starts
+//! the same command and gives its output to the caller while the command
+//! runs.
 //!
 //! [run]: Invocation::run
+//! [start]: Invocation::start
 
 pub mod argument;
 pub mod program;
@@ -31,6 +34,7 @@ pub use self::working_directory::WorkingDirectory;
 use crate::error::RunCommandError;
 use crate::execution::Execution;
 use crate::execution::Output;
+use crate::run::Run;
 
 /// The description of one external command
 ///
@@ -177,6 +181,38 @@ impl Invocation {
         &self.arguments
     }
 
+    /// Builds the command that a run starts
+    ///
+    /// Both forms of a run start the same command, so both take it from here.
+    /// The command pipes both output streams, because a run reports what the
+    /// command wrote to each of them.
+    ///
+    /// The command carries no call that clears or changes the environment, so
+    /// the command inherits the environment of this process. The program
+    /// travels as the caller wrote it, and the operating system resolves a
+    /// bare name.
+    // process[impl run.environment]
+    // process[impl run.resolution]
+    fn command(&self) -> Command {
+        let mut command = Command::new(self.program.get());
+
+        command
+            .args(self.arguments.iter().map(Argument::get))
+            // process[impl run.stdin]
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            // process[impl run.abandonment]
+            // process[impl stream.abandonment]
+            .kill_on_drop(true);
+
+        if let Some(directory) = &self.working_directory {
+            command.current_dir(directory.get());
+        }
+
+        command
+    }
+
     /// Runs the command in the directory that the caller names
     ///
     /// Use this method for a command that works on the directory that it runs
@@ -270,33 +306,13 @@ impl Invocation {
     pub async fn run(&self) -> Result<Execution, RunCommandError> {
         let start = Instant::now();
 
-        // The command carries no call that clears or changes the environment,
-        // so the command inherits the environment of this process. The
-        // program travels as the caller wrote it, and the operating system
-        // resolves a bare name.
-        // process[impl run.environment]
-        // process[impl run.resolution]
-        let mut command = Command::new(self.program.get());
-
-        command
-            .args(self.arguments.iter().map(Argument::get))
-            // process[impl run.stdin]
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            // process[impl run.abandonment]
-            .kill_on_drop(true);
-
-        if let Some(directory) = &self.working_directory {
-            command.current_dir(directory.get());
-        }
-
-        let child = command
-            .spawn()
-            .map_err(|source| RunCommandError::UnstartableCommand {
-                invocation: self.clone(),
-                source,
-            })?;
+        let child =
+            self.command()
+                .spawn()
+                .map_err(|source| RunCommandError::UnstartableCommand {
+                    invocation: self.clone(),
+                    source,
+                })?;
 
         // The wait reads both streams while it waits for the end of the
         // command. A wait that read one stream after the other, or that read
@@ -318,6 +334,70 @@ impl Invocation {
             Output::new(output.stderr),
             start.elapsed(),
         ))
+    }
+
+    /// Starts the command and reports its output while the command runs
+    ///
+    /// The method starts the program and returns a handle. The handle gives
+    /// the output of the command to the caller as lines, in the order in
+    /// which the lines arrive, and it collects the same capture that
+    /// [`run`][run] collects. Use this method for an application that shows
+    /// the progress of a command, or that turns the output of a command into
+    /// events of its own, and [`run`][run] for one that needs the result
+    /// alone.
+    ///
+    /// The command starts with the same decisions that [`run`][run] makes.
+    /// The standard input is null, the command inherits the environment of
+    /// the process that runs it, and the operating system resolves the
+    /// program.
+    ///
+    /// The handle owns the command. A caller that drops the handle ends the
+    /// command with it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UnstartableCommand`][unstartable] when the program does not
+    /// start.
+    ///
+    /// # Panics
+    ///
+    /// Panics when no Tokio runtime runs. The runtime watches the streams and
+    /// the end of the command, and the crate has no way to run the command
+    /// without one.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut run = Invocation::new("cargo").arg("build").start()?;
+    ///
+    /// while let Some(line) = run.next_line().await? {
+    ///     println!("[{}] {line}", line.stream());
+    /// }
+    ///
+    /// println!("{}", run.wait().await?.status());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [run]: Invocation::run
+    /// [unstartable]: RunCommandError::UnstartableCommand
+    // process[impl stream]
+    pub fn start(&self) -> Result<Run, RunCommandError> {
+        let started = Instant::now();
+
+        let child =
+            self.command()
+                .spawn()
+                .map_err(|source| RunCommandError::UnstartableCommand {
+                    invocation: self.clone(),
+                    source,
+                })?;
+
+        Ok(Run::new(self.clone(), child, started))
     }
 
     /// Returns the directory in which the command runs
