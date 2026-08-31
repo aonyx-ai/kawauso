@@ -203,6 +203,46 @@ process[stream.identity]
 The handle MUST report the identifier that the operating system gave the
 command.
 
+## Stopping
+
+A caller that drops the handle kills the command at once. The program stops
+where it is, and it removes nothing that it made. A build tool holds a lock
+file while it works, and a kill leaves that file behind. The next run of the
+tool then stops at a lock that no program holds, and a person removes the file
+by hand.
+
+A program that receives a request to stop can end in good order. It removes
+its lock file, it writes what it has, and it ends. The handle therefore has a
+stop that asks before it kills. The stop sends the request, and it gives the
+program a time to end. It kills a program that is still there when the time is
+over.
+
+The request is no promise. A program can ignore it, and a platform can have no
+request of this kind. A kill ends the command in both cases, so a stop always
+ends the command.
+
+A stop reports what a wait reports. A caller that stops a command still wants
+the status of the command, and the lines that the command wrote before the
+stop.
+
+process[stop]
+The handle MUST offer a stop for the command that runs. The stop MUST report
+the result that a wait on the handle reports.
+
+process[stop.request]
+A stop MUST ask the command to end before it kills the command. On a Unix
+platform, the crate MUST send `SIGTERM` to the process of the command. On a
+platform that has no request of this kind, a stop MUST kill the command at
+once.
+
+process[stop.grace]
+A stop MUST give the command a time to end that the caller names. It MUST read
+both streams of the command while it waits, and it MUST NOT kill a command
+that ends inside that time.
+
+process[stop.kill]
+A stop MUST kill a command that still runs when the time is over.
+
 [adr-011]: ../../adrs/011-process-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119
 [tracey]: https://tracey.bearcove.eu/
