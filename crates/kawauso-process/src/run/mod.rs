@@ -35,6 +35,7 @@ use crate::error::RunCommandError;
 use crate::execution::Execution;
 use crate::execution::Output;
 use crate::invocation::Invocation;
+use crate::process_id::ProcessId;
 
 /// The number of bytes that one read takes from a stream
 ///
@@ -126,6 +127,22 @@ impl Run {
             lines: VecDeque::new(),
             started,
         }
+    }
+
+    /// Returns the identifier that the operating system gave the command
+    ///
+    /// An application that reports which program it started, or that gives
+    /// the command to a tool of the platform, reads the identifier here. The
+    /// handle holds the command, so the value is there for the whole run.
+    ///
+    /// The value is `None` after the crate collected the status of the
+    /// command. [`wait`][wait] collects the status, and it takes the handle,
+    /// so a caller that holds a handle has the identifier.
+    ///
+    /// [wait]: Run::wait
+    // process[impl stream.identity]
+    pub fn id(&self) -> Option<ProcessId> {
+        self.child.id().map(ProcessId::from)
     }
 
     /// Returns the command that runs
@@ -239,6 +256,12 @@ impl Run {
         // here.
         while self.next_line().await?.is_some() {}
 
+        // The wait collects the status of the command, and the identifier of
+        // a command that ended is gone. The result carries the identifier,
+        // so the handle reads it before the wait.
+        // process[impl run.identity]
+        let id = self.id();
+
         let status = self
             .child
             .wait()
@@ -250,6 +273,7 @@ impl Run {
 
         Ok(Execution::new(
             self.invocation,
+            id,
             status,
             Output::new(self.stdout.capture),
             Output::new(self.stderr.capture),

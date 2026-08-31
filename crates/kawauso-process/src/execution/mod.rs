@@ -15,13 +15,15 @@ use std::time::Duration;
 pub use self::output::Output;
 use crate::error::RequireSuccessError;
 use crate::invocation::Invocation;
+use crate::process_id::ProcessId;
 
 /// The result of one run of an external command
 ///
 /// The value holds the command that ran, the exit status of the command, what
 /// the command wrote to its standard output and to its standard error, and
-/// the time that the run took. The two streams stay apart, because a program
-/// separates its result from its diagnostics.
+/// the time that the run took. It also holds the identifier that the
+/// operating system gave the command. The two streams stay apart, because a
+/// program separates its result from its diagnostics.
 ///
 /// A status that is not a success is data. The check mode of a formatter ends
 /// without success when it finds a file to format, and that is the answer
@@ -51,6 +53,12 @@ pub struct Execution {
     /// the command without the caller holding it a second time.
     invocation: Invocation,
 
+    /// The identifier that the operating system gave the command
+    ///
+    /// `None` when no command produced the result, which is the case for a
+    /// result that a caller built.
+    id: Option<ProcessId>,
+
     /// The status with which the command ended
     status: ExitStatus,
 
@@ -68,9 +76,12 @@ impl Execution {
     /// Creates the result of a run
     ///
     /// A run builds this value, and a caller builds one where a test stands
-    /// in for a command that no one starts.
+    /// in for a command that no one starts. The identifier is the one that
+    /// the operating system gave the command, and a result that no command
+    /// produced carries none.
     pub fn new(
         invocation: Invocation,
+        id: Option<ProcessId>,
         status: ExitStatus,
         stdout: Output,
         stderr: Output,
@@ -78,6 +89,7 @@ impl Execution {
     ) -> Self {
         Self {
             invocation,
+            id,
             status,
             stdout,
             stderr,
@@ -93,6 +105,20 @@ impl Execution {
     // process[impl run.duration]
     pub fn duration(&self) -> Duration {
         self.duration
+    }
+
+    /// Returns the identifier that the operating system gave the command
+    ///
+    /// An application that reports which program ran, or that writes the
+    /// identifier to a log, reads it here. The value is `None` when no run
+    /// produced the result, such as a result that a test built.
+    ///
+    /// The command of a result has ended, and the operating system can give
+    /// the identifier to another command. The value therefore names the
+    /// command that ran. It does not name a command that runs now.
+    // process[impl run.identity]
+    pub fn id(&self) -> Option<ProcessId> {
+        self.id
     }
 
     /// Returns the command that ran

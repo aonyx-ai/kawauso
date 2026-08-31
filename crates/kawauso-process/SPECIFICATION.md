@@ -64,6 +64,11 @@ of a formatter ends without success when it finds a file to format. That
 status is the answer that the application asked for. The result therefore
 carries the status, and an error reports a run that did not happen.
 
+The operating system gives an identifier to each command that it starts. An
+application can write the identifier to a log, or give it to a tool of the
+platform. It has no other source for the value, so the result of the run
+carries the identifier of the command that ran.
+
 Three decisions apply to every command, and no caller states them. The
 standard input is null, the command inherits the environment of the process
 that runs it, and the operating system resolves the program. A run also reads
@@ -93,6 +98,10 @@ MUST keep the output as the command wrote it.
 
 process[run.duration]
 The result of a run MUST carry the time that the run took.
+
+process[run.identity]
+The result of a run MUST carry the identifier that the operating system gave
+the command.
 
 process[run.drain]
 The crate MUST read the standard output and the standard error of the command
@@ -151,6 +160,10 @@ two forms differ in what the caller sees during the run, and not in what the
 run reports. A caller that drops the handle ends the command, because a handle
 that leaves a command behind leaks a process.
 
+A caller that shows which program runs, or that names the command to a tool of
+the platform, needs the identifier during the run. The handle holds the
+command, and it therefore reports the identifier while the command runs.
+
 process[stream]
 The crate MUST offer a handle that gives the output of a command to the caller
 as lines while the command runs. The handle MUST give the lines to the caller
@@ -175,6 +188,10 @@ caller read a line.
 
 process[stream.abandonment]
 The crate MUST end a command that still runs when the caller drops the handle.
+
+process[stream.identity]
+The handle MUST report the identifier that the operating system gave the
+command.
 
 [adr-011]: ../../adrs/011-process-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119
