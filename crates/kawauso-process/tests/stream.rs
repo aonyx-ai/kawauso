@@ -86,6 +86,24 @@ async fn handle_that_the_caller_drops_ends_the_command() {
     assert!(!marker.exists());
 }
 
+// A wait for the end collects the status of the command, and the crate can no
+// longer read the identifier of such a command. The handle records the value
+// when the command starts, so the caller reads it after the wait as well. The
+// shell writes its own identifier, so the test compares the value of the
+// operating system with the value of the handle.
+// process[verify stream.identity]
+#[cfg(unix)]
+#[tokio::test]
+async fn id_after_a_wait_for_the_end_names_the_command_that_ran() {
+    let mut run = shell(&["echo $$"]).start().unwrap();
+    let line = run.next_line().await.unwrap().unwrap();
+    run.wait_for_end().await.unwrap();
+
+    let id = run.id().unwrap();
+
+    assert_eq!(id.get().to_string(), line.text().get());
+}
+
 // A caller that shows which program runs, or that names the command to a tool
 // of the platform, needs the identifier while the command runs. The shell
 // writes its own identifier and then keeps running, so the test compares the
@@ -236,6 +254,59 @@ async fn wait_with_a_byte_that_is_no_character_keeps_the_byte_in_the_capture() {
     let execution = run.wait().await.unwrap();
 
     assert_eq!(execution.stdout().get(), b"\xff\n");
+}
+
+// A command can close both of its streams and continue. The lines stop then,
+// and a caller that reads the output of such a command waits for nothing. The
+// wait for the end reports that end, because it waits for the command and not
+// for the output.
+// process[verify stream.end]
+#[cfg(unix)]
+#[tokio::test]
+async fn wait_for_end_with_a_command_that_closed_its_streams_waits_for_the_command() {
+    let mut run = shell(&["exec 1>&- 2>&-", "sleep 5"]).start().unwrap();
+
+    let ended = timeout(Duration::from_millis(500), run.wait_for_end()).await;
+
+    assert!(ended.is_err());
+}
+
+// The wait leaves the handle with the caller. The caller therefore asks for
+// the result of the run after the wait, and the result holds the status and
+// the whole capture.
+// process[verify stream.end]
+#[tokio::test]
+async fn wait_for_end_with_a_command_that_ended_leaves_the_result_with_the_handle() {
+    let mut run = shell(&["echo hello", "exit 3"]).start().unwrap();
+    run.wait_for_end().await.unwrap();
+
+    let execution = run.wait().await.unwrap();
+
+    assert_eq!(
+        (
+            execution.status().code(),
+            execution.stdout().to_string_lossy().trim().to_owned()
+        ),
+        (Some(3), "hello".to_owned())
+    );
+}
+
+// A caller waits for the end of the command and for an event of its own, and
+// the event can come first. The caller drops the wait then. The command
+// survives that drop, so the caller can still stop it in good order.
+// process[verify stream.end.cancellation]
+#[cfg(unix)]
+#[tokio::test]
+async fn wait_for_end_with_a_future_that_the_caller_dropped_leaves_the_command_running() {
+    let mut run = shell(&["sleep 1", "exit 3"]).start().unwrap();
+    let dropped = timeout(Duration::from_millis(100), run.wait_for_end()).await;
+
+    let execution = run.wait().await.unwrap();
+
+    assert_eq!(
+        (dropped.is_err(), execution.status().code()),
+        (true, Some(3))
+    );
 }
 
 // process[verify stream.wait]

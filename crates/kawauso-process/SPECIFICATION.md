@@ -165,6 +165,20 @@ two forms differ in what the caller sees during the run, and not in what the
 run reports. A caller that drops the handle ends the command, because a handle
 that leaves a command behind leaks a process.
 
+A caller waits for the end of a command, and for a token that cancels the
+work. A wait that reports the result takes the handle, so that caller holds
+nothing when the token comes first. A stop needs the handle, and the wait has
+it. The caller can only drop the wait, and a drop kills the command.
+
+The handle therefore has a second wait. This wait reports the end of the
+command, and it leaves the handle with the caller. The caller asks for the
+result when the command ended first. It stops the command when the token came
+first.
+
+A command that closed both of its streams can still run. The lines stop then,
+and the end of the command comes later. This wait reports that end, because it
+waits for the command and not for the output.
+
 A caller that shows which program runs, or that names the command to a tool of
 the platform, needs the identifier during the run. The handle holds the
 command, and it therefore reports the identifier while the command runs.
@@ -198,6 +212,15 @@ caller read a line.
 
 process[stream.abandonment]
 The crate MUST end a command that still runs when the caller drops the handle.
+
+process[stream.end]
+The crate MUST offer a wait that reports the end of the command and leaves the
+handle with the caller. A wait for the result of the run, and a stop of the
+command, MUST work after that wait.
+
+process[stream.end.cancellation]
+The crate MUST NOT end the command when the caller drops a wait for the end of
+the command. A wait that follows MUST report the end of the command.
 
 process[stream.identity]
 The handle MUST report the identifier that the operating system gave the
