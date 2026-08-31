@@ -2,17 +2,17 @@
 //!
 //! A run produces one value that describes what happened: how the command
 //! ended, what it wrote to each of its streams, and how long it took. This
-//! module holds that value and the type of a capture.
+//! module holds that value and the capture of one stream.
 //!
 //! A command that ends without success is not a failure of the run. The exit
 //! status is part of the result, and the caller decides what it means.
 
-pub mod output;
+pub mod capture;
 
 use std::process::ExitStatus;
 use std::time::Duration;
 
-pub use self::output::Output;
+pub use self::capture::Capture;
 use crate::error::RequireSuccessError;
 use crate::invocation::Invocation;
 use crate::process_id::ProcessId;
@@ -63,10 +63,10 @@ pub struct Execution {
     status: ExitStatus,
 
     /// What the command wrote to its standard output
-    stdout: Output,
+    stdout: Capture,
 
     /// What the command wrote to its standard error
-    stderr: Output,
+    stderr: Capture,
 
     /// The time that the run took
     duration: Duration,
@@ -83,8 +83,8 @@ impl Execution {
         invocation: Invocation,
         id: Option<ProcessId>,
         status: ExitStatus,
-        stdout: Output,
-        stderr: Output,
+        stdout: Capture,
+        stderr: Capture,
         duration: Duration,
     ) -> Self {
         Self {
@@ -184,13 +184,13 @@ impl Execution {
 
     /// Returns what the command wrote to its standard error
     // process[impl run.output]
-    pub fn stderr(&self) -> &Output {
+    pub fn stderr(&self) -> &Capture {
         &self.stderr
     }
 
     /// Returns what the command wrote to its standard output
     // process[impl run.output]
-    pub fn stdout(&self) -> &Output {
+    pub fn stdout(&self) -> &Capture {
         &self.stdout
     }
 }

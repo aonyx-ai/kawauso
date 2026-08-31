@@ -32,8 +32,8 @@ pub use self::line::Line;
 pub use self::stream::Stream;
 pub use self::text::Text;
 use crate::error::RunCommandError;
+use crate::execution::Capture;
 use crate::execution::Execution;
-use crate::execution::Output;
 use crate::invocation::Invocation;
 use crate::process_id::ProcessId;
 
@@ -295,8 +295,8 @@ impl Run {
             self.invocation,
             id,
             status,
-            Output::new(self.stdout.capture),
-            Output::new(self.stderr.capture),
+            Capture::new(self.stdout.capture),
+            Capture::new(self.stderr.capture),
             self.started.elapsed(),
         ))
     }
