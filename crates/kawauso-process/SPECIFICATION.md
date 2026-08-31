@@ -244,6 +244,17 @@ The request is no promise. A program can ignore it, and a platform can have no
 request of this kind. A kill ends the command in both cases, so a stop always
 ends the command.
 
+The time measures the command, and not the streams of the command. A program
+that starts programs of its own gives them its streams. Such a program can end
+while a program that it started holds the streams open. A build tool that
+starts a compiler has this shape.
+
+A stop that waits for the end of the streams therefore waits for a program that
+nothing asked to end. A stop waits for the status of the command instead. It
+reads the streams while it waits, and it takes what the streams hold when the
+command ends. A platform that cannot read a stream without a wait waits for the
+end of the streams.
+
 A stop reports what a wait reports. A caller that stops a command still wants
 the status of the command, and the lines that the command wrote before the
 stop.
@@ -265,6 +276,13 @@ that ends inside that time.
 
 process[stop.kill]
 A stop MUST kill a command that still runs when the time is over.
+
+process[stop.bound]
+A stop MUST measure the time that the caller names against the end of the
+command. It MUST NOT measure the time against the end of the streams of the
+command. On a Unix platform, a stop MUST report what the streams hold when the
+command ends. A program that keeps a stream of the command open MUST NOT hold
+the stop.
 
 [adr-011]: ../../adrs/011-process-crate.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119

@@ -25,7 +25,7 @@ serde = { version = "1.0.225", features = ["derive"] }
 serde_path_to_error = ">=0.1.0, <1"
 tempfile = "3.0.0"
 thiserror = "2.0.0"
-tokio = { version = "1.0.1", features = ["process"] }
+tokio = { version = "1.27.0", features = ["process"] }
 toml = "1.0.0"
 typed-fields = ">=0.7.0, <1"
 
