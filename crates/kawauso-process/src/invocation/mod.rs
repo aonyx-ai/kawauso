@@ -34,6 +34,7 @@ pub use self::working_directory::WorkingDirectory;
 use crate::error::RunCommandError;
 use crate::execution::Execution;
 use crate::execution::Output;
+use crate::process_id::ProcessId;
 use crate::run::Run;
 
 /// The description of one external command
@@ -314,6 +315,12 @@ impl Invocation {
                     source,
                 })?;
 
+        // The wait takes the command, and the identifier of a command that
+        // ended is gone. The run therefore reads the identifier here, so
+        // that the result can carry it.
+        // process[impl run.identity]
+        let id = child.id().map(ProcessId::from);
+
         // The wait reads both streams while it waits for the end of the
         // command. A wait that read one stream after the other, or that read
         // nothing until the end, would stop on a command that fills a pipe.
@@ -329,6 +336,7 @@ impl Invocation {
 
         Ok(Execution::new(
             self.clone(),
+            id,
             output.status,
             Output::new(output.stdout),
             Output::new(output.stderr),

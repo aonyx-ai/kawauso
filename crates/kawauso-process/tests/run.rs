@@ -225,6 +225,24 @@ async fn run_with_a_command_that_takes_time_reports_the_duration() {
     assert!(execution.duration() >= Duration::from_millis(200));
 }
 
+// An application that reports which program ran needs the identifier of the
+// command, and the run is the only place that has it. The shell writes its
+// own identifier, so the test compares the value of the operating system with
+// the value of the result.
+// process[verify run.identity]
+#[cfg(unix)]
+#[tokio::test]
+async fn run_with_a_command_that_writes_its_identifier_reports_the_same_identifier() {
+    let execution = shell(&["echo $$"]).run().await.unwrap();
+
+    let id = execution.id().unwrap();
+
+    assert_eq!(
+        id.get().to_string(),
+        execution.stdout().to_string_lossy().trim()
+    );
+}
+
 // process[verify run.output]
 #[tokio::test]
 async fn run_with_a_command_that_writes_to_the_standard_error_captures_it() {

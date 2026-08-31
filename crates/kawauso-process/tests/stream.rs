@@ -86,6 +86,22 @@ async fn handle_that_the_caller_drops_ends_the_command() {
     assert!(!marker.exists());
 }
 
+// A caller that shows which program runs, or that names the command to a tool
+// of the platform, needs the identifier while the command runs. The shell
+// writes its own identifier and then keeps running, so the test compares the
+// value of the operating system with the value of the handle.
+// process[verify stream.identity]
+#[cfg(unix)]
+#[tokio::test]
+async fn id_with_a_command_that_runs_names_the_command() {
+    let mut run = shell(&["echo $$", "sleep 5"]).start().unwrap();
+    let line = run.next_line().await.unwrap().unwrap();
+
+    let id = run.id().unwrap();
+
+    assert_eq!(id.get().to_string(), line.text().get());
+}
+
 // A command writes bytes, and a byte that is part of no character has no
 // place in the text of a line.
 // process[verify stream.decode]
@@ -232,6 +248,23 @@ async fn wait_with_a_command_that_fills_both_pipes_captures_everything() {
             execution.stderr().get().len()
         ),
         (FLOOD, FLOOD)
+    );
+}
+
+// The handle reports the result that a run in one call reports, and the
+// identifier is part of that result. The identifier of a command that ended
+// is gone, so a handle that read it after the wait would report none.
+// process[verify run.identity]
+#[cfg(unix)]
+#[tokio::test]
+async fn wait_with_a_command_that_writes_its_identifier_reports_the_same_identifier() {
+    let run = shell(&["echo $$"]).start().unwrap();
+
+    let execution = run.wait().await.unwrap();
+
+    assert_eq!(
+        execution.id().unwrap().get().to_string(),
+        execution.stdout().to_string_lossy().trim()
     );
 }
 
