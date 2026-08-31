@@ -18,6 +18,10 @@ An application that already has a runtime, because it starts one in its own
 entry point, calls the crate from a task of that runtime. An application
 without one starts a runtime for the runs that it makes.
 
+A stop gives a command a time to end before it kills the command, and the
+timer of the runtime measures that time. A stop on a runtime that has no timer
+panics.
+
 ## Windows
 
 A program whose name ends in `.cmd` or `.bat` starts through `cmd.exe`. A tool
@@ -25,6 +29,10 @@ that npm installs arrives in this form. Rust escapes the arguments for that
 interpreter, and it refuses an argument that it cannot pass safely. An
 argument therefore reaches the program as the caller wrote it, or the run
 fails and says so.
+
+Windows has no signal that asks a program to end its work. A stop therefore
+kills the command at once on this platform, and a program that holds a lock
+file leaves that file behind.
 
 ## License
 

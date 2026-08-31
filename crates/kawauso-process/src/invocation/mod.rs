@@ -359,8 +359,9 @@ impl Invocation {
     /// the process that runs it, and the operating system resolves the
     /// program.
     ///
-    /// The handle owns the command. A caller that drops the handle ends the
-    /// command with it.
+    /// The handle owns the command. A caller that drops the handle kills the
+    /// command with it, and a caller that asks the command to end first calls
+    /// [`stop`][stop] on the handle.
     ///
     /// # Errors
     ///
@@ -392,6 +393,7 @@ impl Invocation {
     /// ```
     ///
     /// [run]: Invocation::run
+    /// [stop]: Run::stop
     /// [unstartable]: RunCommandError::UnstartableCommand
     // process[impl stream]
     pub fn start(&self) -> Result<Run, RunCommandError> {

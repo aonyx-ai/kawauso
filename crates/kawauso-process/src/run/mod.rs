@@ -20,13 +20,21 @@ use std::io::Error as IoError;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
+use std::time::Duration;
 use std::time::Instant;
 
+#[cfg(unix)]
+use rustix::process::Pid;
+#[cfg(unix)]
+use rustix::process::Signal;
+#[cfg(unix)]
+use rustix::process::kill_process;
 use tokio::io::AsyncRead;
 use tokio::io::ReadBuf;
 use tokio::process::Child;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
+use tokio::time::timeout;
 
 pub use self::line::Line;
 pub use self::stream::Stream;
@@ -54,7 +62,9 @@ const CHUNK: usize = 8 * 1024;
 ///
 /// The handle owns the command. A caller that drops the handle ends the
 /// command with it, so a timeout, a `select`, and a scheduler that abandons a
-/// run leave no process behind.
+/// run leave no process behind. The kill that ends such a command is
+/// immediate, and a caller that wants the command to end in good order calls
+/// [`stop`][stop] instead.
 ///
 /// # Examples
 ///
@@ -75,6 +85,8 @@ const CHUNK: usize = 8 * 1024;
 /// # Ok(())
 /// # }
 /// ```
+///
+/// [stop]: Run::stop
 #[derive(Debug)]
 pub struct Run {
     /// The command that runs
@@ -129,6 +141,23 @@ impl Run {
         }
     }
 
+    /// Reads the output of the command until both streams reached their end
+    ///
+    /// The capture grows with every read, so a drain fills it whether or not
+    /// the caller took a single line. The lines that no one took end here.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when a stream of the command
+    /// cannot be read.
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    async fn drain(&mut self) -> Result<(), RunCommandError> {
+        while self.next_line().await?.is_some() {}
+
+        Ok(())
+    }
+
     /// Returns the identifier that the operating system gave the command
     ///
     /// An application that reports which program it started, or that gives
@@ -148,6 +177,16 @@ impl Run {
     /// Returns the command that runs
     pub fn invocation(&self) -> &Invocation {
         &self.invocation
+    }
+
+    /// Kills the command without a request to end
+    ///
+    /// A kill that the operating system refuses names a process that it no
+    /// longer knows, which is a command that ended. The wait that follows
+    /// reports how the command ended, so the refusal tells the caller
+    /// nothing that the result does not carry.
+    fn kill(&mut self) {
+        let _ = self.child.start_kill();
     }
 
     /// Returns the next line of the output of the command
@@ -227,6 +266,122 @@ impl Run {
         }
     }
 
+    /// Asks the command to end, and reports whether the request went out
+    ///
+    /// A Unix platform has `SIGTERM`, which is the request that a program
+    /// answers when it ends its work in good order. The request reaches the
+    /// process of the command alone, and not a process group, so a command
+    /// that starts programs of its own decides what happens to them.
+    ///
+    /// A process that the operating system no longer knows, and a request
+    /// that it refuses, both report that nothing asked the command to end.
+    /// The stop then kills, because no answer can arrive.
+    #[cfg(unix)]
+    fn request_end(&self) -> Request {
+        let Some(identifier) = self.id() else {
+            return Request::Unsent;
+        };
+
+        let Ok(identifier) = i32::try_from(identifier.get()) else {
+            return Request::Unsent;
+        };
+
+        let Some(process) = Pid::from_raw(identifier) else {
+            return Request::Unsent;
+        };
+
+        match kill_process(process, Signal::TERM) {
+            Ok(()) => Request::Sent,
+            Err(_) => Request::Unsent,
+        }
+    }
+
+    /// Reports that this platform has no request to end
+    ///
+    /// Windows has no signal that asks a program to end its work, and the
+    /// crate has no interface of the operating system that takes its place.
+    /// The stop therefore kills the command at once, which the
+    /// documentation of the stop states.
+    #[cfg(not(unix))]
+    fn request_end(&self) -> Request {
+        Request::Unsent
+    }
+
+    /// Ends the command and reports the result of the run
+    ///
+    /// The method asks the command to end, and it gives the command the time
+    /// that the caller names. It kills a command that is still there when
+    /// the time is over. A program that answers the request removes its lock
+    /// file, writes what it has, and ends, which a kill gives it no time to
+    /// do.
+    ///
+    /// The request is `SIGTERM` on a Unix platform. A platform that has no
+    /// request of this kind kills the command at once, and the time then
+    /// passes unused. The request reaches the program that the crate
+    /// started, and not a group of processes, so a program that starts
+    /// programs of its own decides what happens to them.
+    ///
+    /// The method reads both streams while it waits, so a command that fills
+    /// a pipe ends as well. It reports what [`wait`][wait] reports: the exit
+    /// status, the whole capture of both streams, and the time that the run
+    /// took.
+    ///
+    /// A caller that drops the handle instead of this call kills the command
+    /// at once, with no request before it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when a stream of the command
+    /// cannot be read, or when the end of the command cannot be waited for.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the Tokio runtime that drives the future has no timer.
+    /// The method waits for the time that the caller names, and the timer of
+    /// the runtime measures it.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::time::Duration;
+    ///
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let run = Invocation::new("cargo").arg("build").start()?;
+    ///
+    /// let execution = run.stop(Duration::from_secs(5)).await?;
+    ///
+    /// println!("{}", execution.status());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    /// [wait]: Run::wait
+    // process[impl stop]
+    // process[impl stop.request]
+    pub async fn stop(mut self, grace: Duration) -> Result<Execution, RunCommandError> {
+        match self.request_end() {
+            // The command has the request, so it has the time to answer it.
+            // The drain reads what the command writes while it answers, so a
+            // command that fills a pipe reaches its own end.
+            // process[impl stop.grace]
+            Request::Sent => match timeout(grace, self.drain()).await {
+                Ok(drained) => drained?,
+                // process[impl stop.kill]
+                Err(_) => self.kill(),
+            },
+
+            // Nothing asked the command to end, so nothing waits for an
+            // answer. The kill is what this platform has.
+            Request::Unsent => self.kill(),
+        }
+
+        self.wait().await
+    }
+
     /// Waits for the end of the command and reports the result of the run
     ///
     /// The method reads what the command still writes, waits for the end of
@@ -271,10 +426,7 @@ impl Run {
     /// [require-success]: Execution::require_success
     // process[impl stream.wait]
     pub async fn wait(mut self) -> Result<Execution, RunCommandError> {
-        // The capture grows with every read, so the drain fills it whether or
-        // not the caller took a single line. The lines that no one took end
-        // here.
-        while self.next_line().await?.is_some() {}
+        self.drain().await?;
 
         // The wait collects the status of the command, and the identifier of
         // a command that ended is gone. The result carries the identifier,
@@ -300,6 +452,21 @@ impl Run {
             self.started.elapsed(),
         ))
     }
+}
+
+/// Whether the request to end reached the command
+///
+/// A platform without a request of this kind, and a process that the
+/// operating system no longer knows, both leave the kill as the only way to
+/// end a run. A stop that asked nothing must not wait for an answer, because
+/// no answer can arrive.
+#[derive(Debug)]
+enum Request {
+    /// The command received the request to end
+    Sent,
+
+    /// Nothing asked the command to end
+    Unsent,
 }
 
 /// Reads the streams of a command until one of them produced something
