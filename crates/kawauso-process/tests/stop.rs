@@ -25,6 +25,13 @@ use kawauso_process::Run;
 use kawauso_process::error::RunCommandError;
 use tokio::time::timeout;
 
+/// The time in which a stop has to report
+///
+/// The time is far longer than a stop needs, and far shorter than the time
+/// that a program of the command holds the streams. A stop that follows such
+/// a program therefore fails the test instead of passing slowly.
+const BOUND: Duration = Duration::from_secs(5);
+
 /// The number of bytes that the command writes to each stream after it
 /// received the request to end
 ///
@@ -39,6 +46,13 @@ const FLOOD: usize = 256 * 1024;
 /// killed a command which was about to end would make the test report a
 /// failure that the crate does not have.
 const GRACE: Duration = Duration::from_secs(30);
+
+/// The number of seconds that a program of the command holds the streams
+///
+/// The value is far longer than the time in which a stop has to report. A
+/// stop that follows the streams instead of the command therefore runs into
+/// the bound of the test.
+const HOLD: u64 = 60;
 
 /// Starts a script and reads its output until the script is ready
 ///
@@ -70,6 +84,16 @@ async fn ready(script: &str) -> Result<Run, RunCommandError> {
 /// after the command that runs when the signal arrives.
 fn script(handler: &str) -> String {
     format!("trap '{handler}' TERM; echo ready; while :; do sleep 0.05; done")
+}
+
+/// Returns a script that starts a program of its own and outlives itself
+///
+/// The program that the script starts inherits both streams of the script,
+/// and it holds them open for as long as it runs. The script therefore ends
+/// while its streams stay open, which is the shape that a build tool has when
+/// it starts a compiler.
+fn script_that_starts_a_program(handler: &str) -> String {
+    format!("trap '{handler}' TERM; sleep {HOLD} & echo ready; wait")
 }
 
 // A caller waits for the end of a command, and for a token that cancels the
@@ -122,6 +146,21 @@ async fn stop_asks_the_command_to_end() {
     let execution = run.stop(GRACE).await.unwrap();
 
     assert!(execution.stdout().to_string_lossy().contains("stopped"));
+}
+
+// A program that the command started holds the streams of the command open
+// long after the command ended. The stop follows the command and not the
+// streams, so it reports while that program still runs.
+// process[verify stop.bound]
+#[tokio::test]
+async fn stop_ends_while_a_program_of_the_command_holds_the_streams() {
+    let run = ready(&script_that_starts_a_program("exit 0"))
+        .await
+        .unwrap();
+
+    let stopped = timeout(BOUND, run.stop(GRACE)).await;
+
+    assert!(stopped.is_ok());
 }
 
 // A command that ignores the request runs until something ends it, and the
@@ -180,6 +219,21 @@ async fn stop_reports_the_capture_of_the_run() {
     let execution = run.stop(GRACE).await.unwrap();
 
     assert_eq!(execution.stdout().to_string_lossy(), "ready\n");
+}
+
+// A command that answers the request writes before it ends, and those bytes
+// are in the pipe when the command ends. The stop takes what the pipe holds,
+// so the line is in the capture although nothing closed the stream.
+// process[verify stop.bound]
+#[tokio::test]
+async fn stop_takes_the_last_output_of_a_command_whose_streams_stay_open() {
+    let run = ready(&script_that_starts_a_program("echo stopped; exit 0"))
+        .await
+        .unwrap();
+
+    let execution = timeout(BOUND, run.stop(GRACE)).await.unwrap().unwrap();
+
+    assert!(execution.stdout().to_string_lossy().contains("stopped"));
 }
 
 // A command can end before the caller stops it. Nothing runs then, and the

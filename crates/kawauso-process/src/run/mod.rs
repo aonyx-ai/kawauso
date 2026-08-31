@@ -15,15 +15,23 @@ pub mod stream;
 pub mod text;
 
 use std::collections::VecDeque;
+use std::future::Future;
 use std::future::poll_fn;
 use std::io::Error as IoError;
+#[cfg(unix)]
+use std::os::fd::AsFd;
 use std::pin::Pin;
+use std::pin::pin;
 use std::process::ExitStatus;
 use std::task::Context;
 use std::task::Poll;
 use std::time::Duration;
 use std::time::Instant;
 
+#[cfg(unix)]
+use rustix::io::Errno;
+#[cfg(unix)]
+use rustix::io::read;
 #[cfg(unix)]
 use rustix::process::Pid;
 #[cfg(unix)]
@@ -52,6 +60,15 @@ use crate::process_id::ProcessId;
 /// and a large one holds memory that most commands never fill, because a
 /// command writes lines and not blocks.
 const CHUNK: usize = 8 * 1024;
+
+/// The number of bytes that one take reads from a stream at most
+///
+/// A pipe of the operating system holds far less than this, so a command that
+/// ended left less than this in its stream. Bytes beyond this number come
+/// from a program that still writes. A take that follows such a program does
+/// not end.
+#[cfg(unix)]
+const LEFTOVER: usize = 4 * 1024 * 1024;
 
 /// The run of a command that the caller observes while it runs
 ///
@@ -207,6 +224,86 @@ impl Run {
                 invocation: self.invocation.clone(),
                 source,
             })
+    }
+
+    /// Waits for the exit of the command and reads both streams while it waits
+    ///
+    /// A command that fills a pipe stops until a reader empties it, so a wait
+    /// that reads nothing waits for a command that cannot end. The read
+    /// therefore runs with the wait, and the capture grows while the command
+    /// ends.
+    ///
+    /// The method returns as soon as the operating system reports the status
+    /// of the command. It does not wait for the end of the streams, which is
+    /// where it differs from [`end`][end]. A program that starts programs of
+    /// its own gives them its streams. Such a program can end while a program
+    /// that it started holds the streams open.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when a stream of the command
+    /// cannot be read, or when the end of the command cannot be waited for.
+    ///
+    /// [end]: Run::end
+    /// [incomplete]: RunCommandError::IncompleteRun
+    async fn exit(&mut self) -> Result<ExitStatus, RunCommandError> {
+        let Self {
+            invocation,
+            child,
+            stdout,
+            stderr,
+            lines,
+            ..
+        } = self;
+
+        // The wait holds its state in the future, so the method builds the
+        // future once and polls it again in every round.
+        let mut wait = pin!(child.wait());
+
+        let exited = poll_fn(|context| {
+            // The read comes first, because a command that fills a pipe ends
+            // only after something empties it.
+            let produced = match poll_streams(stdout, stderr, lines, context) {
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Ready(Ok(())) => true,
+                Poll::Pending => false,
+            };
+
+            if let Poll::Ready(exited) = wait.as_mut().poll(context) {
+                return Poll::Ready(exited);
+            }
+
+            // A stream that gave bytes registered no interest with the
+            // runtime, because it has nothing to wait for. The runtime
+            // therefore wakes nothing, and the call wakes itself instead.
+            if produced {
+                context.waker().wake_by_ref();
+            }
+
+            Poll::Pending
+        })
+        .await;
+
+        exited.map_err(|source| RunCommandError::IncompleteRun {
+            invocation: invocation.clone(),
+            source,
+        })
+    }
+
+    /// Builds the result of a run that ended
+    ///
+    /// Every wait and the stop report the same result, and the method holds
+    /// the one place that builds it. The status arrives as an argument,
+    /// because the handle does not keep it.
+    fn finish(self, status: ExitStatus) -> Execution {
+        Execution::new(
+            self.invocation,
+            self.id,
+            status,
+            Capture::new(self.stdout.capture),
+            Capture::new(self.stderr.capture),
+            self.started.elapsed(),
+        )
     }
 
     /// Returns the identifier that the operating system gave the command
@@ -383,10 +480,19 @@ impl Run {
     /// started, and not a group of processes, so a program that starts
     /// programs of its own decides what happens to them.
     ///
+    /// The time measures the command, and not the streams of the command. A
+    /// program that starts programs of its own gives them its streams. Such a
+    /// program can end while a program that it started holds the streams
+    /// open.
+    ///
     /// The method reads both streams while it waits, so a command that fills
-    /// a pipe ends as well. It reports what [`wait`][wait] reports: the exit
-    /// status, the whole capture of both streams, and the time that the run
-    /// took.
+    /// a pipe ends as well. It takes what the streams hold when the command
+    /// ends. On a Unix platform, a program that holds a stream open therefore
+    /// does not hold the call. On a platform that has no read of this kind,
+    /// the call waits for the end of both streams.
+    ///
+    /// The method reports what [`wait`][wait] reports: the exit status, the
+    /// capture of both streams, and the time that the run took.
     ///
     /// A caller that drops the handle instead of this call kills the command
     /// at once, with no request before it.
@@ -425,23 +531,94 @@ impl Run {
     // process[impl stop]
     // process[impl stop.request]
     pub async fn stop(mut self, grace: Duration) -> Result<Execution, RunCommandError> {
-        match self.request_end() {
+        let exited = match self.request_end() {
             // The command has the request, so it has the time to answer it.
-            // The drain reads what the command writes while it answers, so a
+            // The wait reads what the command writes while it answers, so a
             // command that fills a pipe reaches its own end.
             // process[impl stop.grace]
-            Request::Sent => match timeout(grace, self.drain()).await {
-                Ok(drained) => drained?,
-                // process[impl stop.kill]
-                Err(_) => self.kill(),
+            // process[impl stop.bound]
+            Request::Sent => match timeout(grace, self.exit()).await {
+                Ok(exited) => Some(exited?),
+                Err(_) => None,
             },
 
             // Nothing asked the command to end, so nothing waits for an
-            // answer. The kill is what this platform has.
-            Request::Unsent => self.kill(),
-        }
+            // answer. The kill below is what this platform has.
+            Request::Unsent => None,
+        };
 
-        self.wait().await
+        let status = match exited {
+            Some(status) => status,
+
+            // The command ignored the request, or nothing asked it to end.
+            // The kill ends it, and the wait that follows collects the status
+            // of a command that can no longer refuse.
+            // process[impl stop.kill]
+            None => {
+                self.kill();
+
+                self.exit().await?
+            }
+        };
+
+        // The command ended, and what it wrote last can still be in a pipe.
+        // process[impl stop.bound]
+        self.take().await?;
+
+        Ok(self.finish(status))
+    }
+
+    /// Reads what the streams of the command hold, and waits for nothing
+    ///
+    /// A command that ended wrote what it wrote, and the last of it can still
+    /// be in the pipe that carries a stream. The method takes those bytes, so
+    /// that the capture of the result holds them.
+    ///
+    /// The method waits for no stream. A program that the command started
+    /// inherits the streams of the command, and it holds them open for as
+    /// long as it runs. A read that waits for the end of such a stream waits
+    /// for a program that nothing asked to end.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when a stream of the command
+    /// cannot be read.
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    #[cfg(unix)]
+    async fn take(&mut self) -> Result<(), RunCommandError> {
+        let Self {
+            invocation,
+            stdout,
+            stderr,
+            lines,
+            ..
+        } = self;
+
+        let taken = stdout.take(lines).and_then(|()| stderr.take(lines));
+
+        taken.map_err(|source| RunCommandError::IncompleteRun {
+            invocation: invocation.clone(),
+            source,
+        })
+    }
+
+    /// Reads both streams of the command until they reached their end
+    ///
+    /// This platform has no read that reports what a stream holds without a
+    /// wait, so the method waits for the end of both streams. A program that
+    /// the command started inherits the streams, and it holds the call for as
+    /// long as it runs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when a stream of the command
+    /// cannot be read.
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    #[cfg(not(unix))]
+    async fn take(&mut self) -> Result<(), RunCommandError> {
+        self.drain().await
     }
 
     /// Waits for the end of the command and reports the result of the run
@@ -493,14 +670,7 @@ impl Run {
     pub async fn wait(mut self) -> Result<Execution, RunCommandError> {
         let status = self.end().await?;
 
-        Ok(Execution::new(
-            self.invocation,
-            self.id,
-            status,
-            Capture::new(self.stdout.capture),
-            Capture::new(self.stderr.capture),
-            self.started.elapsed(),
-        ))
+        Ok(self.finish(status))
     }
 
     /// Waits for the end of the command and leaves the handle with the caller
@@ -667,6 +837,28 @@ impl<S: AsyncRead + Unpin> Reader<S> {
         }
     }
 
+    /// Keeps the bytes of one read and builds the lines that they completed
+    fn accept(&mut self, read: &[u8], lines: &mut VecDeque<Line>) {
+        self.capture.extend_from_slice(read);
+        self.pending.extend_from_slice(read);
+        self.split(lines);
+    }
+
+    /// Marks the end of the stream and reports a line that has no end
+    ///
+    /// A command that wrote a last line without the characters that end a
+    /// line still wrote that line, because nothing follows it.
+    fn close(&mut self, lines: &mut VecDeque<Line>) {
+        self.source = None;
+
+        if !self.pending.is_empty() {
+            let bytes = std::mem::take(&mut self.pending);
+
+            self.searched = 0;
+            lines.push_back(self.line(&bytes));
+        }
+    }
+
     /// Returns whether the stream reached its end
     fn is_closed(&self) -> bool {
         self.source.is_none()
@@ -712,27 +904,68 @@ impl<S: AsyncRead + Unpin> Reader<S> {
 
         let read = buffer.filled();
 
-        // A read of no bytes is the end of the stream. The command wrote what
-        // it wrote, and a line that it started without an end is a line as
-        // well, because nothing follows it.
+        // A read of no bytes is the end of the stream.
         if read.is_empty() {
-            self.source = None;
-
-            if !self.pending.is_empty() {
-                let bytes = std::mem::take(&mut self.pending);
-
-                self.searched = 0;
-                lines.push_back(self.line(&bytes));
-            }
+            self.close(lines);
 
             return Poll::Ready(Ok(()));
         }
 
-        self.capture.extend_from_slice(read);
-        self.pending.extend_from_slice(read);
-        self.split(lines);
+        self.accept(read, lines);
 
         Poll::Ready(Ok(()))
+    }
+
+    /// Reads what the stream holds, and waits for nothing
+    ///
+    /// A read of a stream that holds no bytes reports that it found nothing,
+    /// and that ends the loop. The stream can be open at that moment: a
+    /// program that the command started inherited the stream, and it wrote
+    /// nothing. A program that writes without an end cannot hold the loop
+    /// either, because the loop reads no more than [`LEFTOVER`] bytes.
+    ///
+    /// The read goes to the stream itself, and not through the runtime. The
+    /// runtime reports a stream as quiet until it looked at the stream again,
+    /// and this call gives it no time to look.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of a stream that cannot be read.
+    #[cfg(unix)]
+    fn take(&mut self, lines: &mut VecDeque<Line>) -> Result<(), IoError>
+    where
+        S: AsFd,
+    {
+        let mut bytes = [0; CHUNK];
+        let mut taken = 0;
+
+        while taken < LEFTOVER {
+            let Some(source) = self.source.as_ref() else {
+                return Ok(());
+            };
+
+            match read(source, &mut bytes) {
+                Ok(0) => self.close(lines),
+                Ok(count) => {
+                    taken += count;
+                    self.accept(&bytes[..count], lines);
+                }
+
+                // A signal that arrived during the read took nothing from
+                // the stream, so the read starts again.
+                Err(Errno::INTR) => {}
+
+                // The stream is open and holds nothing, which is what ends
+                // this call.
+                Err(error) if error == Errno::AGAIN || error == Errno::WOULDBLOCK => {
+                    return Ok(());
+                }
+
+                Err(error) => return Err(error.into()),
+            }
+        }
+
+        Ok(())
     }
 
     /// Takes every line that the command ended out of the pending bytes
