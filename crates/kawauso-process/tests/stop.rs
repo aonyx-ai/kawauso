@@ -23,6 +23,7 @@ use std::time::Duration;
 use kawauso_process::Invocation;
 use kawauso_process::Run;
 use kawauso_process::error::RunCommandError;
+use tokio::time::timeout;
 
 /// The number of bytes that the command writes to each stream after it
 /// received the request to end
@@ -69,6 +70,45 @@ async fn ready(script: &str) -> Result<Run, RunCommandError> {
 /// after the command that runs when the signal arrives.
 fn script(handler: &str) -> String {
     format!("trap '{handler}' TERM; echo ready; while :; do sleep 0.05; done")
+}
+
+// A caller waits for the end of a command, and for a token that cancels the
+// work. The caller drops the wait when the token comes first. The handle stays
+// with that caller, so it asks the command to end in good order. A wait that
+// takes the handle leaves that caller with the kill of a drop.
+// process[verify stream.end]
+#[tokio::test]
+async fn stop_after_a_dropped_wait_for_the_end_asks_the_command_to_end() {
+    let mut run = ready(&script("echo stopped; exit 0")).await.unwrap();
+    let dropped = timeout(Duration::from_millis(100), run.wait_for_end()).await;
+
+    let execution = run.stop(GRACE).await.unwrap();
+
+    assert_eq!(
+        (
+            dropped.is_err(),
+            execution.stdout().to_string_lossy().contains("stopped")
+        ),
+        (true, true)
+    );
+}
+
+// A caller can wait for the end of a command and then stop it. The command
+// ended, and the crate collected its status, so the stop asks nothing and
+// kills nothing. It reports the result of the run that ended.
+// process[verify stream.end]
+#[tokio::test]
+async fn stop_after_a_wait_for_the_end_reports_the_status() {
+    let mut run = Invocation::new("sh")
+        .arg("-c")
+        .arg("exit 7")
+        .start()
+        .unwrap();
+    run.wait_for_end().await.unwrap();
+
+    let execution = run.stop(GRACE).await.unwrap();
+
+    assert_eq!(execution.status().code(), Some(7));
 }
 
 // A program that answers the request writes a line that a killed program

@@ -18,6 +18,7 @@ use std::collections::VecDeque;
 use std::future::poll_fn;
 use std::io::Error as IoError;
 use std::pin::Pin;
+use std::process::ExitStatus;
 use std::task::Context;
 use std::task::Poll;
 use std::time::Duration;
@@ -64,7 +65,8 @@ const CHUNK: usize = 8 * 1024;
 /// command with it, so a timeout, a `select`, and a scheduler that abandons a
 /// run leave no process behind. The kill that ends such a command is
 /// immediate, and a caller that wants the command to end in good order calls
-/// [`stop`][stop] instead.
+/// [`stop`][stop] instead. A caller that waits for the end of the command in a
+/// `select` keeps the handle with [`wait_for_end`][wait-for-end].
 ///
 /// # Examples
 ///
@@ -87,6 +89,7 @@ const CHUNK: usize = 8 * 1024;
 /// ```
 ///
 /// [stop]: Run::stop
+/// [wait-for-end]: Run::wait_for_end
 #[derive(Debug)]
 pub struct Run {
     /// The command that runs
@@ -97,6 +100,14 @@ pub struct Run {
 
     /// The command itself
     child: Child,
+
+    /// The identifier that the operating system gave the command
+    ///
+    /// The handle records the value when the command starts. The crate can no
+    /// longer read the identifier after it collected the status of the
+    /// command. A caller can collect that status and keep the handle, so a
+    /// value that the handle read on demand is gone.
+    id: Option<ProcessId>,
 
     /// The standard output of the command
     stdout: Reader<ChildStdout>,
@@ -131,9 +142,16 @@ impl Run {
         let stdout = Reader::new(Stream::StandardOutput, child.stdout.take());
         let stderr = Reader::new(Stream::StandardError, child.stderr.take());
 
+        // The command runs, so the operating system has given it an
+        // identifier. The handle takes the value now, because the crate can
+        // no longer read it after it collected the status of the command.
+        // process[impl run.identity]
+        let id = child.id().map(ProcessId::from);
+
         Self {
             invocation,
             child,
+            id,
             stdout,
             stderr,
             lines: VecDeque::new(),
@@ -158,20 +176,57 @@ impl Run {
         Ok(())
     }
 
+    /// Reads the output of the command and collects its status
+    ///
+    /// The method is the work that every wait shares. It drains both streams
+    /// first. A command that fills a pipe stops until a reader empties it, and
+    /// such a command never reaches its own end.
+    ///
+    /// The crate collects the status of a command once, and this method
+    /// reports the same status on every call that follows.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when a stream of the command
+    /// cannot be read, or when the end of the command cannot be waited for.
+    ///
+    /// # Cancel safety
+    ///
+    /// The method is cancel safe. The drain is cancel safe, and the status of
+    /// the command lives in the command and not in the future of this call. A
+    /// caller that drops the future therefore loses no output and no status.
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    async fn end(&mut self) -> Result<ExitStatus, RunCommandError> {
+        self.drain().await?;
+
+        self.child
+            .wait()
+            .await
+            .map_err(|source| RunCommandError::IncompleteRun {
+                invocation: self.invocation.clone(),
+                source,
+            })
+    }
+
     /// Returns the identifier that the operating system gave the command
     ///
     /// An application that reports which program it started, or that gives
     /// the command to a tool of the platform, reads the identifier here. The
-    /// handle holds the command, so the value is there for the whole run.
+    /// handle records the value when the command starts, so the value is
+    /// there for the whole life of the handle. A wait for the end of the
+    /// command does not remove the value.
     ///
-    /// The value is `None` after the crate collected the status of the
-    /// command. [`wait`][wait] collects the status, and it takes the handle,
-    /// so a caller that holds a handle has the identifier.
+    /// The operating system takes the identifier of a command that ended, and
+    /// it can give the same identifier to another command. A caller that
+    /// waited for the end therefore reads the identifier of the command that
+    /// ran, and not the identifier of a command that runs.
     ///
-    /// [wait]: Run::wait
+    /// The value is `None` when the operating system gave the command no
+    /// identifier.
     // process[impl stream.identity]
     pub fn id(&self) -> Option<ProcessId> {
-        self.child.id().map(ProcessId::from)
+        self.id
     }
 
     /// Returns the command that runs
@@ -276,13 +331,20 @@ impl Run {
     /// A process that the operating system no longer knows, and a request
     /// that it refuses, both report that nothing asked the command to end.
     /// The stop then kills, because no answer can arrive.
+    ///
+    /// The method asks the operating system for the identifier of the
+    /// command, and it does not read the identifier that the handle reports.
+    /// The handle reports a recorded value, and the operating system can give
+    /// that identifier to another command after the command of this handle
+    /// ended. A request that reached that other command ends a program of
+    /// somebody else.
     #[cfg(unix)]
     fn request_end(&self) -> Request {
-        let Some(identifier) = self.id() else {
+        let Some(identifier) = self.child.id() else {
             return Request::Unsent;
         };
 
-        let Ok(identifier) = i32::try_from(identifier.get()) else {
+        let Ok(identifier) = i32::try_from(identifier) else {
             return Request::Unsent;
         };
 
@@ -404,7 +466,9 @@ impl Run {
     ///
     /// The method is not cancel safe. It takes the handle, so a caller that
     /// drops the future of a call ends the command. The caller loses the
-    /// result of the run, and the capture of both streams with it.
+    /// result of the run, and the capture of both streams with it. A caller
+    /// that waits for the end of the command, and for an event of its own,
+    /// calls [`wait_for_end`][wait-for-end]. That method leaves the handle.
     ///
     /// # Examples
     ///
@@ -424,33 +488,86 @@ impl Run {
     ///
     /// [incomplete]: RunCommandError::IncompleteRun
     /// [require-success]: Execution::require_success
+    /// [wait-for-end]: Run::wait_for_end
     // process[impl stream.wait]
     pub async fn wait(mut self) -> Result<Execution, RunCommandError> {
-        self.drain().await?;
-
-        // The wait collects the status of the command, and the identifier of
-        // a command that ended is gone. The result carries the identifier,
-        // so the handle reads it before the wait.
-        // process[impl run.identity]
-        let id = self.id();
-
-        let status = self
-            .child
-            .wait()
-            .await
-            .map_err(|source| RunCommandError::IncompleteRun {
-                invocation: self.invocation.clone(),
-                source,
-            })?;
+        let status = self.end().await?;
 
         Ok(Execution::new(
             self.invocation,
-            id,
+            self.id,
             status,
             Capture::new(self.stdout.capture),
             Capture::new(self.stderr.capture),
             self.started.elapsed(),
         ))
+    }
+
+    /// Waits for the end of the command and leaves the handle with the caller
+    ///
+    /// A caller often waits for the end of a command and for an event of its
+    /// own, such as a token that cancels the work. [`wait`][wait] takes the
+    /// handle, and this caller needs it. The caller holds nothing when the
+    /// event comes first, and [`stop`][stop] needs the handle. This method
+    /// reports the end of the command, and it leaves the handle. The caller
+    /// then asks for the result, or it stops a command that still runs.
+    ///
+    /// The method reports no result of its own. The handle keeps everything
+    /// that a result needs, so [`wait`][wait] reports the result after this
+    /// call. The wait that follows returns at once, because the command
+    /// ended.
+    ///
+    /// The method reads both streams while it waits, so a command that fills
+    /// a pipe ends as well. It waits for the command and not for the output
+    /// of the command. A command that closed both of its streams can still
+    /// run, and this method reports that end.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when a stream of the command
+    /// cannot be read, or when the end of the command cannot be waited for.
+    ///
+    /// # Cancel safety
+    ///
+    /// The method is cancel safe. The caller drops the future of the call
+    /// when the other event occurs first, and the command continues. The
+    /// handle keeps the output that the call read, and the caller stops the
+    /// command, takes the result, or waits again.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::time::Duration;
+    ///
+    /// use kawauso_process::Invocation;
+    ///
+    /// # async fn cancelled() {}
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut run = Invocation::new("cargo").arg("build").start()?;
+    ///
+    /// let execution = tokio::select! {
+    ///     ended = run.wait_for_end() => {
+    ///         ended?;
+    ///         run.wait().await?
+    ///     }
+    ///     () = cancelled() => run.stop(Duration::from_secs(5)).await?,
+    /// };
+    ///
+    /// println!("{}", execution.status());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    /// [stop]: Run::stop
+    /// [wait]: Run::wait
+    // process[impl stream.end]
+    // process[impl stream.end.cancellation]
+    pub async fn wait_for_end(&mut self) -> Result<(), RunCommandError> {
+        self.end().await?;
+
+        Ok(())
     }
 }
 
