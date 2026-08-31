@@ -6,7 +6,7 @@ use std::fmt::Formatter;
 use std::fmt::Result;
 use std::process::ExitStatus;
 
-use crate::execution::Output;
+use crate::execution::Capture;
 use crate::invocation::Invocation;
 
 /// The error returned when a command ended without success
@@ -38,7 +38,7 @@ pub enum RequireSuccessError {
         status: ExitStatus,
 
         /// What the command wrote to its standard error
-        stderr: Output,
+        stderr: Capture,
     },
 }
 

@@ -32,8 +32,8 @@ pub use self::argument::Argument;
 pub use self::program::Program;
 pub use self::working_directory::WorkingDirectory;
 use crate::error::RunCommandError;
+use crate::execution::Capture;
 use crate::execution::Execution;
-use crate::execution::Output;
 use crate::process_id::ProcessId;
 use crate::run::Run;
 
@@ -338,8 +338,8 @@ impl Invocation {
             self.clone(),
             id,
             output.status,
-            Output::new(output.stdout),
-            Output::new(output.stderr),
+            Capture::new(output.stdout),
+            Capture::new(output.stderr),
             start.elapsed(),
         ))
     }
