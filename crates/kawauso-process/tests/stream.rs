@@ -153,6 +153,27 @@ async fn next_line_with_a_command_that_writes_to_both_streams_names_the_stream_o
     );
 }
 
+// A caller that shows the output waits for a line and for another event, such
+// as a timeout. The caller drops the read when the other event occurs first.
+// The command writes half of a line before the drop and the rest after it. A
+// read that lost the bytes that it took reports the wrong line.
+// process[verify stream.cancellation]
+#[cfg(unix)]
+#[tokio::test]
+async fn next_line_with_a_future_that_the_caller_dropped_reports_the_whole_line() {
+    let mut run = shell(&[r"printf 'hel'", "sleep 2", r"printf 'lo\n'"])
+        .start()
+        .unwrap();
+
+    let dropped = timeout(Duration::from_millis(500), run.next_line()).await;
+    let lines = lines(run).await.unwrap();
+
+    assert_eq!(
+        (dropped.is_err(), lines),
+        (true, vec![(Stream::StandardOutput, "hello".to_owned())])
+    );
+}
+
 // A command can end after its last byte, without the character that ends a
 // line. The bytes are output, so the caller gets them as a line.
 // process[verify stream]

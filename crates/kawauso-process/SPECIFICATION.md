@@ -154,6 +154,11 @@ keeps the bytes as the command wrote them. Nothing that the command wrote is
 lost. A command on Windows ends a line with two characters, and a line carries
 neither of them.
 
+A caller that shows the output often waits for another event as well, such as
+a timeout or a token that cancels the work. The read of a line stops when the
+other event occurs first. The bytes that the read took stay with the handle.
+The caller reads again, and it gets the line that the command wrote.
+
 The handle ends the run in the same way as the one-call form, and it reports
 the same result. A caller that read no line still gets the whole capture. The
 two forms differ in what the caller sees during the run, and not in what the
@@ -180,6 +185,11 @@ keep the bytes as the command wrote them.
 process[stream.crlf]
 A line MUST NOT carry the characters that end it, whether the command ends the
 line with `\n` or with `\r\n`.
+
+process[stream.cancellation]
+The crate MUST NOT lose output when the caller drops a read before the read
+reports a line. The read that follows MUST report every line that the command
+wrote.
 
 process[stream.wait]
 A wait on the handle MUST report the result that a run in one call reports.
