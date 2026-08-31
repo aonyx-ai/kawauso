@@ -150,6 +150,15 @@ impl Run {
     /// Returns [`IncompleteRun`][incomplete] when a stream of the command
     /// cannot be read.
     ///
+    /// # Cancel safety
+    ///
+    /// The method is cancel safe. A caller often waits for a line and for
+    /// another event, such as a timeout or another branch of a `select`. The
+    /// caller drops the future of the call when the other event occurs first,
+    /// and the call loses no output. The bytes that the call took stay with
+    /// the handle, and the call that follows reports the line that they
+    /// belong to.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -168,6 +177,7 @@ impl Run {
     ///
     /// [incomplete]: RunCommandError::IncompleteRun
     // process[impl stream]
+    // process[impl stream.cancellation]
     pub async fn next_line(&mut self) -> Result<Option<Line>, RunCommandError> {
         loop {
             if let Some(line) = self.lines.pop_front() {
@@ -178,6 +188,10 @@ impl Run {
                 return Ok(None);
             }
 
+            // A poll that takes bytes stores them in the reader and in the
+            // queue before it returns. The await point below is a poll that
+            // took nothing. Every state of the read therefore lives in the
+            // handle, and a future that the caller drops takes none of it.
             let read = {
                 let Self {
                     stdout,
@@ -213,6 +227,12 @@ impl Run {
     ///
     /// Returns [`IncompleteRun`][incomplete] when a stream of the command
     /// cannot be read, or when the end of the command cannot be waited for.
+    ///
+    /// # Cancel safety
+    ///
+    /// The method is not cancel safe. It takes the handle, so a caller that
+    /// drops the future of a call ends the command. The caller loses the
+    /// result of the run, and the capture of both streams with it.
     ///
     /// # Examples
     ///
