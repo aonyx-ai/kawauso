@@ -34,6 +34,29 @@ fn config_module_provides_the_configuration_loader() {
 
 // kawauso[verify facade.identity]
 #[test]
+fn process_module_is_the_kawauso_process_crate() {
+    // The annotation is the assertion: it only compiles when the module and
+    // the crate name one type.
+    let invocation: kawauso_process::Invocation =
+        kawauso::process::Invocation::new("git").arg("status");
+
+    let command = invocation.to_string();
+
+    assert_eq!(command, "git status");
+}
+
+// kawauso[verify facade.module]
+#[test]
+fn process_module_provides_the_command_invocation() {
+    let invocation = kawauso::process::Invocation::new("git").arg("status");
+
+    let command = invocation.to_string();
+
+    assert_eq!(command, "git status");
+}
+
+// kawauso[verify facade.identity]
+#[test]
 fn project_module_is_the_kawauso_project_crate() {
     // The annotation is the assertion: it only compiles when the module and
     // the crate name one type.

@@ -26,6 +26,7 @@ include = [
 
 [dependencies]
 kawauso-config = { workspace = true }
+kawauso-process = { workspace = true }
 kawauso-project = { workspace = true }
 
 [lints]

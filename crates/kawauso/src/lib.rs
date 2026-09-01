@@ -21,6 +21,25 @@
 // kawauso[impl facade.identity]
 #[doc(inline)]
 pub use kawauso_config as config;
+/// External programs that an application runs, from the crate
+/// `kawauso-process`
+///
+/// An application that wants this capability on its own, without the rest of
+/// the framework, depends on `kawauso-process` and reaches the same types.
+///
+/// # Examples
+///
+/// ```
+/// use kawauso::process::Invocation;
+///
+/// let invocation = Invocation::new("git").arg("status").arg("--short");
+///
+/// assert_eq!(invocation.to_string(), "git status --short");
+/// ```
+// kawauso[impl facade.module]
+// kawauso[impl facade.identity]
+#[doc(inline)]
+pub use kawauso_process as process;
 /// The project that an application runs in, from the crate
 /// `kawauso-project`
 ///
