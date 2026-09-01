@@ -299,6 +299,55 @@ async fn run_with_a_program_that_does_not_exist_returns_an_error() {
     assert!(matches!(error, RunCommandError::UnstartableCommand { .. }));
 }
 
+// A program that takes a decision from a variable, and from no flag, has to
+// see the variable that the caller set for the command. The command writes
+// the value that it reads, so a run that dropped the variable reports an
+// empty line.
+// process[verify invocation.environment]
+#[cfg(unix)]
+#[tokio::test]
+async fn run_with_a_variable_gives_the_command_the_variable() {
+    let invocation =
+        shell(&["echo \"$KAWAUSO_PROCESS_TEST\""]).env("KAWAUSO_PROCESS_TEST", "value");
+
+    let execution = invocation.run().await.unwrap();
+
+    assert_eq!(execution.stdout().to_string_lossy().trim(), "value");
+}
+
+// The variables of the caller come on top of the environment of the process,
+// and not in its place. A command that reads a variable of the process
+// therefore sees the same value as the process, although the caller set a
+// variable of its own.
+// process[verify invocation.environment]
+#[cfg(unix)]
+#[tokio::test]
+async fn run_with_a_variable_keeps_the_environment_of_the_process() {
+    let invocation = shell(&["echo \"$PATH\""]).env("KAWAUSO_PROCESS_TEST", "value");
+
+    let execution = invocation.run().await.unwrap();
+
+    assert_eq!(
+        execution.stdout().to_string_lossy().trim(),
+        std::env::var("PATH").unwrap()
+    );
+}
+
+// A variable of the caller with the name of a variable of the process holds
+// the value of the caller for the command. Every process has a home
+// directory in its environment, and the command reports the one that the
+// caller set.
+// process[verify invocation.environment]
+#[cfg(unix)]
+#[tokio::test]
+async fn run_with_a_variable_that_the_process_holds_replaces_it_for_the_command() {
+    let invocation = shell(&["echo \"$HOME\""]).env("HOME", "/kawauso");
+
+    let execution = invocation.run().await.unwrap();
+
+    assert_eq!(execution.stdout().to_string_lossy().trim(), "/kawauso");
+}
+
 // A command that works on a directory has to start in that directory, and not
 // where the process runs.
 // process[verify invocation.directory]
