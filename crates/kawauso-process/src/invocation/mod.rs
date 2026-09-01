@@ -1,8 +1,9 @@
 //! The description of one external command
 //!
 //! An invocation names the program of a command, the arguments of the
-//! program, and the directory in which the command runs. This module holds
-//! the invocation and the types of its parts.
+//! program, and the directory in which the command runs. It also carries the
+//! variables that the caller sets in the environment of the command. This
+//! module holds the invocation and the types of its parts.
 //!
 //! An invocation is a value, and nothing starts a program when an application
 //! builds one. An application can therefore describe a command once, write
@@ -18,6 +19,9 @@
 
 pub mod argument;
 pub mod program;
+pub mod variable;
+pub mod variable_name;
+pub mod variable_value;
 pub mod working_directory;
 
 use std::fmt::Display;
@@ -30,6 +34,9 @@ use tokio::process::Command;
 
 pub use self::argument::Argument;
 pub use self::program::Program;
+pub use self::variable::Variable;
+pub use self::variable_name::VariableName;
+pub use self::variable_value::VariableValue;
 pub use self::working_directory::WorkingDirectory;
 use crate::error::RunCommandError;
 use crate::execution::Capture;
@@ -43,6 +50,11 @@ use crate::run::Run;
 /// the program, and the directory in which the command runs. The arguments
 /// keep the order in which the caller named them, and the working directory
 /// is optional.
+///
+/// An invocation also holds the variables that the caller sets for the
+/// command. The command inherits the environment of the process that runs
+/// it, and a variable of the invocation replaces a variable of the process
+/// with the same name.
 ///
 /// No shell reads the command. Nothing splits an argument at a space, removes
 /// a quotation mark, or expands a character such as `*`, so the program
@@ -82,6 +94,22 @@ use crate::run::Run;
 ///     Some(Path::new("crates/example"))
 /// );
 /// ```
+///
+/// A command that reads a variable of its environment:
+///
+/// ```
+/// use kawauso_process::Invocation;
+///
+/// let invocation = Invocation::new("cargo")
+///     .arg("nextest")
+///     .arg("run")
+///     .env("NEXTEST_EXPERIMENTAL_LIBTEST_JSON", "1");
+///
+/// assert_eq!(
+///     invocation.to_string(),
+///     "NEXTEST_EXPERIMENTAL_LIBTEST_JSON=1 cargo nextest run"
+/// );
+/// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Invocation {
     /// The program that the command starts
@@ -92,6 +120,13 @@ pub struct Invocation {
     /// The order is the order in which the caller named them, because it is
     /// the order in which the program receives them.
     arguments: Vec<Argument>,
+
+    /// The variables that the caller sets in the environment of the command
+    ///
+    /// The order is the order in which the caller set them, and a name
+    /// appears once. The command inherits the environment of the process that
+    /// runs it, and these variables come on top of that environment.
+    environment: Vec<Variable>,
 
     /// The directory in which the command runs
     ///
@@ -125,6 +160,7 @@ impl Invocation {
         Self {
             program: program.into(),
             arguments: Vec::new(),
+            environment: Vec::new(),
             working_directory: None,
         }
     }
@@ -188,8 +224,10 @@ impl Invocation {
     /// The command pipes both output streams, because a run reports what the
     /// command wrote to each of them.
     ///
-    /// The command carries no call that clears or changes the environment, so
-    /// the command inherits the environment of this process. The program
+    /// The command carries no call that clears the environment, so the
+    /// command inherits the environment of this process. The variables of the
+    /// invocation come on top of it, and a variable with the name of one that
+    /// the process holds replaces it for the command alone. The program
     /// travels as the caller wrote it, and the operating system resolves a
     /// bare name.
     // process[impl run.environment]
@@ -199,6 +237,12 @@ impl Invocation {
 
         command
             .args(self.arguments.iter().map(Argument::get))
+            // process[impl invocation.environment]
+            .envs(
+                self.environment
+                    .iter()
+                    .map(|variable| (variable.name().get(), variable.value().get())),
+            )
             // process[impl run.stdin]
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -212,6 +256,71 @@ impl Invocation {
         }
 
         command
+    }
+
+    /// Sets one variable in the environment of the command
+    ///
+    /// The command inherits the environment of the process that runs it, and
+    /// the variable comes on top of that environment. A variable with the
+    /// name of one that the process holds replaces the value for the command
+    /// alone, and the process keeps its own.
+    ///
+    /// A later call with the same name replaces the value of the earlier
+    /// call, because a variable holds one value. The variable keeps the place
+    /// of the earlier call.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::Invocation;
+    ///
+    /// let invocation = Invocation::new("cargo")
+    ///     .arg("build")
+    ///     .env("RUSTUP_TOOLCHAIN", "nightly");
+    ///
+    /// assert_eq!(invocation.environment().len(), 1);
+    /// ```
+    // process[impl invocation.environment]
+    pub fn env(mut self, name: impl Into<VariableName>, value: impl Into<VariableValue>) -> Self {
+        self.set(Variable::new(name, value));
+
+        self
+    }
+
+    /// Returns the variables that the caller set, in the order of the calls
+    pub fn environment(&self) -> &[Variable] {
+        &self.environment
+    }
+
+    /// Sets every variable of an iterator in the environment of the command
+    ///
+    /// Each variable goes through the same steps as one that [`env`][env]
+    /// sets, so a later variable with the name of an earlier one replaces its
+    /// value. A pair of a name and a value is a variable, so a caller that
+    /// holds its variables as pairs gives them as they are. Use this method
+    /// for a caller that holds its variables in a collection, and
+    /// [`env`][env] for one that names them.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::Invocation;
+    ///
+    /// let invocation = Invocation::new("cargo")
+    ///     .arg("build")
+    ///     .envs([("RUSTUP_TOOLCHAIN", "nightly"), ("CARGO_TERM_COLOR", "always")]);
+    ///
+    /// assert_eq!(invocation.environment().len(), 2);
+    /// ```
+    ///
+    /// [env]: Invocation::env
+    // process[impl invocation.environment]
+    pub fn envs(mut self, variables: impl IntoIterator<Item = impl Into<Variable>>) -> Self {
+        for variable in variables {
+            self.set(variable.into());
+        }
+
+        self
     }
 
     /// Runs the command in the directory that the caller names
@@ -257,10 +366,10 @@ impl Invocation {
     /// The command starts with a standard input that is null, so a command
     /// that reads its input sees the end of the input at once. A program that
     /// asks for a password ends instead of waiting for an answer. The command
-    /// inherits the environment of the process that runs it, and the crate
-    /// has no interface that changes it. The operating system resolves the
-    /// program with the rules of the platform, and the crate searches no path
-    /// of its own.
+    /// inherits the environment of the process that runs it, and it reads the
+    /// variables of the invocation on top of that environment. The operating
+    /// system resolves the program with the rules of the platform, and the
+    /// crate searches no path of its own.
     ///
     /// A command that ends without success is no failure of this method. The
     /// status travels in the result, and [`require_success`][require-success]
@@ -344,6 +453,25 @@ impl Invocation {
         ))
     }
 
+    /// Puts one variable into the environment of the command
+    ///
+    /// A variable with a name that the environment holds replaces the value
+    /// of that variable and keeps its place, because a variable holds one
+    /// value. A variable with a new name goes to the end, so that the
+    /// environment keeps the order of the calls.
+    // process[impl invocation.environment.replacement]
+    fn set(&mut self, variable: Variable) {
+        let existing = self
+            .environment
+            .iter_mut()
+            .find(|existing| existing.name() == variable.name());
+
+        match existing {
+            Some(existing) => *existing = variable,
+            None => self.environment.push(variable),
+        }
+    }
+
     /// Starts the command and reports its output while the command runs
     ///
     /// The method starts the program and returns a handle. The handle gives
@@ -357,7 +485,7 @@ impl Invocation {
     /// The command starts with the same decisions that [`run`][run] makes.
     /// The standard input is null, the command inherits the environment of
     /// the process that runs it, and the operating system resolves the
-    /// program.
+    /// program. The variables of the invocation reach the command as well.
     ///
     /// The handle owns the command. A caller that drops the handle kills the
     /// command with it, and a caller that asks the command to end first calls
@@ -421,15 +549,25 @@ impl Invocation {
 
 /// Renders the command as a command line for a reader
 ///
-/// The line names the program, and then every argument in the order in which
-/// the caller named them. It does not name the working directory, because a
-/// command line holds the command and not the place that it runs in.
+/// The line names every variable that the caller set, then the program, and
+/// then every argument, each in the order in which the caller named them. A
+/// variable shows as its name, an equals sign, and its value, which is the
+/// form in which a shell sets a variable for one command. The line does not
+/// name the working directory, because a command line holds the command and
+/// not the place that it runs in.
 ///
 /// The line is for a person. No caller reads it back, and no shell runs it,
 /// so it is not a command line that a shell has to accept.
 // process[impl invocation.display]
+// process[impl invocation.environment.display]
 impl Display for Invocation {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+        for variable in &self.environment {
+            write!(formatter, "{}=", variable.name())?;
+            write_word(formatter, &variable.value().get().to_string_lossy())?;
+            formatter.write_str(" ")?;
+        }
+
         write_word(formatter, &self.program.get().to_string_lossy())?;
 
         for argument in &self.arguments {
@@ -447,6 +585,10 @@ impl Display for Invocation {
 /// reads as two words, and a word that is empty reads as none. Such a word
 /// goes between quotation marks, and a reader then sees where it starts and
 /// where it ends.
+///
+/// The value of a variable is a word of this kind as well. The marks go around
+/// the value alone, and not around the name, which is how a shell writes a
+/// variable whose value holds a space.
 ///
 /// The marks are for the reader. A word that holds a quotation mark of its own
 /// keeps it, because no shell parses the line.

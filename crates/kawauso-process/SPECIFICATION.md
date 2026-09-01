@@ -27,11 +27,26 @@ directory of their own, such as a build tool that works on the project in its
 directory. The caller can therefore name a working directory, and most
 commands need none.
 
+Some programs read a variable of the environment, and no flag does the same
+work. A test runner selects the format of its report with one, and a toolchain
+manager reads its toolchain from one. The caller can therefore set a variable
+for the command. The command still inherits the environment of the process,
+and a variable of the caller replaces a variable of the process with the same
+name. A variable holds one value, so a later call with the same name replaces
+the earlier value. Nothing clears the environment, and nothing removes a
+variable from it.
+
 A log line and an error message have to name the command that they describe,
 so an invocation renders as a command line. The rendering is for a person. No
 caller parses it, and no shell runs it. A space separates the words of the
 line. A word that holds a space, or a word that is empty, therefore needs
 marks that show where it starts and where it ends.
+
+A shell writes a variable in front of the program when it sets the variable
+for one command. An invocation renders a variable in the same place, so that a
+log line names the whole command. The variables keep the order in which the
+caller set them. A value that holds a space, or a value that is empty, needs
+the same marks as a word.
 
 process[invocation.program]
 An invocation MUST name the program of the command.
@@ -45,11 +60,27 @@ process[invocation.directory]
 An invocation MUST carry a working directory for the command when the caller
 names one. The crate MUST NOT require a working directory.
 
+process[invocation.environment]
+An invocation MUST carry the variables that the caller sets for the command,
+in the order in which the caller set them. A run MUST give the command those
+variables on top of the environment that it inherits.
+
+process[invocation.environment.replacement]
+A variable that the caller sets with the name of an earlier variable MUST
+replace the value of the earlier variable. The invocation MUST keep the place
+of the earlier variable.
+
 process[invocation.display]
 The crate MUST render an invocation as a command line that a person can read.
 The rendering MUST name the program and every argument, in the order in which
 the caller named them. It MUST show where a word of the line starts and where
 it ends, when the word holds a space or when the word is empty.
+
+process[invocation.environment.display]
+The rendering of an invocation MUST show each variable in front of the
+program, as the name, an equals sign, and the value, in the order in which the
+caller set them. It MUST show where the value starts and where it ends, when
+the value holds a space or when the value is empty.
 
 ## Running
 
