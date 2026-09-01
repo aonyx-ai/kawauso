@@ -18,10 +18,11 @@ that wants a part of it depends on the crates that hold that part.
 
 ## Modules
 
-| Module    | Crate                        | Description                              |
-| --------- | ---------------------------- | ---------------------------------------- |
-| `config`  | [`kawauso-config`][config]   | Configuration files for the application  |
-| `project` | [`kawauso-project`][project] | The project that the application runs in |
+| Module    | Crate                        | Description                                 |
+| --------- | ---------------------------- | ------------------------------------------- |
+| `config`  | [`kawauso-config`][config]   | Configuration files for the application     |
+| `process` | [`kawauso-process`][process] | External programs that the application runs |
+| `project` | [`kawauso-project`][project] | The project that the application runs in    |
 
 ## Usage
 
@@ -60,4 +61,5 @@ for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
 
 [config]: https://docs.rs/kawauso-config
+[process]: https://docs.rs/kawauso-process
 [project]: https://docs.rs/kawauso-project
