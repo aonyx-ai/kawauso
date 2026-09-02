@@ -19,7 +19,7 @@ bon = ">=3.0.0, <4"
 dirs = ">=4.0.0, <7"
 indoc = "2.0.0"
 kawauso-config = { version = "0.3.0", path = "crates/kawauso-config" }
-kawauso-process = { version = "0.1.0", path = "crates/kawauso-process" }
+kawauso-process = { version = "0.2.0", path = "crates/kawauso-process" }
 kawauso-project = { version = "0.2.0", path = "crates/kawauso-project" }
 rustix = { version = ">=1.0.0, <2", features = ["process"] }
 serde = { version = "1.0.225", features = ["derive"] }
