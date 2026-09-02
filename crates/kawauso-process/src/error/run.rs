@@ -15,6 +15,11 @@ use crate::invocation::Invocation;
 /// A command that ran and ended without success is no failure of the run. The
 /// result then carries the status, and the caller decides what it means.
 ///
+/// The invocation travels in a box. A result carries its error by value, so
+/// the size of the error reaches every function that returns one. The box
+/// keeps the error small, and a caller that wraps it in an error of its own
+/// needs no box for it.
+///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
 #[derive(Debug, Error)]
@@ -31,7 +36,7 @@ pub enum RunCommandError {
     #[non_exhaustive]
     IncompleteRun {
         /// The command that did not finish
-        invocation: Invocation,
+        invocation: Box<Invocation>,
 
         /// The cause of the failure
         source: std::io::Error,
@@ -48,7 +53,7 @@ pub enum RunCommandError {
     #[non_exhaustive]
     UnstartableCommand {
         /// The command that did not start
-        invocation: Invocation,
+        invocation: Box<Invocation>,
 
         /// The cause of the failure
         source: std::io::Error,
@@ -72,5 +77,14 @@ mod tests {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<RunCommandError>();
+    }
+
+    // A result carries its error by value, and a consumer wraps the error in
+    // an error of its own. An error that grows makes every such wrapper grow
+    // with it, until the wrapper needs a box that the consumer writes. This
+    // test holds the error to a size that leaves the consumer that room.
+    #[test]
+    fn run_command_error_stays_small() {
+        assert!(size_of::<RunCommandError>() <= 4 * size_of::<usize>());
     }
 }

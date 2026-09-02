@@ -19,6 +19,11 @@ use crate::invocation::Invocation;
 /// The command ran. Nothing failed inside the crate, and the error exists
 /// because the caller stated that only success is acceptable.
 ///
+/// The invocation travels in a box. A result carries its error by value, so
+/// the size of the error reaches every function that returns one. The box
+/// keeps the error small, and a caller that wraps it in an error of its own
+/// needs no box for it.
+///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -32,7 +37,7 @@ pub enum RequireSuccessError {
     #[non_exhaustive]
     UnsuccessfulCommand {
         /// The command that ended without success
-        invocation: Invocation,
+        invocation: Box<Invocation>,
 
         /// The status with which the command ended
         status: ExitStatus,
@@ -95,5 +100,14 @@ mod tests {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<RequireSuccessError>();
+    }
+
+    // A result carries its error by value, and a consumer wraps the error in
+    // an error of its own. An error that grows makes every such wrapper grow
+    // with it, until the wrapper needs a box that the consumer writes. This
+    // test holds the error to a size that leaves the consumer that room.
+    #[test]
+    fn require_success_error_stays_small() {
+        assert!(size_of::<RequireSuccessError>() <= 6 * size_of::<usize>());
     }
 }

@@ -165,7 +165,7 @@ impl Execution {
             Ok(self)
         } else {
             Err(RequireSuccessError::UnsuccessfulCommand {
-                invocation: self.invocation,
+                invocation: Box::new(self.invocation),
                 status: self.status,
                 stderr: self.stderr,
             })

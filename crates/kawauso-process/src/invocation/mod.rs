@@ -420,7 +420,7 @@ impl Invocation {
             self.command()
                 .spawn()
                 .map_err(|source| RunCommandError::UnstartableCommand {
-                    invocation: self.clone(),
+                    invocation: Box::new(self.clone()),
                     source,
                 })?;
 
@@ -439,7 +439,7 @@ impl Invocation {
                 .wait_with_output()
                 .await
                 .map_err(|source| RunCommandError::IncompleteRun {
-                    invocation: self.clone(),
+                    invocation: Box::new(self.clone()),
                     source,
                 })?;
 
@@ -531,7 +531,7 @@ impl Invocation {
             self.command()
                 .spawn()
                 .map_err(|source| RunCommandError::UnstartableCommand {
-                    invocation: self.clone(),
+                    invocation: Box::new(self.clone()),
                     source,
                 })?;
 
