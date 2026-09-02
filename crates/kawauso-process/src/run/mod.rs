@@ -221,7 +221,7 @@ impl Run {
             .wait()
             .await
             .map_err(|source| RunCommandError::IncompleteRun {
-                invocation: self.invocation.clone(),
+                invocation: Box::new(self.invocation.clone()),
                 source,
             })
     }
@@ -285,7 +285,7 @@ impl Run {
         .await;
 
         exited.map_err(|source| RunCommandError::IncompleteRun {
-            invocation: invocation.clone(),
+            invocation: Box::new(invocation.clone()),
             source,
         })
     }
@@ -412,7 +412,7 @@ impl Run {
             };
 
             read.map_err(|source| RunCommandError::IncompleteRun {
-                invocation: self.invocation.clone(),
+                invocation: Box::new(self.invocation.clone()),
                 source,
             })?;
         }
@@ -598,7 +598,7 @@ impl Run {
         let taken = stdout.take(lines).and_then(|()| stderr.take(lines));
 
         taken.map_err(|source| RunCommandError::IncompleteRun {
-            invocation: invocation.clone(),
+            invocation: Box::new(invocation.clone()),
             source,
         })
     }
