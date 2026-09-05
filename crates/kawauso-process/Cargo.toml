@@ -2,7 +2,7 @@
 name = "kawauso-process"
 description = "External programs for Kawauso applications"
 
-version = "0.2.0"
+version = "0.2.1"
 
 edition.workspace = true
 license.workspace = true
