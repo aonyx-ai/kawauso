@@ -50,6 +50,35 @@ fn shell(commands: &[&str]) -> Invocation {
     }
 }
 
+// A variable that the process holds reaches every command that it starts, and
+// a caller that takes the name out means the command to miss it. The shell
+// writes an empty line for a name that the environment does not hold, and it
+// does not put `HOME` back when the environment arrives without it.
+// process[verify invocation.environment.removal]
+#[cfg(unix)]
+#[tokio::test]
+async fn run_with_a_removed_name_hides_the_variable_of_the_process() {
+    let invocation = shell(&["echo \"$HOME\""]).env_remove("HOME");
+
+    let execution = invocation.run().await.expect("expected the command to run");
+
+    assert_eq!(execution.stdout().to_string_lossy().trim(), "");
+}
+
+// The removal reaches the command alone. A process that took a name out of
+// one command still holds the variable itself, which is what lets it run
+// several commands at once.
+// process[verify invocation.environment.removal]
+#[cfg(unix)]
+#[tokio::test]
+async fn run_with_a_removed_name_keeps_the_variable_of_the_process() {
+    let invocation = shell(&["echo \"$HOME\""]).env_remove("HOME");
+
+    invocation.run().await.expect("expected the command to run");
+
+    assert!(std::env::var("HOME").is_ok());
+}
+
 // process[verify run.success.message]
 #[tokio::test]
 async fn require_success_with_a_command_that_failed_names_the_command() {

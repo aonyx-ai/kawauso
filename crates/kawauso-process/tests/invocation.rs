@@ -27,6 +27,18 @@ fn variables(invocation: &Invocation) -> Vec<String> {
         .collect()
 }
 
+/// Returns every name that the caller took out, in the order of the calls
+///
+/// A test that makes a statement about the whole set of removals compares it
+/// with literals, and the name alone is what the invocation carries.
+fn removals(invocation: &Invocation) -> Vec<String> {
+    invocation
+        .removals()
+        .iter()
+        .map(ToString::to_string)
+        .collect()
+}
+
 // A character that a shell expands reaches the program as the caller wrote
 // it, because no shell reads the command.
 // process[verify invocation.arguments]
@@ -75,6 +87,30 @@ fn display_with_a_program_that_holds_a_space_marks_it() {
     let invocation = Invocation::new("/opt/my tool/bin/tool");
 
     assert_eq!(invocation.to_string(), "\"/opt/my tool/bin/tool\"");
+}
+
+// No shell takes a name out of the environment of one command, and the `env`
+// program writes a minus sign in front of the name. A reader of a log line
+// sees the same form here.
+// process[verify invocation.environment.removal.display]
+#[test]
+fn display_with_a_removed_name_shows_it_in_front_of_the_program() {
+    let invocation = Invocation::new("git").arg("status").env_remove("GIT_DIR");
+
+    assert_eq!(invocation.to_string(), "-GIT_DIR git status");
+}
+
+// A line that mixed the two would leave a reader guessing which name the
+// command holds and which one it misses, so the removals come first.
+// process[verify invocation.environment.removal.display]
+#[test]
+fn display_with_a_removed_name_and_a_variable_shows_the_removal_first() {
+    let invocation = Invocation::new("git")
+        .arg("status")
+        .env("LC_ALL", "C")
+        .env_remove("GIT_DIR");
+
+    assert_eq!(invocation.to_string(), "-GIT_DIR LC_ALL=C git status");
 }
 
 // A shell sets a variable for one command in front of the program, and a
@@ -147,6 +183,64 @@ fn display_with_two_variables_keeps_the_order_of_the_calls() {
         invocation.to_string(),
         "RUSTUP_TOOLCHAIN=nightly CARGO_TERM_COLOR=always cargo"
     );
+}
+
+// The caller reads back what it took out, which is how an application logs
+// or asserts the environment that a command will run in.
+// process[verify invocation.environment.removal]
+#[test]
+fn env_remove_with_a_name_keeps_it() {
+    let invocation = Invocation::new("git").env_remove("GIT_DIR");
+
+    assert_eq!(removals(&invocation), vec!["GIT_DIR"]);
+}
+
+// A name is either set or taken out. A caller that sets a variable and then
+// takes the name out means the command to miss it, so the variable goes.
+// process[verify invocation.environment.exclusion]
+#[test]
+fn env_remove_with_the_name_of_a_variable_takes_the_variable_out() {
+    let invocation = Invocation::new("git")
+        .env("GIT_DIR", "/elsewhere")
+        .env_remove("GIT_DIR");
+
+    assert_eq!(variables(&invocation), Vec::<String>::new());
+}
+
+// A caller that names the same variable twice means it once, and the second
+// call says nothing new.
+// process[verify invocation.environment.removal]
+#[test]
+fn env_remove_with_a_repeated_name_keeps_one() {
+    let invocation = Invocation::new("git")
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_DIR");
+
+    assert_eq!(removals(&invocation), vec!["GIT_DIR"]);
+}
+
+// A caller that takes several names out reads them back in the order that it
+// named them, as it does for the variables that it set.
+// process[verify invocation.environment.removal]
+#[test]
+fn env_remove_with_two_names_keeps_the_order_of_the_calls() {
+    let invocation = Invocation::new("git")
+        .env_remove("GIT_INDEX_FILE")
+        .env_remove("GIT_DIR");
+
+    assert_eq!(removals(&invocation), vec!["GIT_INDEX_FILE", "GIT_DIR"]);
+}
+
+// The last call for a name decides, so a caller that takes a name out and
+// then sets it means the command to read the value.
+// process[verify invocation.environment.exclusion]
+#[test]
+fn env_with_the_name_of_a_removed_name_takes_the_name_back() {
+    let invocation = Invocation::new("git")
+        .env_remove("GIT_DIR")
+        .env("GIT_DIR", "/repository");
+
+    assert_eq!(removals(&invocation), Vec::<String>::new());
 }
 
 // process[verify invocation.environment]

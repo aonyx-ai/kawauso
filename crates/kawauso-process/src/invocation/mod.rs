@@ -128,6 +128,13 @@ pub struct Invocation {
     /// runs it, and these variables come on top of that environment.
     environment: Vec<Variable>,
 
+    /// The names that the caller takes out of the environment of the command
+    ///
+    /// The order is the order in which the caller named them, and a name
+    /// appears once. A name of this list appears in no variable of the
+    /// environment above, because a name is either set or taken out.
+    removals: Vec<VariableName>,
+
     /// The directory in which the command runs
     ///
     /// `None` when the caller named no directory. The command then runs where
@@ -161,6 +168,7 @@ impl Invocation {
             program: program.into(),
             arguments: Vec::new(),
             environment: Vec::new(),
+            removals: Vec::new(),
             working_directory: None,
         }
     }
@@ -251,6 +259,11 @@ impl Invocation {
             // process[impl stream.abandonment]
             .kill_on_drop(true);
 
+        // process[impl invocation.environment.removal]
+        for name in &self.removals {
+            command.env_remove(name.get());
+        }
+
         if let Some(directory) = &self.working_directory {
             command.current_dir(directory.get());
         }
@@ -290,6 +303,54 @@ impl Invocation {
     /// Returns the variables that the caller set, in the order of the calls
     pub fn environment(&self) -> &[Variable] {
         &self.environment
+    }
+
+    /// Takes one name out of the environment of the command
+    ///
+    /// The command inherits the environment of the process that runs it, and
+    /// this name is the exception: the command runs as if the process never
+    /// held it. Use this method for a program that reads a variable which the
+    /// caller cannot set to a value that would be right, such as one that
+    /// names the repository of a version control system to a child of a hook.
+    ///
+    /// The process keeps its own environment. Nothing here changes the
+    /// variables that this process holds, which is what makes the method safe
+    /// in a program that runs several commands at once.
+    ///
+    /// A name is either set or taken out, so this call undoes an earlier
+    /// [`env`][env] with the same name, and a later [`env`][env] with the name
+    /// undoes this call. A repeated call keeps the place of the earlier one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::Invocation;
+    ///
+    /// let invocation = Invocation::new("git")
+    ///     .arg("status")
+    ///     .env_remove("GIT_DIR");
+    ///
+    /// assert_eq!(invocation.to_string(), "-GIT_DIR git status");
+    /// ```
+    ///
+    /// [env]: Invocation::env
+    // process[impl invocation.environment.removal]
+    // process[impl invocation.environment.exclusion]
+    pub fn env_remove(mut self, name: impl Into<VariableName>) -> Self {
+        let name = name.into();
+
+        self.environment.retain(|variable| *variable.name() != name);
+
+        if !self.removals.contains(&name) {
+            self.removals.push(name);
+        }
+
+        self
+    }
+
+    /// Returns the names that the caller took out, in the order of the calls
+    pub fn removals(&self) -> &[VariableName] {
+        &self.removals
     }
 
     /// Sets every variable of an iterator in the environment of the command
@@ -460,7 +521,10 @@ impl Invocation {
     /// value. A variable with a new name goes to the end, so that the
     /// environment keeps the order of the calls.
     // process[impl invocation.environment.replacement]
+    // process[impl invocation.environment.exclusion]
     fn set(&mut self, variable: Variable) {
+        self.removals.retain(|name| name != variable.name());
+
         let existing = self
             .environment
             .iter_mut()
@@ -549,19 +613,28 @@ impl Invocation {
 
 /// Renders the command as a command line for a reader
 ///
-/// The line names every variable that the caller set, then the program, and
-/// then every argument, each in the order in which the caller named them. A
-/// variable shows as its name, an equals sign, and its value, which is the
-/// form in which a shell sets a variable for one command. The line does not
-/// name the working directory, because a command line holds the command and
-/// not the place that it runs in.
+/// The line names every name that the caller took out, then every variable
+/// that the caller set, then the program, and then every argument, each in the
+/// order in which the caller named them. A variable shows as its name, an
+/// equals sign, and its value, which is the form in which a shell sets a
+/// variable for one command. A name that the caller took out shows behind a
+/// minus sign, which is the form of the `env` program, because no shell takes
+/// a name out of the environment of one command. The line does not name the
+/// working directory, because a command line holds the command and not the
+/// place that it runs in.
 ///
 /// The line is for a person. No caller reads it back, and no shell runs it,
 /// so it is not a command line that a shell has to accept.
 // process[impl invocation.display]
 // process[impl invocation.environment.display]
+// process[impl invocation.environment.removal.display]
 impl Display for Invocation {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+        // process[impl invocation.environment.removal.display]
+        for name in &self.removals {
+            write!(formatter, "-{name} ")?;
+        }
+
         for variable in &self.environment {
             write!(formatter, "{}=", variable.name())?;
             write_word(formatter, &variable.value().get().to_string_lossy())?;
