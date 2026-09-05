@@ -33,8 +33,20 @@ manager reads its toolchain from one. The caller can therefore set a variable
 for the command. The command still inherits the environment of the process,
 and a variable of the caller replaces a variable of the process with the same
 name. A variable holds one value, so a later call with the same name replaces
-the earlier value. Nothing clears the environment, and nothing removes a
-variable from it.
+the earlier value.
+
+A program can also read a variable that the caller wants it to miss. A
+variable that names the repository of a version control system reaches a
+child of a hook, and it beats the directory that the child works in, so a
+command that means to work on one repository reads another. Setting such a
+variable is no answer, because the value that would be right is the value
+that the caller has not got. The caller can therefore take a name out of the
+environment of the command, and the command then runs as if the process never
+held it.
+
+A name is either set or taken out, and the last call decides which. The two
+answer the same question, so a call of one kind replaces a call of the other
+kind with the same name.
 
 A log line and an error message have to name the command that they describe,
 so an invocation renders as a command line. The rendering is for a person. No
@@ -47,6 +59,11 @@ for one command. An invocation renders a variable in the same place, so that a
 log line names the whole command. The variables keep the order in which the
 caller set them. A value that holds a space, or a value that is empty, needs
 the same marks as a word.
+
+No shell takes a name out of the environment of one command, and the `env`
+program does it with a minus sign and the name. A rendering follows that
+program: the names that the caller took out come first, each behind a minus
+sign, and the variables that the caller set follow them.
 
 process[invocation.program]
 An invocation MUST name the program of the command.
@@ -70,6 +87,17 @@ A variable that the caller sets with the name of an earlier variable MUST
 replace the value of the earlier variable. The invocation MUST keep the place
 of the earlier variable.
 
+process[invocation.environment.removal]
+An invocation MUST carry the names that the caller takes out of the
+environment of the command, in the order in which the caller named them. A run
+MUST start the command without those variables, whether or not the process
+that runs it holds them.
+
+process[invocation.environment.exclusion]
+A name that the caller takes out MUST NOT stay a variable that the caller set,
+and a name that the caller sets MUST NOT stay taken out. The last call for a
+name MUST decide.
+
 process[invocation.display]
 The crate MUST render an invocation as a command line that a person can read.
 The rendering MUST name the program and every argument, in the order in which
@@ -81,6 +109,11 @@ The rendering of an invocation MUST show each variable in front of the
 program, as the name, an equals sign, and the value, in the order in which the
 caller set them. It MUST show where the value starts and where it ends, when
 the value holds a space or when the value is empty.
+
+process[invocation.environment.removal.display]
+The rendering of an invocation MUST show each name that the caller took out in
+front of the variables that the caller set, as a minus sign and the name, in
+the order in which the caller named them.
 
 ## Running
 
