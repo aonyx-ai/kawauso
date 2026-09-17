@@ -91,7 +91,7 @@ jobs:
         uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2.6.0
 
       - name: Run recipe with Just
-        uses: flox/activate-action@7065dcbe5583b7b015f07a8ebd49d7266e3053e8 # v1.1.1
+        uses: flox/activate-action@b1009911305dd59074b15f55300b18321d2ea6a8 # v1.2.0
         env:
           GH_TOKEN: ${{ github.token }}
         with:
