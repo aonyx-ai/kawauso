@@ -43,7 +43,7 @@ jobs:
         uses: ./.github/actions/restore-tracey
 
       - name: Install Flox
-        uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2.6.0
+        uses: flox/install-flox-action@5bb9eaaffbeaa699a8251a1ae21ecf4c8e0e37d4 # v2.7.0
 
       # The activation runs the hook that builds tracey. The version names the
       # revision, so a stale binary in the cache shows up here.
