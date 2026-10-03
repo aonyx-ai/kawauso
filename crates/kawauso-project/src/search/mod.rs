@@ -223,7 +223,9 @@ impl<S: State> Search<S> {
     /// let search = Search::start(directory.path())
     ///     .marker(".no-such-project-marker")
     ///     .or_start();
-    /// let project: Project = Project::builder().application("example").load(&search)?;
+    /// let project: Project = Project::builder()
+    ///     .application("example".parse()?)
+    ///     .load(&search)?;
     ///
     /// assert!(project.marker().is_none());
     /// # Ok::<(), Box<dyn std::error::Error>>(())

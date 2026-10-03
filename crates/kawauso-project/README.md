@@ -27,6 +27,12 @@ name of the application decides where that file is:
 application whose host dictates another location names it with
 `configuration_file`.
 
+The name of the application becomes a component of a path. It therefore holds
+from 1 to 255 ASCII letters, ASCII digits, and hyphens, and it is not the name
+of a device on Windows, such as `CON` or `COM1`. The application creates the
+name before it describes the project, and a malformed name fails there, not in
+the load.
+
 An application that owns more than a configuration file keeps its directory in
 `.config` and selects it with `with_configuration_directory`. The project then
 reads `config.toml` in `.config/<application>`, which the application names
@@ -50,6 +56,14 @@ conventional location belongs to something else, and the project leaves it
 alone. `configuration_path` still reports that location, so an application
 that writes the file later knows where the file goes.
 
+An application sometimes writes files that must not be in the repository,
+such as a log for each run. `data_directory` gives a loaded project a
+directory for them in the local data directory of the user:
+`<data>/<application>/projects/<identifier>`. The application supplies the
+identifier, because only the application knows what makes two checkouts the
+same project. The identifier obeys the rules of the name of the application.
+The call creates the directory, and the load does not.
+
 ## Usage
 
 ```rust
@@ -65,7 +79,7 @@ struct Configuration {
 
 let search = Search::working_directory().marker(".git");
 let project: Project<Configuration> = Project::builder()
-    .application("example")
+    .application("example".parse()?)
     .load(&search)?;
 
 let port = project.configuration().map(|configuration| configuration.port);

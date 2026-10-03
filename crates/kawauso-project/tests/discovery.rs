@@ -96,7 +96,7 @@ fn discover_with_a_start_in_one_of_two_projects_returns_that_project() {
 
     let search = Search::start(second.join("src")).marker(MARKER);
     let project: Project = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load(&search)
         .unwrap();
 
@@ -140,7 +140,7 @@ fn discover_without_a_match_reports_the_markers() {
     let search = Search::start(directory.path()).marker(ABSENT);
 
     let outcome: Result<Project, _> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .without_configuration()
         .load(&search);
 
@@ -160,7 +160,7 @@ mod child {
         let search = Search::working_directory().marker(MARKER);
 
         let project: Project = Project::builder()
-            .application(APPLICATION)
+            .application(APPLICATION.parse().unwrap())
             .load(&search)
             .unwrap();
 
