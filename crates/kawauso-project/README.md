@@ -28,7 +28,7 @@ application whose host dictates another location names it with
 `configuration_file`.
 
 The name of the application becomes a component of a path. It therefore holds
-from 1 to 255 ASCII letters, ASCII digits, and hyphens, and it is not the name
+from 1 to 250 ASCII letters, ASCII digits, and hyphens, and it is not the name
 of a device on Windows, such as `CON` or `COM1`. The application creates the
 name before it describes the project, and a malformed name fails there, not in
 the load.

@@ -23,7 +23,7 @@ pub enum ParseApplicationNameError {
     /// other operation failed.
     // project[impl name.error]
     #[error(
-        "the application name {name:?} is malformed, because a name holds 1 to 255 ASCII letters, digits, and hyphens, and does not name a device on Windows"
+        "the application name {name:?} is malformed, because a name holds 1 to 250 ASCII letters, digits, and hyphens, and does not name a device on Windows"
     )]
     #[non_exhaustive]
     MalformedName {

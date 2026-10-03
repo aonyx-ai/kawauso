@@ -25,7 +25,7 @@ pub enum ParseProjectIdentifierError {
     /// other operation failed.
     // project[impl name.error]
     #[error(
-        "the project identifier {identifier:?} is malformed, because an identifier holds 1 to 255 ASCII letters, digits, and hyphens, and does not name a device on Windows"
+        "the project identifier {identifier:?} is malformed, because an identifier holds 1 to 250 ASCII letters, digits, and hyphens, and does not name a device on Windows"
     )]
     #[non_exhaustive]
     MalformedIdentifier {

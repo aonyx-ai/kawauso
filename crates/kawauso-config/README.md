@@ -18,7 +18,7 @@ configuration of a user.
 
 A search derives the name of the configuration file from the name of the
 application. The name becomes part of a path, so an [`ApplicationName`]
-holds 1 to 255 ASCII letters, ASCII digits, and hyphens, and it is not the
+holds 1 to 250 ASCII letters, ASCII digits, and hyphens, and it is not the
 name of a device on Windows. The application creates the name with `parse`,
 which fails for a value that does not obey these rules. A search that takes
 the name therefore cannot fail because of it.

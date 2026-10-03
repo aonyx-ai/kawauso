@@ -13,6 +13,7 @@ use std::path::PathBuf;
 
 use kawauso_project::Project;
 use kawauso_project::Search;
+use kawauso_project::project::ApplicationName;
 use kawauso_project::project::NoConfiguration;
 use serde::Deserialize;
 use serde::Serialize;
@@ -71,6 +72,19 @@ struct UnserializableConfiguration(u16);
 /// Returns an error when the directory has no canonical path.
 fn canonical(directory: &TempDir) -> std::io::Result<PathBuf> {
     std::fs::canonicalize(directory.path())
+}
+
+/// Returns the longest name of an application that the rules accept
+///
+/// The test of the longest name must use the limit of the rules, and not a
+/// second copy of it. The function therefore asks the rules: it tries names
+/// from far beyond the limit down to one character, and returns the first
+/// that parses. It returns `None` only when the rules accept no such name.
+fn longest_name() -> Option<String> {
+    (1..=1024)
+        .rev()
+        .map(|length| "a".repeat(length))
+        .find(|name| name.parse::<ApplicationName>().is_ok())
 }
 
 /// Creates a project with a marker, and a file at the path when one is given
@@ -181,6 +195,24 @@ fn load_or_create_with_an_unserializable_configuration_returns_an_error() {
             .to_string()
             .contains("failed to create the configuration")
     );
+}
+
+// Most file systems accept a component of a path with up to 255 bytes, and
+// the configuration file adds `.toml` to the name of the application. The
+// longest name that the rules accept must still give a file that the project
+// can create, or the load fails where it would create the file.
+// project[verify name.characters+2]
+#[test]
+fn load_or_create_with_the_longest_name_returns_the_project() {
+    let name = longest_name().unwrap();
+    let directory = project(None).unwrap();
+    let search = Search::start(directory.path()).marker(MARKER);
+
+    let result: Result<Project<Configuration>, _> = Project::builder()
+        .application(name.parse().unwrap())
+        .load_or_create(&search, || Configuration { port: 8080 });
+
+    assert!(result.is_ok(), "{:?}", result.err());
 }
 
 // project[verify configuration.create]

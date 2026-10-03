@@ -292,6 +292,12 @@ user. A value that is not one component on every platform can change the
 path, or move it outside the directory that the crate selects. A value such
 as `..`, `/home`, or `C:` is an example.
 
+Most file systems accept a component of a path with up to 255 bytes. The
+configuration file `<name>.toml` adds 5 bytes to the name of the application,
+so a name holds at most 250 characters. The file of each valid name is then a
+component that the file system accepts. The identifier obeys the same rules,
+because one set of rules applies to each component.
+
 The identifier often comes from a file in the repository. A user can clone a
 repository that another person wrote. The rules of a name therefore apply
 when the crate gets the value, and not later when it uses the value. Every
@@ -312,8 +318,8 @@ name of a device is not a valid name.
 The crate does not change a value to make it valid. Two values that a change
 makes equal share one directory, and nothing tells the user.
 
-project[name.characters]
-A name MUST hold from 1 to 255 characters. Each character MUST be an ASCII
+project[name.characters+2]
+A name MUST hold from 1 to 250 characters. Each character MUST be an ASCII
 letter, an ASCII digit, or `-`.
 
 project[name.reserved]

@@ -18,7 +18,7 @@ use crate::error::ParseApplicationNameError;
 /// Use the name that a user types to start the application, so that the
 /// user finds the files under a name that they recognize.
 ///
-/// The name becomes a component of a path, so it holds from 1 to 255 ASCII
+/// The name becomes a component of a path, so it holds from 1 to 250 ASCII
 /// letters, ASCII digits, and hyphens, and it is not the name of a device on
 /// Windows, such as `CON` or `COM1`. Every way to create a name checks these
 /// rules and can fail. A builder that takes a name therefore cannot fail
@@ -116,7 +116,7 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "the application name \"COM1\\n\" is malformed, because a name holds 1 to 255 ASCII letters, digits, and hyphens, and does not name a device on Windows"
+            "the application name \"COM1\\n\" is malformed, because a name holds 1 to 250 ASCII letters, digits, and hyphens, and does not name a device on Windows"
         );
     }
 
