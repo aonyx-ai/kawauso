@@ -1,13 +1,23 @@
 //! The project that an application runs in
 //!
 //! A project is a directory that a marker identifies. This module holds the
-//! project and the walk that finds it.
+//! project, the walk that finds it, and the data directory that the project
+//! gives an application outside the repository.
 
 pub mod application_name;
 pub mod configuration_file;
 pub mod configuration_path;
+pub mod data_directory;
 pub mod no_configuration;
+pub mod project_identifier;
 pub mod project_root;
+
+// A caller never names the directory of a platform: the data directory of a
+// project wraps it, and no error reports it. The rules of a name are shared
+// by two types and belong to neither. These modules are therefore private,
+// which keeps them out of the public API.
+mod local_data_directory;
+mod portable_name;
 
 use std::error::Error;
 use std::path::Component;
@@ -22,8 +32,12 @@ use serde::de::DeserializeOwned;
 pub use self::application_name::ApplicationName;
 pub use self::configuration_file::ConfigurationFile;
 pub use self::configuration_path::ConfigurationPath;
+pub use self::data_directory::DataDirectory;
+use self::local_data_directory::LocalDataDirectory;
 pub use self::no_configuration::NoConfiguration;
+pub use self::project_identifier::ProjectIdentifier;
 pub use self::project_root::ProjectRoot;
+use crate::error::CreateDataDirectoryError;
 use crate::error::DiscoverProjectError;
 use crate::error::LoadProjectError;
 use crate::error::discover::Markers;
@@ -69,7 +83,9 @@ use crate::search::state::Marked;
 /// std::fs::write(root.join("Cargo.toml"), "")?;
 ///
 /// let search = Search::start(root.join("src")).marker("Cargo.toml");
-/// let project: Project = Project::builder().application("example").load(&search)?;
+/// let project: Project = Project::builder()
+///     .application("example".parse()?)
+///     .load(&search)?;
 ///
 /// // The project reports the canonical path of the directory
 /// assert_eq!(project.root().get(), std::fs::canonicalize(&root)?);
@@ -79,6 +95,12 @@ use crate::search::state::Marked;
 pub struct Project<T = NoConfiguration> {
     /// The directory of the project
     root: ProjectRoot,
+
+    /// The application that the project belongs to
+    ///
+    /// The name decides the location of the configuration file, and the
+    /// directory of the application in the local data directory of the user.
+    application: ApplicationName,
 
     /// The marker that identified the project
     ///
@@ -114,8 +136,10 @@ where
     ///
     /// Every project belongs to an application, and the name of the
     /// application decides where the configuration file is:
-    /// `.config/<name>.toml` inside the project. An application whose host
-    /// dictates another location names it with
+    /// `.config/<name>.toml` inside the project. The name is an
+    /// [`ApplicationName`], which examines its value when the application
+    /// creates it, so a malformed name cannot fail the load. An application
+    /// whose host dictates another location names it with
     /// [`configuration_file`][configuration-file] instead. An application
     /// that has no configuration file declares this with
     /// [`without_configuration`][without-configuration], and the project
@@ -130,7 +154,7 @@ where
     ///
     /// let search = Search::start("src");
     /// let project: Project = Project::builder()
-    ///     .application("example")
+    ///     .application("example".parse().unwrap())
     ///     .load(&search)
     ///     .unwrap();
     /// ```
@@ -166,7 +190,7 @@ where
     ///
     /// let search = Search::start(directory.path()).marker(".config/example.toml");
     /// let project: Project<Configuration> =
-    ///     Project::builder().application("example").load(&search)?;
+    ///     Project::builder().application("example".parse()?).load(&search)?;
     ///
     /// assert_eq!(project.configuration().unwrap().port, 8080);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -201,12 +225,13 @@ where
     // project[impl configuration.location.directory]
     // project[impl configuration.missing]
     // project[impl configuration.none]
+    // project[impl data.load]
     // project[impl discover.start.caller]
     fn new(
         // bon requires the argument of the finishing function before the
         // members that get a setter.
         #[builder(finish_fn)] search: &Search<Marked>,
-        #[builder(into)] application: ApplicationName,
+        application: ApplicationName,
         // The generated setter is private. The two public methods on the
         // builder wrap it, and each one requires this member to be unset, so
         // a caller cannot name two locations for one file.
@@ -250,6 +275,7 @@ where
 
         Ok(Self {
             root: discovery.root,
+            application,
             marker: discovery.marker,
             configuration,
             configuration_path,
@@ -339,7 +365,7 @@ where
     ///
     /// let search = Search::start(directory.path()).marker(".github/example.toml");
     /// let project: Project<Configuration> = Project::builder()
-    ///     .application("example")
+    ///     .application("example".parse()?)
     ///     .configuration_file(".github/example.toml")
     ///     .load(&search)?;
     ///
@@ -382,7 +408,7 @@ where
     ///
     /// let search = Search::start(".").marker(".git");
     /// let project: Project<u16> = Project::builder()
-    ///     .application("example")
+    ///     .application("example".parse().unwrap())
     ///     .without_configuration()
     ///     .load_or_create(&search, || 8080)
     ///     .unwrap();
@@ -399,7 +425,7 @@ where
     ///
     /// let search = Search::start(".").marker(".git");
     /// let project: Project = Project::builder()
-    ///     .application("example")
+    ///     .application("example".parse().unwrap())
     ///     .configuration_file(".github/example.toml")
     ///     .without_configuration()
     ///     .load(&search)
@@ -417,7 +443,7 @@ where
     ///
     /// let search = Search::start(directory.path()).marker(".git");
     /// let project: Project = Project::builder()
-    ///     .application("example")
+    ///     .application("example".parse()?)
     ///     .without_configuration()
     ///     .load(&search)?;
     ///
@@ -458,7 +484,7 @@ where
     ///
     /// let search = Search::start(".").marker(".git");
     /// let project: Project = Project::builder()
-    ///     .application("example")
+    ///     .application("example".parse().unwrap())
     ///     .with_configuration_directory()
     ///     .configuration_file(".github/example.toml")
     ///     .load(&search)
@@ -488,7 +514,7 @@ where
     ///
     /// let search = Search::start(directory.path()).marker(".git");
     /// let project: Project<Configuration> = Project::builder()
-    ///     .application("example")
+    ///     .application("example".parse()?)
     ///     .with_configuration_directory()
     ///     .load(&search)?;
     ///
@@ -551,7 +577,7 @@ where
     ///
     /// let search = Search::start(directory.path()).marker(".git");
     /// let project: Project<Configuration> =
-    ///     Project::builder().application("example").load(&search)?;
+    ///     Project::builder().application("example".parse()?).load(&search)?;
     ///
     /// assert!(project.configuration().is_none());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -622,7 +648,7 @@ where
     ///
     /// let search = Search::start(directory.path()).marker(".git");
     /// let project: Project<Configuration> = Project::builder()
-    ///     .application("example")
+    ///     .application("example".parse()?)
     ///     .load_or_create(&search, || Configuration {
     ///         id: "f2a1b7".to_owned(),
     ///     })?;
@@ -688,6 +714,94 @@ impl<T> Project<T> {
         &self.configuration_path
     }
 
+    /// Creates the data directory of the project and returns its path
+    ///
+    /// The data directory is outside the repository, in the local data
+    /// directory of the user: `<data>/<application>/projects/<identifier>`.
+    /// An application writes the files of the project here that must not be
+    /// in the working tree, such as a log for each run.
+    ///
+    /// `<data>` is `XDG_DATA_HOME`, or `.local/share` in the home directory,
+    /// on Linux and the other systems that follow the XDG Base Directory
+    /// Specification. It is `Library/Application Support` in the home
+    /// directory on macOS, and the directory for the local application data
+    /// of the user on Windows.
+    ///
+    /// The application supplies the identifier, because only the application
+    /// knows what makes two checkouts the same project. The project does not
+    /// keep the identifier, so a call with another identifier returns another
+    /// directory.
+    ///
+    /// Each call creates the directory and the directories above it when they
+    /// do not exist. A directory that the user deleted while the application
+    /// ran therefore exists again after the next call, and a call for a
+    /// directory that exists succeeds. On Unix, the directories that the call
+    /// creates get the mode `0700`, so that only the user can read them. A
+    /// directory that exists keeps its mode.
+    ///
+    /// The load of a project does not create the data directory. A project
+    /// that never calls this method therefore writes nothing to the data
+    /// directory of the user.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UnknownLocalDataDirectory`][unknown] when the platform has no
+    /// local data directory, when the crate cannot determine the home
+    /// directory of the user, or when the directory that it finds is not an
+    /// absolute path.
+    ///
+    /// Returns [`UncreatableDataDirectory`][uncreatable] when the directory
+    /// or a directory above it cannot be created. The error names the path of
+    /// the data directory.
+    ///
+    /// The crate has no fallback directory. An application whose files are
+    /// optional reports the error as a warning and continues.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_project::Project;
+    /// use kawauso_project::Search;
+    /// use kawauso_project::project::ProjectIdentifier;
+    ///
+    /// let search = Search::working_directory().marker(".git");
+    /// let project: Project = Project::builder()
+    ///     .application("example".parse()?)
+    ///     .load(&search)?;
+    ///
+    /// let identifier: ProjectIdentifier = "my-project".parse()?;
+    /// let directory = project.data_directory(&identifier)?;
+    ///
+    /// std::fs::write(directory.get().join("run.log"), "")?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [uncreatable]: CreateDataDirectoryError::UncreatableDataDirectory
+    /// [unknown]: CreateDataDirectoryError::UnknownLocalDataDirectory
+    pub fn data_directory(
+        &self,
+        identifier: &ProjectIdentifier,
+    ) -> Result<DataDirectory, CreateDataDirectoryError> {
+        self.data_directory_below(LocalDataDirectory::of_platform(), identifier)
+    }
+
+    /// Creates the data directory of the project below a base directory
+    ///
+    /// The base is an argument, so that a test can name a directory of its
+    /// own and does not write to the directory of the user.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the base is unknown, and when the data directory
+    /// or a directory above it cannot be created.
+    fn data_directory_below(
+        &self,
+        base: Option<LocalDataDirectory>,
+        identifier: &ProjectIdentifier,
+    ) -> Result<DataDirectory, CreateDataDirectoryError> {
+        create_data_directory(base, &self.application, identifier)
+    }
+
     /// Returns the marker that identified the project
     ///
     /// Returns `None` when no marker matched and the search fell back to the
@@ -739,6 +853,67 @@ fn configuration_directory_of(application: &ApplicationName) -> ConfigurationFil
             .join(application.get())
             .join("config.toml"),
     )
+}
+
+/// Creates the data directory of a project and returns its path
+///
+/// The local data directory of the platform is an argument, so that a test
+/// can name a directory of its own, and does not write to the directory of
+/// the user. `None` stands for a platform that names no such directory.
+///
+/// A base that is not an absolute path counts as unknown. Such a path
+/// resolves against the working directory, and the data directory would then
+/// be inside the working tree that it exists to avoid.
+///
+/// # Errors
+///
+/// Returns an error when the local data directory is unknown or relative, and
+/// when the data directory or a directory above it cannot be created.
+// project[impl data.base.absolute]
+// project[impl data.create]
+// project[impl data.create.existing]
+// project[impl data.create.mode]
+// project[impl data.error.create]
+// project[impl data.error.unknown-directory]
+// project[impl data.path]
+fn create_data_directory(
+    base: Option<LocalDataDirectory>,
+    application: &ApplicationName,
+    identifier: &ProjectIdentifier,
+) -> Result<DataDirectory, CreateDataDirectoryError> {
+    // A relative base, such as one from a relative `HOME`, would put the
+    // directory below the working directory, which can be the repository.
+    let base = base
+        .filter(|base| base.get().is_absolute())
+        .ok_or(CreateDataDirectoryError::UnknownLocalDataDirectory {})?;
+
+    // The segment `projects` keeps the directory of the application free for
+    // files that belong to no project, so that no identifier collides with
+    // them.
+    let directory = DataDirectory::new(
+        base.get()
+            .join(application.get())
+            .join("projects")
+            .join(identifier.get()),
+    );
+
+    // A recursive builder succeeds when the directory exists, and it gives
+    // its mode to each directory that it creates, the base and the directory
+    // of the application included.
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true);
+
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+
+    builder.create(directory.get()).map_err(|source| {
+        CreateDataDirectoryError::UncreatableDataDirectory {
+            path: directory.clone(),
+            source,
+        }
+    })?;
+
+    Ok(directory)
 }
 
 /// Writes a configuration file, with the directories that its path needs
@@ -1003,6 +1178,218 @@ mod tests {
             std::fs::create_dir_all(parent).unwrap();
         }
         std::fs::write(file, "").unwrap();
+    }
+
+    /// Returns the name of the application in the tests of the data directory
+    fn application() -> ApplicationName {
+        "example".parse().unwrap()
+    }
+
+    /// Returns the identifier of the project in the tests of the data directory
+    fn identifier() -> ProjectIdentifier {
+        "example-project".parse().unwrap()
+    }
+
+    // project[verify data.create]
+    #[test]
+    fn create_data_directory_creates_the_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let base = LocalDataDirectory::new(root.path().join("data"));
+
+        let directory = create_data_directory(Some(base), &application(), &identifier()).unwrap();
+
+        assert!(directory.get().is_dir());
+    }
+
+    // Each directory that the call creates gets the mode, the base and the
+    // directory of the application included. The mask of the process can
+    // only remove permissions, so it cannot make a mode wider than `0700`.
+    // project[verify data.create.mode]
+    #[cfg(unix)]
+    #[test]
+    fn create_data_directory_on_unix_creates_directories_for_the_user_alone() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = tempfile::tempdir().unwrap();
+        let base = root.path().join("data");
+
+        create_data_directory(
+            Some(LocalDataDirectory::new(base.clone())),
+            &application(),
+            &identifier(),
+        )
+        .unwrap();
+
+        let modes: Vec<u32> = [
+            base.clone(),
+            base.join("example"),
+            base.join("example").join("projects"),
+            base.join("example")
+                .join("projects")
+                .join("example-project"),
+        ]
+        .iter()
+        .map(|path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777)
+        .collect();
+
+        assert_eq!(modes, vec![0o700; 4]);
+    }
+
+    // project[verify data.path]
+    #[test]
+    fn create_data_directory_returns_the_directory_of_the_project() {
+        let root = tempfile::tempdir().unwrap();
+        let base = LocalDataDirectory::new(root.path().to_path_buf());
+
+        let directory = create_data_directory(Some(base), &application(), &identifier()).unwrap();
+
+        assert_eq!(
+            directory.get(),
+            root.path()
+                .join("example")
+                .join("projects")
+                .join("example-project")
+        );
+    }
+
+    // project[verify data.error.create]
+    #[test]
+    fn create_data_directory_with_a_file_as_the_base_names_the_directory() {
+        let root = tempfile::tempdir().unwrap();
+        file(&root, "data");
+        let base = LocalDataDirectory::new(root.path().join("data"));
+
+        let error = create_data_directory(Some(base), &application(), &identifier()).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "failed to create the data directory of the project at `{}`",
+                root.path()
+                    .join("data")
+                    .join("example")
+                    .join("projects")
+                    .join("example-project")
+                    .display()
+            )
+        );
+    }
+
+    // project[verify data.error.create]
+    #[test]
+    fn create_data_directory_with_a_file_as_the_base_reports_the_cause() {
+        let root = tempfile::tempdir().unwrap();
+        file(&root, "data");
+        let base = LocalDataDirectory::new(root.path().join("data"));
+
+        let error = create_data_directory(Some(base), &application(), &identifier()).unwrap_err();
+
+        assert!(Error::source(&error).is_some());
+    }
+
+    // project[verify data.error.create]
+    #[test]
+    fn create_data_directory_with_a_file_as_the_base_returns_an_error() {
+        let root = tempfile::tempdir().unwrap();
+        file(&root, "data");
+        let base = LocalDataDirectory::new(root.path().join("data"));
+
+        let error = create_data_directory(Some(base), &application(), &identifier()).unwrap_err();
+
+        assert!(matches!(
+            error,
+            CreateDataDirectoryError::UncreatableDataDirectory { .. }
+        ));
+    }
+
+    // project[verify data.base.absolute]
+    #[test]
+    fn create_data_directory_with_a_relative_base_returns_an_error() {
+        // A file of the crate is in the path, so that a fault that ignores the
+        // rule cannot create a directory in the working tree of the test.
+        let base = LocalDataDirectory::new(PathBuf::from("Cargo.toml").join("data"));
+
+        let error = create_data_directory(Some(base), &application(), &identifier()).unwrap_err();
+
+        assert!(matches!(
+            error,
+            CreateDataDirectoryError::UnknownLocalDataDirectory { .. }
+        ));
+    }
+
+    // project[verify data.create.existing]
+    #[test]
+    fn create_data_directory_with_an_existing_directory_returns_the_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let existing = directory(&root, "example/projects/example-project");
+        let base = LocalDataDirectory::new(root.path().to_path_buf());
+
+        let directory = create_data_directory(Some(base), &application(), &identifier()).unwrap();
+
+        assert_eq!(directory.get(), existing);
+    }
+
+    // project[verify data.error.unknown-directory]
+    #[test]
+    fn create_data_directory_without_a_base_returns_an_error() {
+        let error = create_data_directory(None, &application(), &identifier()).unwrap_err();
+
+        assert!(matches!(
+            error,
+            CreateDataDirectoryError::UnknownLocalDataDirectory { .. }
+        ));
+    }
+
+    // The application whose project this is names the directory below the
+    // base, so the name that the builder took reaches the path.
+    // project[verify data.path]
+    #[test]
+    fn data_directory_below_returns_the_directory_of_the_application() {
+        let root = tempfile::tempdir().unwrap();
+        directory(&root, "project/.git");
+        let search = Search::start(root.path().join("project")).marker(".git");
+        let project: Project = Project::builder()
+            .application("other".parse().unwrap())
+            .load(&search)
+            .unwrap();
+        let base = LocalDataDirectory::new(root.path().join("data"));
+
+        let directory = project
+            .data_directory_below(Some(base), &identifier())
+            .unwrap();
+
+        assert_eq!(
+            directory.get(),
+            root.path()
+                .join("data")
+                .join("other")
+                .join("projects")
+                .join("example-project")
+        );
+    }
+
+    // The test reads the local data directory of the user, and writes
+    // nothing there. It therefore needs an environment that names that
+    // directory. The name of the application is unique to this test, so that
+    // no other application owns a directory with the name. Only a load that
+    // creates the directory, which is the fault that the test finds, leaves
+    // the directory behind for a later run.
+    // project[verify data.load]
+    #[test]
+    fn load_creates_no_data_directory() {
+        let root = tempfile::tempdir().unwrap();
+        directory(&root, ".git");
+        let application: ApplicationName =
+            "kawauso-project-test-load-creates-nothing".parse().unwrap();
+        let search = Search::start(root.path()).marker(".git");
+
+        let _project: Project = Project::builder()
+            .application(application.clone())
+            .load(&search)
+            .unwrap();
+
+        let base = LocalDataDirectory::of_platform().expect("the test needs a data directory");
+        assert!(!exists(&base.get().join(application.get())));
     }
 
     // project[verify discover.start.file]

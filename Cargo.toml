@@ -24,6 +24,7 @@ kawauso-project = { version = "0.2.0", path = "crates/kawauso-project" }
 rustix = { version = ">=1.0.0, <2", features = ["process"] }
 serde = { version = "1.0.225", features = ["derive"] }
 serde_path_to_error = ">=0.1.0, <1"
+serde_test = "1.0.0"
 tempfile = "3.0.0"
 thiserror = "2.0.0"
 tokio = { version = "1.27.0", features = ["macros", "process", "rt", "time"] }

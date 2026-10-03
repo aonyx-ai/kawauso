@@ -107,7 +107,7 @@ fn load_or_create_with_a_broken_configuration_file_keeps_the_file() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let _ = Project::<Configuration>::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load_or_create(&search, || Configuration { port: 9090 });
 
     assert_eq!(
@@ -123,7 +123,7 @@ fn load_or_create_with_a_broken_configuration_file_returns_an_error() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let error = Project::<Configuration>::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load_or_create(&search, || Configuration { port: 9090 })
         .unwrap_err();
 
@@ -141,7 +141,7 @@ fn load_or_create_with_a_configuration_file_keeps_the_file() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let _: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load_or_create(&search, || Configuration { port: 9090 })
         .unwrap();
 
@@ -158,7 +158,7 @@ fn load_or_create_with_a_configuration_file_reads_it() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load_or_create(&search, || Configuration { port: 9090 })
         .unwrap();
 
@@ -172,7 +172,7 @@ fn load_or_create_with_an_unserializable_configuration_returns_an_error() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let error = Project::<UnserializableConfiguration>::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load_or_create(&search, || UnserializableConfiguration(8080))
         .unwrap_err();
 
@@ -190,7 +190,7 @@ fn load_or_create_without_a_configuration_file_creates_it() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let _: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load_or_create(&search, || Configuration { port: 8080 })
         .unwrap();
 
@@ -209,7 +209,7 @@ fn load_or_create_without_a_configuration_file_creates_the_directories() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let _: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .with_configuration_directory()
         .load_or_create(&search, || Configuration { port: 8080 })
         .unwrap();
@@ -231,7 +231,7 @@ fn load_or_create_without_a_configuration_file_reports_the_value() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load_or_create(&search, || Configuration { port: 9090 })
         .unwrap();
 
@@ -245,7 +245,7 @@ fn load_with_a_broken_configuration_file_returns_an_error() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let error = Project::<Configuration>::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load(&search)
         .unwrap_err();
 
@@ -265,7 +265,7 @@ fn load_with_a_configuration_directory_ignores_the_file_layout() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .with_configuration_directory()
         .load(&search)
         .unwrap();
@@ -280,7 +280,7 @@ fn load_with_a_configuration_directory_reads_its_file() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .with_configuration_directory()
         .load(&search)
         .unwrap();
@@ -295,7 +295,7 @@ fn load_with_a_configuration_directory_reports_the_directory() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .with_configuration_directory()
         .load(&search)
         .unwrap();
@@ -317,7 +317,7 @@ fn load_with_a_configuration_file_deserializes_it() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load(&search)
         .unwrap();
 
@@ -331,7 +331,7 @@ fn load_with_a_custom_location_reads_the_file_at_that_location() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .configuration_file(".github/example.toml")
         .load(&search)
         .unwrap();
@@ -352,7 +352,7 @@ fn load_with_an_application_name_reads_the_conventional_location() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load(&search)
         .unwrap();
 
@@ -375,7 +375,7 @@ fn load_without_a_configuration_file_creates_no_file() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let _: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load(&search)
         .unwrap();
 
@@ -389,7 +389,7 @@ fn load_without_a_configuration_file_reports_no_configuration() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project<Configuration> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load(&search)
         .unwrap();
 
@@ -407,7 +407,7 @@ fn load_without_a_configuration_ignores_a_file_at_the_location() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Result<Project, _> = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .without_configuration()
         .load(&search);
 
@@ -421,7 +421,7 @@ fn load_without_a_configuration_reports_no_configuration() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let project: Project = Project::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .without_configuration()
         .load(&search)
         .unwrap();
@@ -438,7 +438,7 @@ fn load_without_a_configuration_type_and_with_a_file_returns_an_error() {
     let search = Search::start(directory.path()).marker(MARKER);
 
     let error = Project::<NoConfiguration>::builder()
-        .application(APPLICATION)
+        .application(APPLICATION.parse().unwrap())
         .load(&search)
         .unwrap_err();
 

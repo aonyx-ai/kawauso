@@ -3,8 +3,9 @@
 `kawauso-project` finds the project that a Kawauso application runs in. Every
 application finds its project in the same way. It anchors its relative paths
 at the directory of the project, and it reads its configuration file from the
-same conventional location. [ADR-009] records why the crate exists and how it
-relates to `kawauso-config`.
+same conventional location. It also gives every application the same place
+outside the repository for the files of a project that must not be in it.
+[ADR-009] records why the crate exists and how it relates to `kawauso-config`.
 
 Every requirement in this document has an identifier, and the code that
 implements or tests a requirement references the identifier in a comment.
@@ -282,6 +283,153 @@ project[configuration.create.error]
 The crate MUST return an error, and MUST NOT panic, when it cannot create the
 configuration file of the project.
 
+## Names
+
+The name of an application and the identifier of a project become components
+of paths. The name of the application is part of the location of the
+configuration file. Both values are directories in the data directory of the
+user. A value that is not one component on every platform can change the
+path, or move it outside the directory that the crate selects. A value such
+as `..`, `/home`, or `C:` is an example.
+
+The identifier often comes from a file in the repository. A user can clone a
+repository that another person wrote. The rules of a name therefore apply
+when the crate gets the value, and not later when it uses the value. Every
+way to create a name examines the value, and every way can fail. A builder
+that takes a name then cannot fail because of the name.
+
+The rules permit only a small set of characters. A later release can permit
+more characters, and each name that is valid today keeps its directory. A
+later rule that rejects a name that an earlier release accepted orphans the
+files in the directory of that name. The small set also removes the names
+that a file system changes. Windows removes a trailing space or dot from a
+name, and macOS compares the Unicode forms of a name as one name.
+
+Windows reserves the names of devices, such as `CON` and `COM1`, in all
+directories. A directory with such a name is not possible on Windows, so a
+name of a device is not a valid name.
+
+The crate does not change a value to make it valid. Two values that a change
+makes equal share one directory, and nothing tells the user.
+
+project[name.characters]
+A name MUST hold from 1 to 255 characters. Each character MUST be an ASCII
+letter, an ASCII digit, or `-`.
+
+project[name.reserved]
+A name MUST NOT be `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, or `LPT0` to
+`LPT9`, in upper case, lower case, or a mix of the two.
+
+project[name.application]
+The name of an application MUST obey the rules of a name.
+
+project[name.identifier]
+The identifier of a project MUST obey the rules of a name.
+
+project[name.error]
+The crate MUST return an error, and MUST NOT panic, when it creates a name
+from a value that does not obey the rules of a name.
+
+project[name.deserialize]
+The crate MUST apply the rules of a name when it deserializes the identifier
+of a project.
+
+## Data Directory
+
+An application sometimes writes files that must not be in the repository. A
+log for each run is an example. A file in the working tree makes the tree
+dirty, and a temporary worktree disappears together with its files. The
+project therefore gives the application a directory outside the repository.
+[ADR-012] records why the directory has this location and this layout.
+
+The base is the local data directory of the platform. The data in this
+directory stays on one machine, and it does not roam to the other machines
+of the user on Windows. The files of a project describe a checkout on one
+machine, and they have no meaning on another machine.
+
+The path is `<data>/<application>/projects/<identifier>`. The segment
+`projects` keeps the directory of the application free for the files that
+belong to no project. An identifier then cannot collide with such a file.
+
+The developer supplies the identifier, and the crate does not derive it from
+the project. The application knows what makes two checkouts the same project.
+A value in the configuration file that the users of the application commit is
+an example. The application often reads the identifier from that file, so it
+has the value only after the load. The application therefore gives the
+identifier to the call on a loaded project, and not to the builder.
+
+The load of a project does not create the data directory, and it examines no
+identifier. A failure to create the directory therefore cannot fail the load.
+Each call creates the directory and its parents when they do not exist. A
+directory that a user removed while the application ran then exists again
+after the next call.
+
+On Unix, the crate creates each directory with the mode `0700`, as the [XDG
+Base Directory Specification] asks for its base directories. Only the user
+can then read the files of a project. A directory that exists keeps its mode.
+
+The local data directory is below the home directory of the user. A home
+directory at a relative path resolves against the working directory, and the
+data directory can then be inside the repository. The crate therefore does not
+use a local data directory that is not an absolute path.
+
+The crate has no fallback directory. A file in the root of the project makes
+the working tree dirty, and the system can erase a temporary directory at any
+time. An application whose files are optional, such as a log, reports the
+error as a warning and continues.
+
+project[data.base.xdg]
+On Linux, and on the other systems that follow the [XDG Base Directory
+Specification], the local data directory MUST be the directory that the
+environment variable `XDG_DATA_HOME` names.
+
+project[data.base.xdg.default]
+On these systems, the local data directory MUST be `.local/share` in the home
+directory of the user when `XDG_DATA_HOME` is not set, is empty, or does not
+hold an absolute path.
+
+project[data.base.macos]
+On macOS, the local data directory MUST be `Library/Application Support` in
+the home directory of the user.
+
+project[data.base.windows]
+On Windows, the local data directory MUST be the directory for the local
+application data of the user.
+
+project[data.base.absolute]
+The crate MUST NOT use a local data directory that is not an absolute path,
+and MUST treat it as a local data directory that it cannot determine.
+
+project[data.path]
+The data directory of a project MUST be
+`<data>/<application>/projects/<identifier>`, where `<data>` is the local data
+directory.
+
+project[data.create]
+The crate MUST create the data directory, and each directory above it that
+does not exist, before it returns the path of the data directory.
+
+project[data.create.existing]
+The crate MUST return the path of the data directory, and MUST NOT return an
+error, when the data directory exists.
+
+project[data.create.mode]
+On Unix, the crate MUST create each directory with the mode `0700`.
+
+project[data.load]
+The crate MUST NOT create the data directory when it loads a project.
+
+project[data.error.unknown-directory]
+The crate MUST return an error, and MUST NOT panic, when it cannot determine
+the local data directory.
+
+project[data.error.create]
+The crate MUST return an error, and MUST NOT panic, when it cannot create the
+data directory. The error MUST name the path of the data directory, and MUST
+carry the cause.
+
 [adr-009]: ../../adrs/009-project-crate.md
+[adr-012]: ../../adrs/012-project-data-directory.md
 [rfc 2119]: https://www.rfc-editor.org/rfc/rfc2119
 [tracey]: https://tracey.bearcove.eu/
+[xdg base directory specification]: https://specifications.freedesktop.org/basedir/latest/

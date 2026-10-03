@@ -26,6 +26,7 @@ include = [
 
 [dependencies]
 bon = { workspace = true }
+dirs = { workspace = true }
 kawauso-config = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
@@ -33,6 +34,7 @@ toml = { workspace = true }
 typed-fields = { workspace = true }
 
 [dev-dependencies]
+serde_test = { workspace = true }
 tempfile = { workspace = true }
 
 [lints]
