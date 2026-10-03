@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning].
 
+## [0.5.0] - 2026-10-03
+
+### Changed
+
+- Update `kawauso-config` to 0.4.0
+- Update `kawauso-project` to 0.3.0
+
 ## [0.4.0] - 2026-09-01
 
 ### Added
@@ -35,5 +42,6 @@ The format is based on [Keep a Changelog], and this project adheres to
 [0.2.0]: https://github.com/aonyx-ai/kawauso/releases/tag/kawauso@0.2.0
 [0.3.0]: https://github.com/aonyx-ai/kawauso/releases/tag/kawauso@0.3.0
 [0.4.0]: https://github.com/aonyx-ai/kawauso/releases/tag/kawauso@0.4.0
+[0.5.0]: https://github.com/aonyx-ai/kawauso/releases/tag/kawauso@0.5.0
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
