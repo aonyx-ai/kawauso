@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn dot_config_paths_in_directories_names_the_file_first() {
         let location = Location::DotConfig;
-        let application = ApplicationName::new(APP);
+        let application: ApplicationName = APP.parse().unwrap();
 
         let paths = location.paths_in(Path::new("/project"), &application, FILE);
 
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn subdirectory_paths_in_directories_names_its_file() {
         let location = Location::Subdirectory(Subdirectory::from(".github"));
-        let application = ApplicationName::new(APP);
+        let application: ApplicationName = APP.parse().unwrap();
 
         let paths = location.paths_in(Path::new("/project"), &application, FILE);
 

@@ -9,7 +9,9 @@
 pub mod deserialize;
 pub mod discover;
 pub mod load;
+pub mod parse_application_name;
 
 pub use self::deserialize::DeserializeConfigurationError;
 pub use self::discover::DiscoverConfigurationError;
 pub use self::load::LoadConfigurationError;
+pub use self::parse_application_name::ParseApplicationNameError;

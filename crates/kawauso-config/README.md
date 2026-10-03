@@ -16,6 +16,13 @@ root of the file system. An application whose configuration belongs to a user
 uses [`user`], which reads the directory that the platform defines for the
 configuration of a user.
 
+A search derives the name of the configuration file from the name of the
+application. The name becomes part of a path, so an [`ApplicationName`]
+holds 1 to 255 ASCII letters, ASCII digits, and hyphens, and it is not the
+name of a device on Windows. The application creates the name with `parse`,
+which fails for a value that does not obey these rules. A search that takes
+the name therefore cannot fail because of it.
+
 Some projects do not keep the configuration file in the directory that the
 search reads. A tool that belongs to GitHub, for example, keeps the file in
 `.github`. An [`AncestorsSearch`] adds such a subdirectory to [`ancestors`].
@@ -65,6 +72,7 @@ dual licensed as above, without any additional terms or conditions.
 
 [`ancestors`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html#method.ancestors
 [`AncestorsSearch`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/ancestors_search/struct.AncestorsSearch.html
+[`ApplicationName`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/application_name/struct.ApplicationName.html
 [`dot_config`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/ancestors_search/struct.AncestorsSearch.html#method.dot_config
 [`load`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html#method.load
 [`Loader`]: https://docs.rs/kawauso-config/latest/kawauso_config/loader/struct.Loader.html

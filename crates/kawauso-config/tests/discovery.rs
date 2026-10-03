@@ -219,6 +219,7 @@ fn load_with_user_directory_and_a_file_returns_the_configuration() {
 /// reaching it on its own.
 mod child {
     use kawauso_config::AncestorsSearch;
+    use kawauso_config::ApplicationName;
     use kawauso_config::Loader;
 
     use super::APPLICATION;
@@ -228,7 +229,9 @@ mod child {
     #[test]
     #[ignore = "needs the working directory that the first half of the test prepares"]
     fn load_with_ancestors() {
-        let configuration: Configuration = Loader::ancestors(APPLICATION).load().unwrap();
+        let application: ApplicationName = APPLICATION.parse().unwrap();
+
+        let configuration: Configuration = Loader::ancestors(application).load().unwrap();
 
         assert_eq!(configuration, CONFIGURATION);
     }
@@ -236,7 +239,7 @@ mod child {
     #[test]
     #[ignore = "needs the working directory that the first half of the test prepares"]
     fn load_with_ancestors_and_a_subdirectory() {
-        let search = AncestorsSearch::new(APPLICATION).subdirectory(".github");
+        let search = AncestorsSearch::new(APPLICATION.parse().unwrap()).subdirectory(".github");
 
         let configuration: Configuration = Loader::ancestors(search).load().unwrap();
 
@@ -246,7 +249,7 @@ mod child {
     #[test]
     #[ignore = "needs the working directory that the first half of the test prepares"]
     fn load_with_ancestors_and_dot_config_directory() {
-        let search = AncestorsSearch::new(APPLICATION).dot_config();
+        let search = AncestorsSearch::new(APPLICATION.parse().unwrap()).dot_config();
 
         let configuration: Configuration = Loader::ancestors(search).load().unwrap();
 
@@ -256,7 +259,7 @@ mod child {
     #[test]
     #[ignore = "needs the working directory that the first half of the test prepares"]
     fn load_with_ancestors_and_dot_config_file() {
-        let search = AncestorsSearch::new(APPLICATION).dot_config();
+        let search = AncestorsSearch::new(APPLICATION.parse().unwrap()).dot_config();
 
         let configuration: Configuration = Loader::ancestors(search).load().unwrap();
 
@@ -267,7 +270,9 @@ mod child {
     #[test]
     #[ignore = "needs the home directory that the first half of the test prepares"]
     fn load_with_user_directory() {
-        let configuration: Configuration = Loader::user(APPLICATION).load().unwrap();
+        let application: ApplicationName = APPLICATION.parse().unwrap();
+
+        let configuration: Configuration = Loader::user(application).load().unwrap();
 
         assert_eq!(configuration, CONFIGURATION);
     }

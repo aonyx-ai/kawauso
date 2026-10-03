@@ -18,7 +18,7 @@ use crate::loader::ApplicationName;
 /// meaning.
 ///
 /// A name alone becomes a search. [`ancestors`][ancestors] therefore accepts
-/// `"example"` as well as a value of this type.
+/// an [`ApplicationName`] as well as a value of this type.
 ///
 /// # Examples
 ///
@@ -26,10 +26,13 @@ use crate::loader::ApplicationName;
 ///
 /// ```
 /// use kawauso_config::AncestorsSearch;
+/// use kawauso_config::ApplicationName;
 ///
-/// let search = AncestorsSearch::from("example");
+/// let application: ApplicationName = "example".parse()?;
+/// let search = AncestorsSearch::from(application);
 ///
 /// assert_eq!(search.application().get(), "example");
+/// # Ok::<(), kawauso_config::error::ParseApplicationNameError>(())
 /// ```
 ///
 /// A search that adds both kinds of location:
@@ -47,11 +50,11 @@ use crate::loader::ApplicationName;
 ///
 /// // In each directory, reads `example.toml`, then `.github/example.toml`,
 /// // then `.config/example.toml`, then `.config/example/config.toml`
-/// let search = AncestorsSearch::new("example")
+/// let search = AncestorsSearch::new("example".parse()?)
 ///     .subdirectory(".github")
 ///     .dot_config();
 /// let configuration: Configuration = Loader::ancestors(search).load()?;
-/// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
 /// [ancestors]: crate::Loader::ancestors
@@ -76,21 +79,25 @@ impl AncestorsSearch {
     /// locations of the dot-config convention. A name alone also becomes a
     /// search through [`From`], which gives the same result as this method.
     ///
+    /// The search cannot fail because of the name, because the name obeyed
+    /// its rules when the application created it.
+    ///
     /// # Examples
     ///
     /// ```
     /// use kawauso_config::AncestorsSearch;
     ///
-    /// let search = AncestorsSearch::new("example");
+    /// let search = AncestorsSearch::new("example".parse()?);
     ///
     /// assert_eq!(search.application().get(), "example");
+    /// # Ok::<(), kawauso_config::error::ParseApplicationNameError>(())
     /// ```
     ///
     /// [dot-config]: AncestorsSearch::dot_config
     /// [subdirectory]: AncestorsSearch::subdirectory
-    pub fn new(application: impl Into<ApplicationName>) -> Self {
+    pub fn new(application: ApplicationName) -> Self {
         Self {
-            application: application.into(),
+            application,
             locations: Vec::new(),
         }
     }
@@ -123,9 +130,9 @@ impl AncestorsSearch {
     /// }
     ///
     /// // In each directory, reads `example.toml`, then `.github/example.toml`
-    /// let search = AncestorsSearch::new("example").subdirectory(".github");
+    /// let search = AncestorsSearch::new("example".parse()?).subdirectory(".github");
     /// let configuration: Configuration = Loader::ancestors(search).load()?;
-    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// [dot-config]: AncestorsSearch::dot_config
@@ -161,9 +168,9 @@ impl AncestorsSearch {
     ///
     /// // In each directory, reads `example.toml`, then `.config/example.toml`,
     /// // then `.config/example/config.toml`
-    /// let search = AncestorsSearch::new("example").dot_config();
+    /// let search = AncestorsSearch::new("example".parse()?).dot_config();
     /// let configuration: Configuration = Loader::ancestors(search).load()?;
-    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     pub fn dot_config(mut self) -> Self {
@@ -190,20 +197,6 @@ impl From<ApplicationName> for AncestorsSearch {
     }
 }
 
-/// Creates a search from the name of an application
-impl From<&str> for AncestorsSearch {
-    fn from(application: &str) -> Self {
-        Self::new(application)
-    }
-}
-
-/// Creates a search from the name of an application
-impl From<String> for AncestorsSearch {
-    fn from(application: String) -> Self {
-        Self::new(application)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     // An assertion in a test panics by design. A `# Panics` section on every
@@ -216,7 +209,7 @@ mod tests {
     // type must not sort them or remove a repeat.
     #[test]
     fn dot_config_then_subdirectory_keeps_the_order_of_the_calls() {
-        let search = AncestorsSearch::new("example")
+        let search = AncestorsSearch::new("example".parse().unwrap())
             .dot_config()
             .subdirectory(".github");
 
@@ -229,20 +222,13 @@ mod tests {
         );
     }
 
-    // An application that already holds its name in the newtype must not have
-    // to take the string out of it again.
+    // A name alone becomes a search, so that an application with no other
+    // option passes its name to the loader directly.
     #[test]
     fn from_application_name_keeps_the_name() {
-        let search = AncestorsSearch::from(ApplicationName::new("example"));
+        let application: ApplicationName = "example".parse().unwrap();
 
-        assert_eq!(search.application().get(), "example");
-    }
-
-    // A name that the application builds at runtime arrives as a `String`,
-    // and the search takes it without a borrow.
-    #[test]
-    fn from_string_keeps_the_name() {
-        let search = AncestorsSearch::from(String::from("example"));
+        let search = AncestorsSearch::from(application);
 
         assert_eq!(search.application().get(), "example");
     }

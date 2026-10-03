@@ -28,6 +28,10 @@ pub mod configuration_path;
 mod configuration_directory;
 mod contents;
 
+// Only the name of an application applies the rules of a portable name, so
+// the module that states them is private as well.
+mod portable_name;
+
 use std::io::ErrorKind;
 use std::path::Component;
 use std::path::Path;
@@ -132,6 +136,7 @@ impl Loader {
     /// ```no_run
     /// use serde::Deserialize;
     ///
+    /// use kawauso_config::ApplicationName;
     /// use kawauso_config::Loader;
     ///
     /// #[derive(Deserialize)]
@@ -140,8 +145,9 @@ impl Loader {
     /// }
     ///
     /// // Reads the first `kawauso.toml` at or above the working directory
-    /// let configuration: Configuration = Loader::ancestors("kawauso").load()?;
-    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// let application: ApplicationName = "kawauso".parse()?;
+    /// let configuration: Configuration = Loader::ancestors(application).load()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// A search that also reads `.github` in each directory:
@@ -158,9 +164,9 @@ impl Loader {
     /// }
     ///
     /// // Reads `kawauso.toml`, then `.github/kawauso.toml`, in each directory
-    /// let search = AncestorsSearch::new("kawauso").subdirectory(".github");
+    /// let search = AncestorsSearch::new("kawauso".parse()?).subdirectory(".github");
     /// let configuration: Configuration = Loader::ancestors(search).load()?;
-    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// A search that also follows the dot-config convention:
@@ -178,9 +184,9 @@ impl Loader {
     ///
     /// // Reads `kawauso.toml`, then `.config/kawauso.toml`, then
     /// // `.config/kawauso/config.toml`, in each directory
-    /// let search = AncestorsSearch::new("kawauso").dot_config();
+    /// let search = AncestorsSearch::new("kawauso".parse()?).dot_config();
     /// let configuration: Configuration = Loader::ancestors(search).load()?;
-    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// [load]: Loader::load
@@ -277,7 +283,8 @@ impl Loader {
     /// application whose configuration belongs to a user.
     ///
     /// The environment of the process is read when [`load`][load] runs, not
-    /// at the time of this call.
+    /// at the time of this call. The name of the application obeyed its rules
+    /// when the application created it, so this call cannot fail.
     ///
     /// # Examples
     ///
@@ -292,16 +299,16 @@ impl Loader {
     /// }
     ///
     /// // Reads `kawauso/config.toml` in the directory of the platform
-    /// let configuration: Configuration = Loader::user("kawauso").load()?;
-    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// let configuration: Configuration = Loader::user("kawauso".parse()?).load()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// [ancestors]: Loader::ancestors
     /// [load]: Loader::load
     /// [xdg]: https://specifications.freedesktop.org/basedir/latest/
-    pub fn user(application: impl Into<String>) -> Self {
+    pub fn user(application: ApplicationName) -> Self {
         Self {
-            source: Source::User(ApplicationName::new(application)),
+            source: Source::User(application),
         }
     }
 
@@ -763,6 +770,11 @@ mod tests {
         port: u16,
     }
 
+    /// Returns the name of the application whose configuration the tests find
+    fn application() -> ApplicationName {
+        "kawauso".parse().unwrap()
+    }
+
     /// Creates a directory in another directory and returns its path
     fn child_of(parent: &std::path::Path) -> PathBuf {
         let child = parent.join("project");
@@ -806,7 +818,7 @@ mod tests {
 
         let error = find_in_ancestors(
             Ok(root.path().to_path_buf()),
-            &AncestorsSearch::new("kawauso"),
+            &AncestorsSearch::new(application()),
         )
         .unwrap_err();
 
@@ -825,7 +837,7 @@ mod tests {
 
         let error = find_in_ancestors(
             Ok(root.path().to_path_buf()),
-            &AncestorsSearch::new("kawauso"),
+            &AncestorsSearch::new(application()),
         )
         .unwrap_err();
 
@@ -846,7 +858,7 @@ mod tests {
         std::fs::write(root.path().join("kawauso.toml"), "port = 8080").unwrap();
 
         let path =
-            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap();
+            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new(application())).unwrap();
 
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
@@ -860,7 +872,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory),
-            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+            &AncestorsSearch::new(application()).subdirectory(".github"),
         )
         .unwrap();
 
@@ -876,7 +888,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso"),
+            &AncestorsSearch::new(application()),
         )
         .unwrap();
 
@@ -895,7 +907,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory),
-            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+            &AncestorsSearch::new(application()).subdirectory(".github"),
         )
         .unwrap();
 
@@ -915,7 +927,7 @@ mod tests {
         std::fs::write(root.path().join("kawauso.toml"), "port = 8080").unwrap();
 
         let path =
-            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap();
+            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new(application())).unwrap();
 
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
@@ -928,7 +940,7 @@ mod tests {
 
         let error = find_in_ancestors(
             Ok(working_directory),
-            &AncestorsSearch::new("kawauso").subdirectory("../secrets"),
+            &AncestorsSearch::new(application()).subdirectory("../secrets"),
         )
         .unwrap_err();
 
@@ -964,7 +976,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso")
+            &AncestorsSearch::new(application())
                 .subdirectory(".github")
                 .dot_config(),
         )
@@ -990,7 +1002,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory),
-            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+            &AncestorsSearch::new(application()).subdirectory(".github"),
         )
         .unwrap();
 
@@ -1008,7 +1020,7 @@ mod tests {
 
         let error = find_in_ancestors(
             Ok(working_directory),
-            &AncestorsSearch::new("kawauso").subdirectory(absolute),
+            &AncestorsSearch::new(application()).subdirectory(absolute),
         )
         .unwrap_err();
 
@@ -1027,7 +1039,7 @@ mod tests {
         std::fs::write(root.path().join("kawauso.toml"), "port = 8080").unwrap();
 
         let path =
-            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap();
+            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new(application())).unwrap();
 
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
@@ -1057,7 +1069,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso").dot_config(),
+            &AncestorsSearch::new(application()).dot_config(),
         )
         .unwrap();
 
@@ -1081,7 +1093,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso").dot_config(),
+            &AncestorsSearch::new(application()).dot_config(),
         )
         .unwrap();
 
@@ -1108,7 +1120,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso").dot_config(),
+            &AncestorsSearch::new(application()).dot_config(),
         )
         .unwrap();
 
@@ -1130,7 +1142,7 @@ mod tests {
 
         let error = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso")
+            &AncestorsSearch::new(application())
                 .subdirectory(".config")
                 .dot_config(),
         )
@@ -1155,7 +1167,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+            &AncestorsSearch::new(application()).subdirectory(".github"),
         )
         .unwrap();
 
@@ -1172,7 +1184,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso"),
+            &AncestorsSearch::new(application()),
         )
         .unwrap();
 
@@ -1192,7 +1204,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory),
-            &AncestorsSearch::new("kawauso")
+            &AncestorsSearch::new(application())
                 .subdirectory(".github")
                 .subdirectory(".config"),
         )
@@ -1227,7 +1239,7 @@ mod tests {
 
         let path = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso")
+            &AncestorsSearch::new(application())
                 .dot_config()
                 .subdirectory(".github"),
         )
@@ -1252,8 +1264,8 @@ mod tests {
             .map(|directory| directory.join("kawauso.toml"))
             .collect::<Vec<_>>();
 
-        let error =
-            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap_err();
+        let error = find_in_ancestors(Ok(working_directory), &AncestorsSearch::new(application()))
+            .unwrap_err();
 
         assert_eq!(locations_of(&error), expected);
     }
@@ -1279,7 +1291,7 @@ mod tests {
 
         let error = find_in_ancestors(
             Ok(working_directory.clone()),
-            &AncestorsSearch::new("kawauso").subdirectory(".github"),
+            &AncestorsSearch::new(application()).subdirectory(".github"),
         )
         .unwrap_err();
 
@@ -1297,8 +1309,8 @@ mod tests {
             .collect::<Vec<_>>()
             .join(", ");
 
-        let error =
-            find_in_ancestors(Ok(working_directory), &AncestorsSearch::new("kawauso")).unwrap_err();
+        let error = find_in_ancestors(Ok(working_directory), &AncestorsSearch::new(application()))
+            .unwrap_err();
 
         assert_eq!(
             error.to_string(),
@@ -1313,7 +1325,7 @@ mod tests {
 
         let result = find_in_ancestors(
             Ok(root.path().to_path_buf()),
-            &AncestorsSearch::new("kawauso"),
+            &AncestorsSearch::new(application()),
         );
 
         assert!(result.is_err());
@@ -1324,7 +1336,8 @@ mod tests {
     fn find_in_ancestors_without_a_working_directory_returns_an_error() {
         let failure = std::io::Error::from(ErrorKind::NotFound);
 
-        let error = find_in_ancestors(Err(failure), &AncestorsSearch::new("kawauso")).unwrap_err();
+        let error =
+            find_in_ancestors(Err(failure), &AncestorsSearch::new(application())).unwrap_err();
 
         assert!(matches!(
             error,
@@ -1343,7 +1356,7 @@ mod tests {
 
         let result = find_in_user_directory(
             Some(ConfigurationDirectory::from(root.path())),
-            &ApplicationName::new("kawauso"),
+            &application(),
         );
 
         assert!(result.is_err());
@@ -1357,7 +1370,7 @@ mod tests {
 
         let error = find_in_user_directory(
             Some(ConfigurationDirectory::from(root.path())),
-            &ApplicationName::new("kawauso"),
+            &application(),
         )
         .unwrap_err();
 
@@ -1367,7 +1380,7 @@ mod tests {
     // config[verify discover.user.error.unknown-directory]
     #[test]
     fn find_in_user_directory_without_a_directory_returns_an_error() {
-        let error = find_in_user_directory(None, &ApplicationName::new("kawauso")).unwrap_err();
+        let error = find_in_user_directory(None, &application()).unwrap_err();
 
         assert!(matches!(
             error,
@@ -1440,11 +1453,8 @@ mod tests {
         let path = root.path().join("kawauso.toml");
         std::fs::write(&path, "port = 8080").unwrap();
 
-        let configuration: Configuration = load_found(
-            Ok(ConfigurationPath::new(path)),
-            &ApplicationName::new("kawauso"),
-        )
-        .unwrap();
+        let configuration: Configuration =
+            load_found(Ok(ConfigurationPath::new(path)), &application()).unwrap();
 
         assert_eq!(configuration, Configuration { port: 8080 });
     }
