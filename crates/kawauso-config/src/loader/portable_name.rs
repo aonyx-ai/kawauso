@@ -6,11 +6,11 @@
 /// The largest number of characters in a name
 ///
 /// Most file systems accept a component of a path with up to 255 bytes. A
-/// name holds only ASCII characters, so a character is one byte. The limit
-/// fits a component that holds only the name, such as a directory. A file
-/// such as `<name>.toml` adds to the name, so a long name can make such a
-/// file longer than the limit of the file system.
-const MAXIMUM_LENGTH: usize = 255;
+/// name holds only ASCII characters, so a character is one byte. A search
+/// reads the file `<name>.toml`, and the extension adds 5 bytes to the name.
+/// The limit is therefore 250, so that the file of each valid name is a
+/// component that the file system accepts.
+const MAXIMUM_LENGTH: usize = 250;
 
 /// The names that Windows reserves for a device, without a number
 ///
@@ -27,7 +27,7 @@ const NUMBERED_DEVICES: [&str; 2] = ["COM", "LPT"];
 /// Reports whether a value is a portable name
 ///
 /// A portable name is exactly one normal component of a path on every
-/// platform. It holds from 1 to 255 characters, each of which is an ASCII
+/// platform. It holds from 1 to 250 characters, each of which is an ASCII
 /// letter, an ASCII digit, or `-`, and it is not the name of a device on
 /// Windows.
 ///
@@ -41,7 +41,7 @@ const NUMBERED_DEVICES: [&str; 2] = ["COM", "LPT"];
 /// also exclude the characters that a file system changes or removes, such
 /// as a trailing space on Windows, or that it compares in a normalized form,
 /// such as the accented letters on macOS.
-// config[impl name.characters]
+// config[impl name.characters+2]
 // config[impl name.reserved]
 pub(super) fn is_portable(value: &str) -> bool {
     let characters = !value.is_empty()
@@ -80,19 +80,19 @@ mod tests {
 
     use super::*;
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_beyond_the_maximum_length_returns_false() {
-        assert!(!is_portable(&"a".repeat(256)));
+        assert!(!is_portable(&"a".repeat(251)));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_backslash_returns_false() {
         assert!(!is_portable(r"example\app"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_colon_returns_false() {
         assert!(!is_portable("C:"));
@@ -104,13 +104,13 @@ mod tests {
         assert!(!is_portable("nul"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_dot_returns_false() {
         assert!(!is_portable("."));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_hyphen_returns_true() {
         assert!(is_portable("example-app"));
@@ -122,7 +122,7 @@ mod tests {
         assert!(is_portable("LPTX"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_letter_outside_ascii_returns_false() {
         assert!(!is_portable("café"));
@@ -148,13 +148,13 @@ mod tests {
         assert!(is_portable("COM10"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_slash_returns_false() {
         assert!(!is_portable("example/app"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_space_returns_false() {
         assert!(!is_portable("example "));
@@ -166,37 +166,37 @@ mod tests {
         assert!(is_portable("console"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_an_absolute_path_returns_false() {
         assert!(!is_portable("/example"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_an_empty_value_returns_false() {
         assert!(!is_portable(""));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_an_underscore_returns_false() {
         assert!(!is_portable("example_app"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_letters_and_digits_returns_true() {
         assert!(is_portable("Example2"));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_the_maximum_length_returns_true() {
-        assert!(is_portable(&"a".repeat(255)));
+        assert!(is_portable(&"a".repeat(250)));
     }
 
-    // config[verify name.characters]
+    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_two_dots_returns_false() {
         assert!(!is_portable(".."));

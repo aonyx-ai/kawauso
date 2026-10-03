@@ -192,6 +192,11 @@ is not one component on every platform can change such a path, or move it
 outside the directory that the crate searches. A value such as `..`, `/home`,
 or `C:` is an example.
 
+Most file systems accept a component of a path with up to 255 bytes. The file
+`<name>.toml` adds 5 bytes to the name, so a name holds at most 250
+characters. The file of each valid name is then a component that the file
+system accepts.
+
 A name that does not obey the rules is a mistake in the application. The
 rules of a name therefore apply when the application creates the name, and
 not later when a search uses it. Every way to create a name examines the
@@ -219,8 +224,8 @@ so the two crates share one directory for one name.
 The crate does not change a value to make it valid. Two values that a change
 makes equal share one file, and nothing tells the user.
 
-config[name.characters]
-A name MUST hold from 1 to 255 characters. Each character MUST be an ASCII
+config[name.characters+2]
+A name MUST hold from 1 to 250 characters. Each character MUST be an ASCII
 letter, an ASCII digit, or `-`.
 
 config[name.reserved]

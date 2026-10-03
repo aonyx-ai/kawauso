@@ -27,7 +27,9 @@ const DEVICES: [&str; 6] = ["AUX", "CON", "NUL", "PRN", "COM", "LPT"];
 ///
 /// The values are every string of up to three characters from
 /// [`CHARACTERS`], each device in three cases with each suffix that the rule
-/// on devices tells apart, and the lengths at the limit.
+/// on devices tells apart, and a name of each length up to 300 characters.
+/// The lengths go beyond the limit of the rules on both sides, so the values
+/// sample the limit wherever the rules put it, without a copy of it here.
 fn values() -> Vec<String> {
     let mut values = vec![String::new()];
 
@@ -54,7 +56,7 @@ fn values() -> Vec<String> {
         }
     }
 
-    for length in 254..=256 {
+    for length in 1..=300 {
         values.push("a".repeat(length));
     }
 

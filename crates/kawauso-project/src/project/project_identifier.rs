@@ -20,9 +20,12 @@ use crate::error::ParseProjectIdentifierError;
 /// users of the application commit is an example. A project that changes its
 /// identifier gets a new, empty data directory.
 ///
-/// The identifier becomes a component of a path, so it holds from 1 to 255
+/// The identifier becomes a component of a path, so it holds from 1 to 250
 /// ASCII letters, ASCII digits, and hyphens, and it is not the name of a
-/// device on Windows, such as `CON` or `COM1`. These rules keep the data
+/// device on Windows, such as `CON` or `COM1`. The identifier obeys the same
+/// rules as an [`ApplicationName`], whose configuration file adds `.toml` to
+/// the name, which is why the limit is below the 255 bytes that most file
+/// systems accept in a component. These rules keep the data
 /// directory below the directory of the application, also for a value from
 /// a repository that the user did not write. The rules are the same on every
 /// platform, because users of all platforms share such a file.
@@ -68,6 +71,8 @@ use crate::error::ParseProjectIdentifierError;
 /// assert!(toml::from_str::<Configuration>(r#"id = "../example""#).is_err());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+///
+/// [`ApplicationName`]: super::ApplicationName
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize)]
 #[serde(try_from = "String")]
 pub struct ProjectIdentifier(String);
@@ -197,7 +202,7 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "the project identifier \"aux\\u{1b}[2J\" is malformed, because an identifier holds 1 to 255 ASCII letters, digits, and hyphens, and does not name a device on Windows"
+            "the project identifier \"aux\\u{1b}[2J\" is malformed, because an identifier holds 1 to 250 ASCII letters, digits, and hyphens, and does not name a device on Windows"
         );
     }
 

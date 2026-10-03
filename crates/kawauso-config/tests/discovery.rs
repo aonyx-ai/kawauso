@@ -23,6 +23,7 @@
 use std::process::Command;
 use std::process::Output;
 
+use kawauso_config::ApplicationName;
 use serde::Deserialize;
 
 /// The name of the application whose configuration the tests search for
@@ -96,6 +97,19 @@ fn configuration_directory(home: &std::path::Path) -> std::path::PathBuf {
     } else {
         home.join(".config")
     }
+}
+
+/// Returns the longest name of an application that the rules accept
+///
+/// The test of the longest name must use the limit of the rules, and not a
+/// second copy of it. The function therefore asks the rules: it tries names
+/// from far beyond the limit down to one character, and returns the first
+/// that parses. It returns `None` only when the rules accept no such name.
+fn longest_name() -> Option<String> {
+    (1..=1024)
+        .rev()
+        .map(|length| "a".repeat(length))
+        .find(|name| name.parse::<ApplicationName>().is_ok())
 }
 
 /// Returns everything that a child process wrote
@@ -188,6 +202,28 @@ fn load_with_ancestors_and_a_file_in_the_working_directory_returns_the_configura
     assert!(report.contains(PASSED), "{report}");
 }
 
+// Most file systems accept a component of a path with up to 255 bytes, and
+// the walk adds `.toml` to the name of the application. The file of the
+// longest name that the rules accept must still be a file that the user can
+// create and that the walk finds. Each location of the walk ends in the same
+// component `<name>.toml`, so the working directory stands for all of them.
+// config[verify name.characters+2]
+#[test]
+fn load_with_ancestors_and_the_longest_name_returns_the_configuration() {
+    let name = longest_name().unwrap();
+    let working_directory = tempfile::tempdir().unwrap();
+    let path = working_directory.path().join(format!("{name}.toml"));
+    std::fs::write(path, CONTENTS).expect("the file system rejects the file of the longest name");
+
+    let output = child("child::load_with_ancestors_and_the_longest_name")
+        .current_dir(working_directory.path())
+        .output()
+        .unwrap();
+
+    let report = report_of(&output);
+    assert!(report.contains(PASSED), "{report}");
+}
+
 // The tests of the crate must not read the configuration directory of the
 // user who runs them, so the child gets a home directory of its own.
 // `XDG_CONFIG_HOME` would name a directory outside that home, and the child
@@ -225,6 +261,7 @@ mod child {
     use super::APPLICATION;
     use super::CONFIGURATION;
     use super::Configuration;
+    use super::longest_name;
 
     #[test]
     #[ignore = "needs the working directory that the first half of the test prepares"]
@@ -262,6 +299,16 @@ mod child {
         let search = AncestorsSearch::new(APPLICATION.parse().unwrap()).dot_config();
 
         let configuration: Configuration = Loader::ancestors(search).load().unwrap();
+
+        assert_eq!(configuration, CONFIGURATION);
+    }
+
+    #[test]
+    #[ignore = "needs the working directory that the first half of the test prepares"]
+    fn load_with_ancestors_and_the_longest_name() {
+        let application: ApplicationName = longest_name().unwrap().parse().unwrap();
+
+        let configuration: Configuration = Loader::ancestors(application).load().unwrap();
 
         assert_eq!(configuration, CONFIGURATION);
     }
