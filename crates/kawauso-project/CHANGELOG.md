@@ -7,6 +7,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning].
 
+## [0.3.0] - 2026-10-03
+
+### Added
+
+- Create a data directory for each project with `Project::data_directory` (#160)
+
+### Changed
+
+- Accept only portable names of applications, with 1 to 250 ASCII letters,
+  digits, and hyphens and no device names of Windows (#160, #164)
+- Compare the application when two projects are compared for equality (#160)
+
+### Removed
+
+- Remove `ApplicationName::new` and the conversions from `&str` and `String`
+  into `ApplicationName` (#160)
+
 ## [0.2.0] - 2026-08-28
 
 ### Added
@@ -32,5 +49,7 @@ The format is based on [Keep a Changelog], and this project adheres to
   (#69)
 
 [0.1.0]: https://github.com/aonyx-ai/kawauso/releases/tag/kawauso-project@0.1.0
+[0.2.0]: https://github.com/aonyx-ai/kawauso/releases/tag/kawauso-project@0.2.0
+[0.3.0]: https://github.com/aonyx-ai/kawauso/releases/tag/kawauso-project@0.3.0
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
