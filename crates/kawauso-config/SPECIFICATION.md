@@ -183,6 +183,57 @@ config[discover.user.error.unknown-directory]
 The crate MUST return an error, and MUST NOT panic, when it cannot determine
 the configuration directory of the platform.
 
+## Names
+
+The name of an application becomes part of each path that a search reads.
+The walk reads `<name>.toml` and the two files of the dot-config convention,
+and the search of the user directory reads `<name>/config.toml`. A value that
+is not one component on every platform can change such a path, or move it
+outside the directory that the crate searches. A value such as `..`, `/home`,
+or `C:` is an example.
+
+A name that does not obey the rules is a mistake in the application. The
+rules of a name therefore apply when the application creates the name, and
+not later when a search uses it. Every way to create a name examines the
+value, and every way can fail. A constructor of the loader that takes a name
+then cannot fail because of the name.
+
+The rules permit only a small set of characters. A later release can permit
+more characters, and each name that is valid today keeps its files. A later
+rule that rejects a name that an earlier release accepted forces a new name
+on the application, and the files of its users stay under the old name. The
+small set also removes the names that a file system changes. Windows removes
+a trailing space or dot from a name, and macOS compares the Unicode forms of
+a name as one name.
+
+Windows reserves the names of devices, such as `CON` and `COM1`, in all
+directories. A file or a directory with such a name is not possible on
+Windows, so a name of a device is not a valid name.
+
+`kawauso-project` applies the same rules to the name of an application. An
+application that uses both crates therefore has one name that both crates
+accept. On macOS, `kawauso-project` keeps the data of the projects of an
+application in the same directory `<name>` in `Library/Application Support`,
+so the two crates share one directory for one name.
+
+The crate does not change a value to make it valid. Two values that a change
+makes equal share one file, and nothing tells the user.
+
+config[name.characters]
+A name MUST hold from 1 to 255 characters. Each character MUST be an ASCII
+letter, an ASCII digit, or `-`.
+
+config[name.reserved]
+A name MUST NOT be `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, or `LPT0` to
+`LPT9`, in upper case, lower case, or a mix of the two.
+
+config[name.application]
+The name of an application MUST obey the rules of a name.
+
+config[name.error]
+The crate MUST return an error, and MUST NOT panic, when it creates a name
+from a value that does not obey the rules of a name.
+
 ## Loading
 
 The caller supplies the path to a configuration file and a type that defines

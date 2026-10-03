@@ -11,6 +11,7 @@
 
 use indoc::indoc;
 use kawauso_config::AncestorsSearch;
+use kawauso_config::ApplicationName;
 use kawauso_config::Loader;
 use kawauso_config::error::LoadConfigurationError;
 use serde::Deserialize;
@@ -45,10 +46,16 @@ struct Server {
 #[test]
 fn load_with_ancestors_and_no_file_returns_an_error() {
     // The search must find nothing, so the application needs a name that no
-    // file on this machine belongs to. The operating system gives a temporary
-    // directory a unique name, and the application borrows it.
-    let directory = tempfile::tempdir().unwrap();
-    let application = directory.path().file_name().unwrap().to_str().unwrap();
+    // file on this machine belongs to. `tempfile` gives a temporary directory
+    // a unique name, and the application borrows it. The prefix replaces the
+    // default one, which starts with a dot, and the random part holds only
+    // ASCII letters and digits, so the name obeys its rules.
+    let directory = tempfile::Builder::new()
+        .prefix("kawauso-")
+        .tempdir()
+        .unwrap();
+    let name = directory.path().file_name().unwrap().to_str().unwrap();
+    let application: ApplicationName = name.parse().unwrap();
 
     let result = Loader::ancestors(application).load::<Configuration>();
 
@@ -208,7 +215,7 @@ fn load_with_missing_file_returns_an_error() {
 // config[verify discover.ancestors.subdirectories.error.outside]
 #[test]
 fn load_with_outside_subdirectory_reports_the_subdirectory() {
-    let search = AncestorsSearch::new("kawauso").subdirectory("../secrets");
+    let search = AncestorsSearch::new("kawauso".parse().unwrap()).subdirectory("../secrets");
 
     let error = Loader::ancestors(search)
         .load::<Configuration>()
@@ -247,10 +254,16 @@ fn load_with_unreadable_file_reports_the_path() {
 #[test]
 fn load_with_user_directory_and_no_file_returns_an_error() {
     // The search must find nothing, so the application needs a name that no
-    // file on this machine belongs to. The operating system gives a temporary
-    // directory a unique name, and the application borrows it.
-    let directory = tempfile::tempdir().unwrap();
-    let application = directory.path().file_name().unwrap().to_str().unwrap();
+    // file on this machine belongs to. `tempfile` gives a temporary directory
+    // a unique name, and the application borrows it. The prefix replaces the
+    // default one, which starts with a dot, and the random part holds only
+    // ASCII letters and digits, so the name obeys its rules.
+    let directory = tempfile::Builder::new()
+        .prefix("kawauso-")
+        .tempdir()
+        .unwrap();
+    let name = directory.path().file_name().unwrap().to_str().unwrap();
+    let application: ApplicationName = name.parse().unwrap();
 
     let result = Loader::user(application).load::<Configuration>();
 

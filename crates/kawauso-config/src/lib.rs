@@ -4,4 +4,5 @@ pub mod error;
 pub mod loader;
 
 pub use self::loader::AncestorsSearch;
+pub use self::loader::ApplicationName;
 pub use self::loader::Loader;
