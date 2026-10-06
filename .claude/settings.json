@@ -9,7 +9,7 @@
       "Bash(git checkout:*)",
       "Bash(git pull:*)",
       "Bash(git switch:*)",
-      "Bash(just pre-commit:*)"
+      "Bash(mise run rakko:*)"
     ]
   },
   "extraKnownMarketplaces": {
@@ -25,9 +25,11 @@
     "autoAllowBashIfSandboxed": true,
     "filesystem": {
       "allowWrite": [
-        ".flox/cache",
-        ".flox/log",
-        ".flox/run"
+        "~/.cache/mise",
+        "~/.cargo",
+        "~/.local/share/mise",
+        "~/.local/state/mise",
+        "~/.rustup"
       ]
     }
   },

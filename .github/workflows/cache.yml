@@ -28,6 +28,7 @@ concurrency:
 jobs:
   tracey:
     name: Build tracey
+    # Only `check-specs` calls tracey, and CI runs it on this platform alone.
     runs-on: ubuntu-latest
 
     permissions:
@@ -37,17 +38,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The setup cleans the tree itself, and keeps the build output that
+          # an earlier job left on a persistent self-hosted runner.
+          clean: false
           persist-credentials: false
 
-      - name: Restore tracey
-        uses: ./.github/actions/restore-tracey
-
-      - name: Install Flox
-        uses: flox/install-flox-action@5bb9eaaffbeaa699a8251a1ae21ecf4c8e0e37d4 # v2.7.0
-
-      # The activation runs the hook that builds tracey. The version names the
-      # revision, so a stale binary in the cache shows up here.
-      - name: Build tracey
-        uses: flox/activate-action@6abc249840d01f0c59473f21ba74821564d320b7 # v2.0.0
+      - name: Set up the tools
+        uses: $/.github/actions/setup
         with:
-          command: tracey --version
+          tracey: "true"
+
+      # Print the revision, so a stale binary in the cache shows up here.
+      - name: Show the version of tracey
+        run: mise exec -- tracey --version

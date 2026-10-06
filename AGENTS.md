@@ -22,9 +22,10 @@ Each crate has a specification in `crates/<crate>/SPECIFICATION.md` that
 documents what the crate does. A specification is a list of requirements with
 identifiers, such as `kawauso[placeholder.add]`. The prefix is the name of the
 crate without `kawauso-`. [Tracey][tracey] links each requirement to the code
-that implements it and to the test that verifies it. `just check-specs`
-validates these links, and `.config/tracey/config.styx` lists the
-specifications. [ADR-002][adr-002] records this decision.
+that implements it and to the test that verifies it.
+`mise run rakko -- check-specs` validates these links, and
+`.config/tracey/config.styx` lists the specifications. [ADR-002][adr-002]
+records this decision.
 
 - Before you implement a crate, read its specification.
 - Put a comment such as `// kawauso[impl placeholder.add]` above the code that
@@ -57,14 +58,15 @@ specifications. [ADR-002][adr-002] records this decision.
 - All versions managed in root `Cargo.toml`, crates import from workspace.
 - Require the lowest version of a dependency that still compiles, so that
   applications keep the widest choice of versions. Verify the floor with
-  `just check-minimal-deps`.
+  `mise run rakko -- check-minimal-deps`.
 - Write dependency entries without comments. Do not describe what a package
   does, and do not explain a version requirement. Reasoning that matters, such
   as why a floor cannot go lower, belongs in the commit message.
-- When adding dependencies, run `just check-dependencies` to verify license
-  compatibility. If new licenses need allowlisting in `deny.toml`, include
-  that in the same commit, again without a comment. Allowlist licenses that
-  are OSI- or FSF-approved, ask for any other licenses.
+- When adding dependencies, run `mise run rakko -- check-dependencies` to
+  verify license compatibility. If new licenses need allowlisting in
+  `deny.toml`, include that in the same commit, again without a comment.
+  Allowlist licenses that are OSI- or FSF-approved, ask for any other
+  licenses.
 
 ### Derives
 
@@ -141,12 +143,33 @@ specifications. [ADR-002][adr-002] records this decision.
 - Use enums with meaningful variants instead of bool parameters.
 - Fields must never be `pub`. Implement getters instead, e.g. with `getset`.
 
+## Tooling
+
+[Mise] provisions every external tool at the version that `mise.toml` pins.
+Run `mise install` once, and activate mise in your shell so that the tools and
+the stubs in `bin` reach your `PATH`.
+
+[Rakko] provides the maintenance tasks. `tools/rakko` is the harness of this
+repository: a package outside the workspace that mounts the bundles of actions
+this repository runs, and that turns each action into a command. Run
+`mise run rakko` to list the commands, or `rakko` where mise supplies its
+environment.
+
+- Add an action by mounting it in `tools/rakko/src/main.rs`, and pin the tool
+  it needs in `mise.toml`. Rakko installs nothing, and an action whose tool
+  mise does not report stops instead of passing quietly.
+- CI enumerates the commands from the help of the harness and runs each one
+  whose name starts with `build-`, `check-`, `format-`, `lint-`, or `test-`,
+  so a mounted action with one of these prefixes becomes a required check.
+- `mise run rakko -- pre-commit` runs the actions that guard a commit, and
+  `--fix` lets the formatters repair what they find. The Git hook runs it.
+
 ## Version Control
 
 - Never commit directly to `main`, always create a branch or worktree.
 - Every commit should be a logical unit of change.
-- Every commit must build and pass all checks. Use `just` recipes for
-  verification (e.g. `just pre-commit`).
+- Every commit must build and pass all checks. Use the harness for
+  verification (e.g. `mise run rakko -- pre-commit`).
 - Fixes and refactoring should be in separate commits from features.
 - Each pull request should have one primary commit with a well-crafted
   message — this is what lands in the Git history. Follow-up fixups within
@@ -178,4 +201,6 @@ specifications. [ADR-002][adr-002] records this decision.
 [adr-001]: adrs/001-adrs.md
 [adr-002]: adrs/002-specifications.md
 [git-style-guide]: https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
+[mise]: https://mise.jdx.dev
+[rakko]: https://github.com/aonyx-ai/rakko
 [tracey]: https://tracey.bearcove.eu/

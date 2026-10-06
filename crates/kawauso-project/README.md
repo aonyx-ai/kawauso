@@ -1,6 +1,6 @@
 # kawauso-project
 
-_Projects for Kawauso applications_
+Projects for Kawauso applications
 
 This crate finds the project that a Kawauso application runs in. A user can
 then start the application in any directory of the project, and the
