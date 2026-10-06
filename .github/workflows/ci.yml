@@ -7,11 +7,6 @@ name: Continuous Integration
 
 permissions: {}
 
-# The `ci` profile of nextest keeps a run going after the first failure, so
-# that one job reports every broken test instead of only the first one.
-env:
-  NEXTEST_PROFILE: ci
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true

@@ -1,3 +1,4 @@
-[profile.ci]
-# Do not cancel the test run on the first failure
+[profile.default]
+# Keep the test run going after the first failure, so that one run reports
+# every broken test instead of only the first one
 fail-fast = false
