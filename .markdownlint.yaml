@@ -1,1 +1,5 @@
 ---
+# A table cell has to stay on one line, so a table row cannot wrap. Prose
+# still wraps at 80.
+MD013:
+  tables: false

@@ -1,6 +1,6 @@
 # kawauso-process
 
-_External programs for Kawauso applications_
+External programs for Kawauso applications
 
 This crate runs the external programs of a Kawauso application. Every
 application starts a program in the same way. The caller names the program and

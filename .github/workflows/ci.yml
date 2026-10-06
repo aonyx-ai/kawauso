@@ -17,104 +17,164 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  targets:
-    name: Enumerate Just recipes
+  commands:
+    name: Enumerate the commands
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
 
     outputs:
-      checks: ${{ steps.export-targets.outputs.checks }}
-      tests: ${{ steps.export-targets.outputs.tests }}
+      checks: ${{ steps.export-commands.outputs.checks }}
+      tests: ${{ steps.export-commands.outputs.tests }}
+
+    env:
+      # This job builds the harness and reads the help, and it runs no action,
+      # so nothing here reaches tracey. The variable says so to every step,
+      # and not only to the one that installs the tools, because a step that
+      # starts mise installs what the configuration pins and mise has yet to
+      # build. Without it this job pays the twenty-minute build of tracey, and
+      # every other job of the workflow waits for it.
+      MISE_DISABLE_TOOLS: cargo:https://github.com/bearcove/tracey
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The setup cleans the tree itself, and keeps the build output that
+          # an earlier job left on a persistent self-hosted runner.
+          clean: false
           persist-credentials: false
 
-      - name: Install Just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - name: Set up the tools
+        uses: $/.github/actions/setup
 
-      # A check reads the sources and reaches the same verdict everywhere, so
-      # one platform answers for all of them. A test runs the code, and the
-      # code branches on the platform, so the two lists go to separate jobs.
-      - name: Export targets
-        id: export-targets
+      # The help of the harness lists what this repository mounts, so an
+      # action that the harness gains reaches CI without a change to this
+      # file. The prefix picks the commands that a job runs: `pre-commit`
+      # drives the actions that the jobs below already run one by one, and
+      # `help` is not a check. A written command that is a check therefore
+      # has to carry one of these prefixes to reach CI.
+      #
+      # The list splits in two, because a command that runs the tests runs on
+      # every platform and every other command runs on one.
+      #
+      # The help is text that clap lays out, and a release of clap may lay it
+      # out differently. An empty list would skip a whole job and read as a
+      # pull request that has nothing to run, so an empty one fails here.
+      - name: Export the commands
+        id: export-commands
         run: |
-          recipes=$(just --list)
-          echo "checks=$(awk '$1 ~ /^(build|check|format|lint)-/ {print $1}' <<< "$recipes" | jq -cnR '[inputs]')" >> "$GITHUB_OUTPUT"
-          echo "tests=$(awk '$1 ~ /^test-/ {print $1}' <<< "$recipes" | jq -cnR '[inputs]')" >> "$GITHUB_OUTPUT"
+          listed=$(mise run rakko -- --help |
+            awk '/^Commands:/ { list = 1; next }
+                 /^$/         { list = 0 }
+                 list && /^  (build|check|format|lint|test)-/ { print $1 }')
+
+          checks=$(grep --invert-match '^test-' <<< "${listed}" || true)
+          tests=$(grep '^test-' <<< "${listed}" || true)
+
+          if [ -z "${checks}" ] || [ -z "${tests}" ]; then
+            echo "The help of the harness listed no command for one of the jobs." >&2
+            exit 1
+          fi
+
+          to_json() { jq --compact-output --null-input --raw-input '[inputs]'; }
+
+          echo "checks=$(to_json <<< "${checks}")" >> "$GITHUB_OUTPUT"
+          echo "tests=$(to_json <<< "${tests}")" >> "$GITHUB_OUTPUT"
 
   checks:
-    name: ${{ matrix.target }}
+    name: ${{ matrix.command }}
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
 
-    needs: targets
+    needs: commands
 
-    # The tests job below repeats this through the alias of the anchor.
-    env: &recipe-env
-      # Only `just check-specs` calls tracey, and the Flox hook builds tracey
-      # from source when the cache below misses. An empty value leaves that
-      # build on, so every other recipe skips it.
-      KAWAUSO_SKIP_TRACEY: ${{ matrix.target != 'check-specs' && '1' || '' }}
+    env:
+      # Only `check-specs` calls tracey. Every other job skips both the cache
+      # and the build, which takes about twenty minutes when the cache misses.
+      TRACEY: ${{ matrix.command == 'check-specs' }}
+
+      # A job that never reaches tracey disables the tool, so that the build
+      # stays out of it. The name is the one that `mise.toml` writes, because
+      # a short name disables nothing. A job that does reach tracey leaves the
+      # value empty, so that the harness finds the tool that the step below
+      # installed. The empty value is the fallback of the expression, because
+      # an expression that yields it from the left of `||` yields it always.
+      MISE_DISABLE_TOOLS: ${{ matrix.command != 'check-specs' && 'cargo:https://github.com/bearcove/tracey' || '' }}
 
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJson(needs.targets.outputs.checks) }}
+        command: ${{ fromJson(needs.commands.outputs.checks) }}
 
-    # The tests job below repeats these steps through the alias of the anchor.
-    # Both jobs take one Just recipe from a matrix and run it; only the runner
-    # and the list of recipes differ.
-    steps: &recipe-steps
+    steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # `just check-specs` compares the pull request with its base
-          # branch, which is the first parent of the merge commit
+          # The setup cleans the tree itself, and keeps the build output that
+          # an earlier job left on a persistent self-hosted runner.
+          clean: false
+          # `check-specs` compares the pull request with its base branch,
+          # which is the first parent of the merge commit
           fetch-depth: 2
           persist-credentials: false
 
-      # A runner of GitHub starts from a clean disk, and the build of tracey
-      # takes several minutes. The cache workflow keeps a cache on the default
-      # branch that every pull request can reach.
-      - name: Restore tracey
-        if: env.KAWAUSO_SKIP_TRACEY == ''
-        uses: ./.github/actions/restore-tracey
-
-      - name: Install Flox
-        uses: flox/install-flox-action@5bb9eaaffbeaa699a8251a1ae21ecf4c8e0e37d4 # v2.7.0
-
-      - name: Run recipe with Just
-        uses: flox/activate-action@6abc249840d01f0c59473f21ba74821564d320b7 # v2.0.0
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Set up the tools
+        uses: $/.github/actions/setup
         with:
-          command: just ${{ matrix.target }}
+          tracey: ${{ env.TRACEY }}
 
+      # The task hands every argument to the harness untouched, and the harness
+      # is what a contributor runs as well, so a job of CI and a machine of a
+      # contributor answer the same question with the same command.
+      - name: Run the command
+        env:
+          COMMAND: ${{ matrix.command }}
+        run: mise run rakko -- "$COMMAND"
+
+  # A check reads the sources and reaches the same verdict everywhere, so one
+  # platform answers for all of them. A test runs the code, and the code
+  # branches on the platform, so the commands that run the tests run on more
+  # than one platform, which is why this job is separate from the matrix
+  # above.
   tests:
-    name: ${{ matrix.target }} (${{ matrix.runner }})
-    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.command }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
 
     permissions:
       contents: read
 
-    needs: targets
+    needs: commands
 
-    env: *recipe-env
+    env:
+      # The tests never reach tracey, so no job here pays for the build.
+      MISE_DISABLE_TOOLS: cargo:https://github.com/bearcove/tracey
 
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJson(needs.targets.outputs.tests) }}
-        runner: [ubuntu-latest, macos-latest]
+        command: ${{ fromJson(needs.commands.outputs.tests) }}
+        os: [ubuntu-latest, macos-latest]
 
-    steps: *recipe-steps
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The setup cleans the tree itself, and keeps the build output that
+          # an earlier job left on a persistent self-hosted runner.
+          clean: false
+          persist-credentials: false
+
+      - name: Set up the tools
+        uses: $/.github/actions/setup
+
+      - name: Run the command
+        env:
+          COMMAND: ${{ matrix.command }}
+        run: mise run rakko -- "$COMMAND"
 
   success:
     name: All checks succeeded
@@ -128,6 +188,6 @@ jobs:
     steps:
       - name: Check if all checks succeeded
         # `needs` is a list of job names, which themselves are generated from
-        # the output of `just --list`, so we ignore the template injection here.
+        # the help of the harness, so we ignore the template injection here.
         # zizmor: ignore[template-injection]
         run: jq --exit-status 'all(.result == "success")' <<< '${{ toJson(needs) }}'
