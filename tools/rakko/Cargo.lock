@@ -363,20 +363,20 @@ dependencies = [
 name = "harness"
 version = "0.1.0"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-baseline",
  "rakko-check-msrv",
  "rakko-check-specs",
  "rakko-cli",
- "rakko-format-json",
- "rakko-format-markdown",
+ "rakko-format-json 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-format-markdown 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-format-rust",
- "rakko-format-toml",
- "rakko-format-yaml",
- "rakko-lint-github-actions",
- "rakko-lint-markdown",
+ "rakko-format-toml 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-format-yaml 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-lint-github-actions 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-lint-markdown 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-lint-rust",
- "rakko-lint-yaml",
+ "rakko-lint-yaml 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-pre-commit",
  "rakko-rust-library",
  "rakko-set-msrv",
@@ -572,6 +572,18 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 [[package]]
 name = "rakko-action"
 version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "bon",
+ "dunce",
+ "getset",
+ "thiserror",
+ "typed-fields",
+]
+
+[[package]]
+name = "rakko-action"
+version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "bon",
@@ -584,18 +596,18 @@ dependencies = [
 [[package]]
 name = "rakko-baseline"
 version = "0.1.0"
-source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "rakko-check-renovate-config",
- "rakko-format-json",
- "rakko-format-markdown",
- "rakko-format-toml",
- "rakko-format-yaml",
- "rakko-lint-github-actions",
- "rakko-lint-markdown",
+ "rakko-format-json 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-format-markdown 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-format-toml 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-format-yaml 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-lint-github-actions 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-lint-markdown 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "rakko-lint-toml",
- "rakko-lint-yaml",
+ "rakko-lint-yaml 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
 ]
 
 [[package]]
@@ -603,9 +615,9 @@ name = "rakko-build-internal-docs"
 version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
 ]
 
@@ -616,8 +628,8 @@ source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc0
 dependencies = [
  "bon",
  "getset",
- "rakko-action",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "serde",
  "serde_json",
  "thiserror",
@@ -631,9 +643,9 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "serde",
  "serde_json",
  "thiserror",
@@ -645,10 +657,10 @@ name = "rakko-check-latest-deps"
 version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
  "rakko-nextest",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-worktree",
  "thiserror",
 ]
@@ -658,10 +670,10 @@ name = "rakko-check-minimal-deps"
 version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
  "rakko-nextest",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-worktree",
  "thiserror",
 ]
@@ -671,21 +683,21 @@ name = "rakko-check-msrv"
 version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
 ]
 
 [[package]]
 name = "rakko-check-renovate-config"
 version = "0.1.0"
-source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
 dependencies = [
  "bon",
  "getset",
- "rakko-action",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "serde",
  "serde_json",
  "thiserror",
@@ -700,8 +712,8 @@ dependencies = [
  "bon",
  "getset",
  "kawauso-process",
- "rakko-action",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "serde",
  "serde_json",
  "tempfile",
@@ -715,9 +727,9 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "serde",
  "serde_json",
  "thiserror",
@@ -731,8 +743,20 @@ dependencies = [
  "clap",
  "clawless",
  "kawauso-project",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "rakko-format-json"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-prettier 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "thiserror",
 ]
 
@@ -742,9 +766,21 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
- "rakko-prettier",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-prettier 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "thiserror",
+]
+
+[[package]]
+name = "rakko-format-markdown"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-prettier 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "thiserror",
 ]
 
@@ -754,9 +790,9 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
- "rakko-prettier",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-prettier 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
 ]
 
@@ -766,9 +802,21 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "thiserror",
+]
+
+[[package]]
+name = "rakko-format-toml"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-taplo 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "thiserror",
 ]
 
@@ -778,9 +826,21 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
- "rakko-taplo",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-taplo 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "thiserror",
+]
+
+[[package]]
+name = "rakko-format-yaml"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-prettier 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "thiserror",
 ]
 
@@ -790,10 +850,25 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
- "rakko-prettier",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-prettier 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
+]
+
+[[package]]
+name = "rakko-lint-github-actions"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "bon",
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -803,8 +878,23 @@ source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc0
 dependencies = [
  "bon",
  "getset",
- "rakko-action",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "rakko-lint-markdown"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "bon",
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "serde",
  "serde_json",
  "thiserror",
@@ -818,8 +908,8 @@ source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc0
 dependencies = [
  "bon",
  "getset",
- "rakko-action",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "serde",
  "serde_json",
  "thiserror",
@@ -831,21 +921,34 @@ name = "rakko-lint-rust"
 version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
 ]
 
 [[package]]
 name = "rakko-lint-toml"
 version = "0.1.0"
-source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
 dependencies = [
- "rakko-action",
- "rakko-taplo",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-taplo 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
  "thiserror",
+]
+
+[[package]]
+name = "rakko-lint-yaml"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "bon",
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -855,8 +958,8 @@ source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc0
 dependencies = [
  "bon",
  "getset",
- "rakko-action",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
  "tokio",
 ]
@@ -867,9 +970,9 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "serde",
  "serde_json",
  "thiserror",
@@ -881,9 +984,23 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cli",
  "thiserror",
+]
+
+[[package]]
+name = "rakko-prettier"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "bon",
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "thiserror",
+ "tokio",
+ "typed-fields",
 ]
 
 [[package]]
@@ -893,8 +1010,8 @@ source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc0
 dependencies = [
  "bon",
  "getset",
- "rakko-action",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
  "tokio",
  "typed-fields",
@@ -905,7 +1022,7 @@ name = "rakko-rust"
 version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-build-internal-docs",
  "rakko-check-dependencies",
  "rakko-check-latest-deps",
@@ -920,7 +1037,7 @@ name = "rakko-rust-library"
 version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-check-minimal-deps",
  "rakko-check-msrv",
  "rakko-rust",
@@ -933,9 +1050,9 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cli",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
  "tokio",
  "toml_edit",
@@ -945,12 +1062,25 @@ dependencies = [
 [[package]]
 name = "rakko-taplo"
 version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "bon",
+ "getset",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "rakko-taplo"
+version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "bon",
  "getset",
- "rakko-action",
- "rakko-tool",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
  "tokio",
 ]
@@ -960,10 +1090,10 @@ name = "rakko-test-rust"
 version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
  "rakko-nextest",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
 ]
 
@@ -973,10 +1103,22 @@ version = "0.1.0"
 source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55#f209bc5dd5c54b4dc6c41bff9dc03304f8131b55"
 dependencies = [
  "getset",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "rakko-cargo",
- "rakko-tool",
+ "rakko-tool 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
+]
+
+[[package]]
+name = "rakko-tool"
+version = "0.1.0"
+source = "git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d#e69000d81e248eba83d8a4e3c12b2c9dd6fe839d"
+dependencies = [
+ "getset",
+ "kawauso-process",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=e69000d81e248eba83d8a4e3c12b2c9dd6fe839d)",
+ "thiserror",
+ "typed-fields",
 ]
 
 [[package]]
@@ -986,7 +1128,7 @@ source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc0
 dependencies = [
  "getset",
  "kawauso-process",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "thiserror",
  "typed-fields",
 ]
@@ -998,7 +1140,7 @@ source = "git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc0
 dependencies = [
  "getset",
  "kawauso-process",
- "rakko-action",
+ "rakko-action 0.1.0 (git+https://github.com/aonyx-ai/rakko?rev=f209bc5dd5c54b4dc6c41bff9dc03304f8131b55)",
  "tempfile",
  "thiserror",
 ]
