@@ -12,7 +12,7 @@ name = "rakko"
 path = "src/main.rs"
 
 [dependencies]
-rakko-action = { git = "https://github.com/aonyx-ai/rakko", rev = "f209bc5dd5c54b4dc6c41bff9dc03304f8131b55" }
+rakko-action = { git = "https://github.com/aonyx-ai/rakko", rev = "e69000d81e248eba83d8a4e3c12b2c9dd6fe839d" }
 rakko-baseline = { git = "https://github.com/aonyx-ai/rakko", rev = "f209bc5dd5c54b4dc6c41bff9dc03304f8131b55" }
 rakko-check-msrv = { git = "https://github.com/aonyx-ai/rakko", rev = "f209bc5dd5c54b4dc6c41bff9dc03304f8131b55" }
 rakko-check-specs = { git = "https://github.com/aonyx-ai/rakko", rev = "f209bc5dd5c54b4dc6c41bff9dc03304f8131b55" }
