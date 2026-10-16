@@ -84,6 +84,18 @@ zizmor = "1.31.1"
 # platform, so every machine installs the same bytes.
 lockfile = true
 
+# An install with `--locked` stops when the lockfile holds no entry of a tool
+# for the platform of the machine, and it looks at no other platform. The list
+# names every platform that installs these tools today: the jobs of CI run on
+# `ubuntu-latest` and `macos-latest`, and the contributors work on Apple
+# silicon. `mise lock` writes an entry for each of them. It keeps the entries
+# of a platform outside the list only until the pin of that tool moves, so a
+# tool loses them one by one. No job and no contributor installs on Windows
+# today. The settings above that work around Windows stay for the day that one
+# does, and that platform, or any other that starts to install these tools,
+# then adds its name here.
+lockfile_platforms = ["linux-x64", "macos-arm64"]
+
 # The installer that mise carries lays a package of npm out the way pnpm
 # does: one directory per package, and a link from every package to each of
 # its dependencies. Windows creates such a link only for an account that may,
