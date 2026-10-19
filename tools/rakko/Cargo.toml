@@ -12,25 +12,25 @@ name = "rakko"
 path = "src/main.rs"
 
 [dependencies]
-rakko-action = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-baseline = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-check-msrv = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-check-specs = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-cli = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-format-json = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-format-markdown = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-format-rust = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-format-toml = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-format-yaml = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-lint-github-actions = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-lint-markdown = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-lint-rust = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-lint-yaml = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-pre-commit = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-rust-library = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-set-msrv = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-test-rust = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
-rakko-test-rust-docs = { git = "https://github.com/aonyx-ai/rakko", rev = "556f15aba4925ce0a2bc3d7edc792706b34d16da" }
+rakko-action = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-baseline = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-check-msrv = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-check-specs = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-cli = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-format-json = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-format-markdown = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-format-rust = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-format-toml = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-format-yaml = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-lint-github-actions = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-lint-markdown = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-lint-rust = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-lint-yaml = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-pre-commit = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-rust-library = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-set-msrv = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-test-rust = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
+rakko-test-rust-docs = { git = "https://github.com/aonyx-ai/rakko", rev = "183b02af1fdc1059c61e438f0ea6ec9e4e9e5c3c" }
 
 [workspace.lints.clippy]
 # Require documentation on private items as well, since that helps with long-term maintainability.
