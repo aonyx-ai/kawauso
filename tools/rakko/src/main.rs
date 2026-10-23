@@ -44,7 +44,7 @@ use rakko_test_rust_docs::TestRustDocs;
 /// requirements to the code, so the harness mounts the check of the
 /// specifications as well.
 fn main() {
-    let pre_commit = PreCommit::new(actions_that_write(), actions_that_read());
+    let pre_commit = PreCommit::new(actions_that_write().into_iter().chain(actions_that_read()));
 
     rakko_cli::builder()
         .mount(rakko_baseline::bundle())
