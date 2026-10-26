@@ -86,13 +86,15 @@ lockfile = true
 
 # An install with `--locked` stops when the lockfile holds no entry of a tool
 # for the platform of the machine, and it looks at no other platform. The list
-# names every platform that installs these tools today: the jobs of CI run on
-# `ubuntu-latest` and `macos-latest`, and the contributors work on Apple
-# silicon. `mise lock` writes an entry for each of them. It keeps the entries
-# of a platform outside the list only until the pin of that tool moves, so a
-# tool loses them one by one. No job and no contributor installs on Windows
-# today. The settings above that work around Windows stay for the day that one
-# does, and that platform, or any other that starts to install these tools,
+# names every platform that installs or locks these tools today: the jobs of
+# CI run on `ubuntu-latest` and `macos-latest`, the contributors work on Apple
+# silicon, and Renovate locks on `linux-x64` when it moves a pin. `mise lock`
+# writes an entry for each of them, and also for the platform of the machine
+# that runs it. It removes the entries of every other platform, so a machine
+# that locks on a platform outside the list writes entries that the next run
+# in CI removes again. No job and no contributor installs on Windows today.
+# The settings above that work around Windows stay for the day that one does,
+# and that platform, or any other that starts to install or lock these tools,
 # then adds its name here.
 lockfile_platforms = ["linux-x64", "macos-arm64"]
 
