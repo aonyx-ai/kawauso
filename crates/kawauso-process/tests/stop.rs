@@ -100,7 +100,6 @@ fn script_that_starts_a_program(handler: &str) -> String {
 // work. The caller drops the wait when the token comes first. The handle stays
 // with that caller, so it asks the command to end in good order. A wait that
 // takes the handle leaves that caller with the kill of a drop.
-// process[verify stream.end]
 #[tokio::test]
 async fn stop_after_a_dropped_wait_for_the_end_asks_the_command_to_end() {
     let mut run = ready(&script("echo stopped; exit 0")).await.unwrap();
@@ -120,7 +119,6 @@ async fn stop_after_a_dropped_wait_for_the_end_asks_the_command_to_end() {
 // A caller can wait for the end of a command and then stop it. The command
 // ended, and the crate collected its status, so the stop asks nothing and
 // kills nothing. It reports the result of the run that ended.
-// process[verify stream.end]
 #[tokio::test]
 async fn stop_after_a_wait_for_the_end_reports_the_status() {
     let mut run = Invocation::new("sh")
@@ -138,7 +136,6 @@ async fn stop_after_a_wait_for_the_end_reports_the_status() {
 // A program that answers the request writes a line that a killed program
 // never writes. The line in the capture is therefore the request that
 // arrived.
-// process[verify stop.request]
 #[tokio::test]
 async fn stop_asks_the_command_to_end() {
     let run = ready(&script("echo stopped; exit 0")).await.unwrap();
@@ -151,7 +148,6 @@ async fn stop_asks_the_command_to_end() {
 // A program that the command started holds the streams of the command open
 // long after the command ended. The stop follows the command and not the
 // streams, so it reports while that program still runs.
-// process[verify stop.bound]
 #[tokio::test]
 async fn stop_ends_while_a_program_of_the_command_holds_the_streams() {
     let run = ready(&script_that_starts_a_program("exit 0"))
@@ -166,7 +162,6 @@ async fn stop_ends_while_a_program_of_the_command_holds_the_streams() {
 // A command that ignores the request runs until something ends it, and the
 // kill is what ends it. The operating system names the signal of a killed
 // program in its status.
-// process[verify stop.kill]
 #[tokio::test]
 async fn stop_kills_a_command_that_ignores_the_request() {
     let run = ready(&script("")).await.unwrap();
@@ -178,7 +173,6 @@ async fn stop_kills_a_command_that_ignores_the_request() {
 
 // A command that answers the request ends with a status of its own. A stop
 // that killed it before the time was over would report the signal instead.
-// process[verify stop.grace]
 #[tokio::test]
 async fn stop_lets_a_command_that_answers_the_request_end() {
     let run = ready(&script("exit 3")).await.unwrap();
@@ -191,7 +185,6 @@ async fn stop_lets_a_command_that_answers_the_request_end() {
 // A command that fills a pipe stops until a reader empties it. A stop that
 // waited without a read would therefore wait for a command that cannot end,
 // and the kill after the time would cut the output.
-// process[verify stop.grace]
 #[tokio::test]
 async fn stop_reads_the_streams_of_a_command_that_fills_both_pipes() {
     let handler = format!("head -c {FLOOD} /dev/zero; head -c {FLOOD} /dev/zero >&2; exit 0");
@@ -211,7 +204,6 @@ async fn stop_reads_the_streams_of_a_command_that_fills_both_pipes() {
 // A stop reports what a wait reports, so the output that the command wrote
 // before the request is in the result. The caller that stops a command reads
 // it there.
-// process[verify stop]
 #[tokio::test]
 async fn stop_reports_the_capture_of_the_run() {
     let run = ready(&script("exit 0")).await.unwrap();
@@ -224,7 +216,6 @@ async fn stop_reports_the_capture_of_the_run() {
 // A command that answers the request writes before it ends, and those bytes
 // are in the pipe when the command ends. The stop takes what the pipe holds,
 // so the line is in the capture although nothing closed the stream.
-// process[verify stop.bound]
 #[tokio::test]
 async fn stop_takes_the_last_output_of_a_command_whose_streams_stay_open() {
     let run = ready(&script_that_starts_a_program("echo stopped; exit 0"))
@@ -239,7 +230,6 @@ async fn stop_takes_the_last_output_of_a_command_whose_streams_stay_open() {
 // A command can end before the caller stops it. Nothing runs then, and the
 // stop reports the result of the run that ended. The test reads both streams
 // to their end first, because a command closes them when it ends.
-// process[verify stop]
 #[tokio::test]
 async fn stop_of_a_command_that_already_ended_reports_its_status() {
     let mut run = Invocation::new("sh")

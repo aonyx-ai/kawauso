@@ -52,7 +52,6 @@ impl Line {
     ///
     /// A caller that shows a diagnostic apart from a result, or that drops
     /// one of the two, reads the stream here.
-    // process[impl stream.tag]
     pub fn stream(&self) -> Stream {
         self.stream
     }

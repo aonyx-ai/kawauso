@@ -21,8 +21,9 @@ use crate::error::ParseProjectIdentifierError;
 /// identifier gets a new, empty data directory.
 ///
 /// The identifier becomes a component of a path, so it holds from 1 to 250
-/// ASCII letters, ASCII digits, and hyphens, and it is not the name of a
-/// device on Windows, such as `CON` or `COM1`. The identifier obeys the same
+/// ASCII letters, ASCII digits, and hyphens. It is also not a name that
+/// Windows keeps for a device: `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`,
+/// or `LPT0` to `LPT9`, in any case. The identifier obeys the same
 /// rules as an [`ApplicationName`], whose configuration file adds `.toml` to
 /// the name, which is why the limit is below the 255 bytes that most file
 /// systems accept in a component. These rules keep the data
@@ -123,9 +124,6 @@ impl TryFrom<String> for ProjectIdentifier {
 
     // Deserialization goes through this function as well, which the
     // attribute of serde on the type selects.
-    // project[impl name.deserialize]
-    // project[impl name.error]
-    // project[impl name.identifier]
     fn try_from(identifier: String) -> Result<Self, Self::Error> {
         if is_portable(&identifier) {
             Ok(Self(identifier))
@@ -150,7 +148,6 @@ mod tests {
         id: ProjectIdentifier,
     }
 
-    // project[verify name.deserialize]
     #[test]
     fn deserialize_with_a_malformed_identifier_returns_an_error() {
         let result = toml::from_str::<Document>(r#"id = "../example""#);
@@ -158,7 +155,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // project[verify name.deserialize]
     #[test]
     fn deserialize_with_a_portable_identifier_returns_the_identifier() {
         let document: Document = toml::from_str(r#"id = "example""#).unwrap();
@@ -166,8 +162,6 @@ mod tests {
         assert_eq!(document.id.get(), "example");
     }
 
-    // project[verify name.identifier]
-    // project[verify name.error]
     #[test]
     fn from_str_with_a_malformed_identifier_returns_an_error() {
         let error = "C:".parse::<ProjectIdentifier>().unwrap_err();
@@ -178,7 +172,6 @@ mod tests {
         ));
     }
 
-    // project[verify name.identifier]
     #[test]
     fn from_str_with_a_portable_identifier_returns_the_identifier() {
         let identifier: ProjectIdentifier = "example".parse().unwrap();
@@ -195,7 +188,6 @@ mod tests {
         serde_test::assert_ser_tokens(&identifier, &[serde_test::Token::Str("example")]);
     }
 
-    // project[verify name.error]
     #[test]
     fn to_string_of_the_error_escapes_the_value() {
         let error = "aux\u{1b}[2J".parse::<ProjectIdentifier>().unwrap_err();
@@ -206,8 +198,6 @@ mod tests {
         );
     }
 
-    // project[verify name.identifier]
-    // project[verify name.error]
     #[test]
     fn try_from_a_str_with_a_malformed_identifier_returns_an_error() {
         let error = ProjectIdentifier::try_from("/example").unwrap_err();
@@ -218,8 +208,6 @@ mod tests {
         ));
     }
 
-    // project[verify name.identifier]
-    // project[verify name.error]
     #[test]
     fn try_from_a_string_with_a_malformed_identifier_returns_an_error() {
         let error = ProjectIdentifier::try_from(String::from("example project")).unwrap_err();

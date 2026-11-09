@@ -162,7 +162,6 @@ impl Run {
         // The command runs, so the operating system has given it an
         // identifier. The handle takes the value now, because the crate can
         // no longer read it after it collected the status of the command.
-        // process[impl run.identity]
         let id = child.id().map(ProcessId::from);
 
         Self {
@@ -321,7 +320,6 @@ impl Run {
     ///
     /// The value is `None` when the operating system gave the command no
     /// identifier.
-    // process[impl stream.identity]
     pub fn id(&self) -> Option<ProcessId> {
         self.id
     }
@@ -384,8 +382,6 @@ impl Run {
     /// ```
     ///
     /// [incomplete]: RunCommandError::IncompleteRun
-    // process[impl stream]
-    // process[impl stream.cancellation]
     pub async fn next_line(&mut self) -> Result<Option<Line>, RunCommandError> {
         loop {
             if let Some(line) = self.lines.pop_front() {
@@ -528,15 +524,11 @@ impl Run {
     ///
     /// [incomplete]: RunCommandError::IncompleteRun
     /// [wait]: Run::wait
-    // process[impl stop]
-    // process[impl stop.request]
     pub async fn stop(mut self, grace: Duration) -> Result<Execution, RunCommandError> {
         let exited = match self.request_end() {
             // The command has the request, so it has the time to answer it.
             // The wait reads what the command writes while it answers, so a
             // command that fills a pipe reaches its own end.
-            // process[impl stop.grace]
-            // process[impl stop.bound]
             Request::Sent => match timeout(grace, self.exit()).await {
                 Ok(exited) => Some(exited?),
                 Err(_) => None,
@@ -553,7 +545,6 @@ impl Run {
             // The command ignored the request, or nothing asked it to end.
             // The kill ends it, and the wait that follows collects the status
             // of a command that can no longer refuse.
-            // process[impl stop.kill]
             None => {
                 self.kill();
 
@@ -562,7 +553,6 @@ impl Run {
         };
 
         // The command ended, and what it wrote last can still be in a pipe.
-        // process[impl stop.bound]
         self.take().await?;
 
         Ok(self.finish(status))
@@ -666,7 +656,6 @@ impl Run {
     /// [incomplete]: RunCommandError::IncompleteRun
     /// [require-success]: Execution::require_success
     /// [wait-for-end]: Run::wait_for_end
-    // process[impl stream.wait]
     pub async fn wait(mut self) -> Result<Execution, RunCommandError> {
         let status = self.end().await?;
 
@@ -732,8 +721,6 @@ impl Run {
     /// [incomplete]: RunCommandError::IncompleteRun
     /// [stop]: Run::stop
     /// [wait]: Run::wait
-    // process[impl stream.end]
-    // process[impl stream.end.cancellation]
     pub async fn wait_for_end(&mut self) -> Result<(), RunCommandError> {
         self.end().await?;
 
@@ -869,7 +856,6 @@ impl<S: AsyncRead + Unpin> Reader<S> {
     /// A byte that is part of no valid character becomes the replacement
     /// character, because a line is for a display and a display takes text.
     /// The capture keeps the byte, so nothing that the command wrote is lost.
-    // process[impl stream.decode]
     fn line(&self, bytes: &[u8]) -> Line {
         Line::new(self.stream, String::from_utf8_lossy(bytes).into_owned())
     }
@@ -974,7 +960,6 @@ impl<S: AsyncRead + Unpin> Reader<S> {
     /// every other platform with one. The line carries neither of them, so a
     /// caller that shows the line, or that compares it, reads the same text
     /// on every platform.
-    // process[impl stream.crlf]
     fn split(&mut self, lines: &mut VecDeque<Line>) {
         while let Some(offset) = self.pending[self.searched..]
             .iter()

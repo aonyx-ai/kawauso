@@ -17,8 +17,6 @@
 /// assert_eq!(configuration["port"], 8080);
 /// # Ok::<(), kawauso::config::error::LoadConfigurationError>(())
 /// ```
-// kawauso[impl facade.module]
-// kawauso[impl facade.identity]
 #[doc(inline)]
 pub use kawauso_config as config;
 /// External programs that an application runs, from the crate
@@ -36,8 +34,6 @@ pub use kawauso_config as config;
 ///
 /// assert_eq!(invocation.to_string(), "git status --short");
 /// ```
-// kawauso[impl facade.module]
-// kawauso[impl facade.identity]
 #[doc(inline)]
 pub use kawauso_process as process;
 /// The project that an application runs in, from the crate
@@ -55,7 +51,5 @@ pub use kawauso_process as process;
 ///
 /// assert_eq!(search.markers().len(), 1);
 /// ```
-// kawauso[impl facade.module]
-// kawauso[impl facade.identity]
 #[doc(inline)]
 pub use kawauso_project as project;

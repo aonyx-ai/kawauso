@@ -162,7 +162,6 @@ impl Invocation {
     ///
     /// [arg]: Invocation::arg
     /// [in-directory]: Invocation::in_directory
-    // process[impl invocation.program]
     pub fn new(program: impl Into<Program>) -> Self {
         Self {
             program: program.into(),
@@ -190,7 +189,6 @@ impl Invocation {
     ///
     /// assert_eq!(invocation.arguments().len(), 2);
     /// ```
-    // process[impl invocation.arguments]
     pub fn arg(mut self, argument: impl Into<Argument>) -> Self {
         self.arguments.push(argument.into());
 
@@ -238,28 +236,21 @@ impl Invocation {
     /// the process holds replaces it for the command alone. The program
     /// travels as the caller wrote it, and the operating system resolves a
     /// bare name.
-    // process[impl run.environment]
-    // process[impl run.resolution]
     fn command(&self) -> Command {
         let mut command = Command::new(self.program.get());
 
         command
             .args(self.arguments.iter().map(Argument::get))
-            // process[impl invocation.environment]
             .envs(
                 self.environment
                     .iter()
                     .map(|variable| (variable.name().get(), variable.value().get())),
             )
-            // process[impl run.stdin]
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            // process[impl run.abandonment]
-            // process[impl stream.abandonment]
             .kill_on_drop(true);
 
-        // process[impl invocation.environment.removal]
         for name in &self.removals {
             command.env_remove(name.get());
         }
@@ -282,6 +273,10 @@ impl Invocation {
     /// call, because a variable holds one value. The variable keeps the place
     /// of the earlier call.
     ///
+    /// A name is either set or taken out, so this call undoes an earlier
+    /// [`env_remove`][env-remove] with the same name. The last call for a
+    /// name decides.
+    ///
     /// # Examples
     ///
     /// ```
@@ -293,7 +288,8 @@ impl Invocation {
     ///
     /// assert_eq!(invocation.environment().len(), 1);
     /// ```
-    // process[impl invocation.environment]
+    ///
+    /// [env-remove]: Invocation::env_remove
     pub fn env(mut self, name: impl Into<VariableName>, value: impl Into<VariableValue>) -> Self {
         self.set(Variable::new(name, value));
 
@@ -334,8 +330,6 @@ impl Invocation {
     /// ```
     ///
     /// [env]: Invocation::env
-    // process[impl invocation.environment.removal]
-    // process[impl invocation.environment.exclusion]
     pub fn env_remove(mut self, name: impl Into<VariableName>) -> Self {
         let name = name.into();
 
@@ -375,7 +369,6 @@ impl Invocation {
     /// ```
     ///
     /// [env]: Invocation::env
-    // process[impl invocation.environment]
     pub fn envs(mut self, variables: impl IntoIterator<Item = impl Into<Variable>>) -> Self {
         for variable in variables {
             self.set(variable.into());
@@ -404,7 +397,6 @@ impl Invocation {
     ///
     /// assert!(invocation.working_directory().is_some());
     /// ```
-    // process[impl invocation.directory]
     pub fn in_directory(mut self, directory: impl Into<WorkingDirectory>) -> Self {
         self.working_directory = Some(directory.into());
 
@@ -473,7 +465,6 @@ impl Invocation {
     /// [incomplete]: RunCommandError::IncompleteRun
     /// [require-success]: Execution::require_success
     /// [unstartable]: RunCommandError::UnstartableCommand
-    // process[impl run]
     pub async fn run(&self) -> Result<Execution, RunCommandError> {
         let start = Instant::now();
 
@@ -488,13 +479,11 @@ impl Invocation {
         // The wait takes the command, and the identifier of a command that
         // ended is gone. The run therefore reads the identifier here, so
         // that the result can carry it.
-        // process[impl run.identity]
         let id = child.id().map(ProcessId::from);
 
         // The wait reads both streams while it waits for the end of the
         // command. A wait that read one stream after the other, or that read
         // nothing until the end, would stop on a command that fills a pipe.
-        // process[impl run.drain]
         let output =
             child
                 .wait_with_output()
@@ -520,8 +509,6 @@ impl Invocation {
     /// of that variable and keeps its place, because a variable holds one
     /// value. A variable with a new name goes to the end, so that the
     /// environment keeps the order of the calls.
-    // process[impl invocation.environment.replacement]
-    // process[impl invocation.environment.exclusion]
     fn set(&mut self, variable: Variable) {
         self.removals.retain(|name| name != variable.name());
 
@@ -587,7 +574,6 @@ impl Invocation {
     /// [run]: Invocation::run
     /// [stop]: Run::stop
     /// [unstartable]: RunCommandError::UnstartableCommand
-    // process[impl stream]
     pub fn start(&self) -> Result<Run, RunCommandError> {
         let started = Instant::now();
 
@@ -623,14 +609,34 @@ impl Invocation {
 /// working directory, because a command line holds the command and not the
 /// place that it runs in.
 ///
+/// A space separates the words of the line. A word that is empty, or that
+/// holds white space, therefore shows between quotation marks, so that a
+/// reader sees where the word starts and where it ends. This rule applies to
+/// the program, to each argument, and to the value of each variable. The
+/// marks go around the value alone, and not around the name of the variable.
+/// A quotation mark in a word stays as it is, and nothing escapes it.
+///
 /// The line is for a person. No caller reads it back, and no shell runs it,
 /// so it is not a command line that a shell has to accept.
-// process[impl invocation.display]
-// process[impl invocation.environment.display]
-// process[impl invocation.environment.removal.display]
+///
+/// # Examples
+///
+/// ```
+/// use kawauso_process::Invocation;
+///
+/// let invocation = Invocation::new("sh")
+///     .arg("-c")
+///     .arg("echo hello")
+///     .arg("")
+///     .env("RUSTFLAGS", "-D warnings");
+///
+/// assert_eq!(
+///     invocation.to_string(),
+///     "RUSTFLAGS=\"-D warnings\" sh -c \"echo hello\" \"\""
+/// );
+/// ```
 impl Display for Invocation {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
-        // process[impl invocation.environment.removal.display]
         for name in &self.removals {
             write!(formatter, "-{name} ")?;
         }

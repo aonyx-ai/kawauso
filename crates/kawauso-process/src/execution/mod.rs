@@ -102,7 +102,6 @@ impl Execution {
     /// The time covers the whole run, from the start of the program to the
     /// end of the capture. A caller that reports a slow step, or that logs
     /// how long a tool ran, reads it here instead of measuring the call.
-    // process[impl run.duration]
     pub fn duration(&self) -> Duration {
         self.duration
     }
@@ -116,7 +115,6 @@ impl Execution {
     /// The command of a result has ended, and the operating system can give
     /// the identifier to another command. The value therefore names the
     /// command that ran. It does not name a command that runs now.
-    // process[impl run.identity]
     pub fn id(&self) -> Option<ProcessId> {
         self.id
     }
@@ -159,7 +157,6 @@ impl Execution {
     /// ```
     ///
     /// [unsuccessful]: RequireSuccessError::UnsuccessfulCommand
-    // process[impl run.success]
     pub fn require_success(self) -> Result<Self, RequireSuccessError> {
         if self.status.success() {
             Ok(self)
@@ -177,19 +174,16 @@ impl Execution {
     /// A status that is not a success is a normal result. A command that ran
     /// and failed reports its failure here, and the run itself returns an
     /// error only when the command could not run at all.
-    // process[impl run.exit]
     pub fn status(&self) -> ExitStatus {
         self.status
     }
 
     /// Returns what the command wrote to its standard error
-    // process[impl run.output]
     pub fn stderr(&self) -> &Capture {
         &self.stderr
     }
 
     /// Returns what the command wrote to its standard output
-    // process[impl run.output]
     pub fn stdout(&self) -> &Capture {
         &self.stdout
     }

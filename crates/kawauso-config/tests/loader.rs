@@ -65,7 +65,6 @@ fn load_with_ancestors_and_no_file_returns_an_error() {
     ));
 }
 
-// config[verify load.file.error.directory]
 #[test]
 fn load_with_directory_at_the_path_reports_the_path() {
     // The read of a directory fails with a different report on each platform,
@@ -128,7 +127,6 @@ fn load_with_invalid_file_reports_the_path() {
     );
 }
 
-// config[verify load.error.syntax]
 #[test]
 fn load_with_invalid_toml_reports_the_position() {
     let contents = indoc! {r#"
@@ -149,7 +147,6 @@ fn load_with_invalid_toml_reports_the_position() {
     );
 }
 
-// config[verify load.error]
 #[test]
 fn load_with_invalid_toml_returns_an_error() {
     let contents = indoc! {r#"
@@ -162,7 +159,6 @@ fn load_with_invalid_toml_returns_an_error() {
     assert!(result.is_err());
 }
 
-// config[verify load.error.field]
 #[test]
 fn load_with_mismatched_field_reports_the_path() {
     let contents = indoc! {r#"
@@ -183,7 +179,6 @@ fn load_with_mismatched_field_reports_the_path() {
     );
 }
 
-// config[verify load.file.error.missing]
 #[test]
 fn load_with_missing_file_reports_the_path() {
     let directory = tempfile::tempdir().unwrap();
@@ -197,7 +192,6 @@ fn load_with_missing_file_reports_the_path() {
     );
 }
 
-// config[verify load.file.error]
 #[test]
 fn load_with_missing_file_returns_an_error() {
     let directory = tempfile::tempdir().unwrap();
@@ -212,7 +206,6 @@ fn load_with_missing_file_returns_an_error() {
 // not in a file that the user wrote. The report therefore names the value
 // that the application gave, so that the user can pass it on to the
 // developers.
-// config[verify discover.ancestors.subdirectories.error.outside]
 #[test]
 fn load_with_outside_subdirectory_reports_the_subdirectory() {
     let search = AncestorsSearch::new("kawauso".parse().unwrap()).subdirectory("../secrets");
@@ -230,7 +223,6 @@ fn load_with_outside_subdirectory_reports_the_subdirectory() {
     );
 }
 
-// config[verify load.file.error.unreadable]
 #[test]
 fn load_with_unreadable_file_reports_the_path() {
     // A fixture that removes the read permission silently passes when the
@@ -273,7 +265,6 @@ fn load_with_user_directory_and_no_file_returns_an_error() {
     ));
 }
 
-// config[verify load.file]
 #[test]
 fn load_with_valid_file_returns_configuration() {
     let directory = tempfile::tempdir().unwrap();
@@ -295,7 +286,6 @@ fn load_with_valid_file_returns_configuration() {
     );
 }
 
-// config[verify load.deserialize]
 #[test]
 fn load_with_valid_toml_returns_configuration() {
     let contents = indoc! {r#"

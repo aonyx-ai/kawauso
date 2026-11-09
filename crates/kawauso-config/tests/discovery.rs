@@ -130,7 +130,6 @@ fn report_of(output: &Output) -> String {
 // `.github`, and its users ran it without a flag and got a report that no
 // configuration file exists. The search has to reach the file that the
 // project already has.
-// config[verify discover.ancestors.subdirectories]
 #[test]
 fn load_with_ancestors_and_a_file_in_a_subdirectory_returns_the_configuration() {
     let working_directory = tempfile::tempdir().unwrap();
@@ -150,7 +149,6 @@ fn load_with_ancestors_and_a_file_in_a_subdirectory_returns_the_configuration() 
 // The dot-config convention also keeps the file with the name of the
 // application in the shared directory `.config`, and the search finds it
 // there.
-// config[verify discover.ancestors.dot]
 #[test]
 fn load_with_ancestors_and_a_file_in_dot_config_file_returns_the_configuration() {
     let working_directory = tempfile::tempdir().unwrap();
@@ -169,7 +167,6 @@ fn load_with_ancestors_and_a_file_in_dot_config_file_returns_the_configuration()
 
 // The dot-config convention gives the application a directory of its own,
 // and its configuration file sits inside it.
-// config[verify discover.ancestors.dot]
 #[test]
 fn load_with_ancestors_and_a_file_in_the_dot_config_directory_returns_the_configuration() {
     let working_directory = tempfile::tempdir().unwrap();
@@ -186,7 +183,6 @@ fn load_with_ancestors_and_a_file_in_the_dot_config_directory_returns_the_config
     assert!(report.contains(PASSED), "{report}");
 }
 
-// config[verify discover.ancestors.working-directory]
 #[test]
 fn load_with_ancestors_and_a_file_in_the_working_directory_returns_the_configuration() {
     let working_directory = tempfile::tempdir().unwrap();
@@ -207,7 +203,6 @@ fn load_with_ancestors_and_a_file_in_the_working_directory_returns_the_configura
 // longest name that the rules accept must still be a file that the user can
 // create and that the walk finds. Each location of the walk ends in the same
 // component `<name>.toml`, so the working directory stands for all of them.
-// config[verify name.characters+2]
 #[test]
 fn load_with_ancestors_and_the_longest_name_returns_the_configuration() {
     let name = longest_name().unwrap();
@@ -228,7 +223,6 @@ fn load_with_ancestors_and_the_longest_name_returns_the_configuration() {
 // user who runs them, so the child gets a home directory of its own.
 // `XDG_CONFIG_HOME` would name a directory outside that home, and the child
 // inherits the environment of this process, so the variable has to go.
-// config[verify discover.user.name]
 #[cfg(not(windows))]
 #[test]
 fn load_with_user_directory_and_a_file_returns_the_configuration() {

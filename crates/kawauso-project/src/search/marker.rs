@@ -10,6 +10,11 @@ path!(
     /// entry exists in a directory of the walk, and the first directory that
     /// holds any marker is the project.
     ///
+    /// Each kind of entry matches: a file, a directory, or a symbolic link to
+    /// one of them. A `.git` marker therefore matches a repository, where
+    /// `.git` is a directory, and a worktree, where it is a file. A symbolic
+    /// link whose target does not exist does not match.
+    ///
     /// The search never reads the entry. An application that has to examine
     /// its contents, such as a `main.rs` file with a specific macro, examines
     /// the entry in the project that the search found.

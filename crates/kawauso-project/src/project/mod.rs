@@ -217,16 +217,6 @@ where
         start_fn(name = builder, vis = "pub"),
         finish_fn(name = finish, vis = "")
     )]
-    // project[impl configuration.load]
-    // project[impl configuration.location]
-    // project[impl discover.markers.required]
-    // project[verify discover.markers.required]
-    // project[impl configuration.location.custom]
-    // project[impl configuration.location.directory]
-    // project[impl configuration.missing]
-    // project[impl configuration.none]
-    // project[impl data.load]
-    // project[impl discover.start.caller]
     fn new(
         // bon requires the argument of the finishing function before the
         // members that get a setter.
@@ -456,7 +446,6 @@ where
     /// [directory]: ProjectBuilder::with_configuration_directory
     /// [file]: ProjectBuilder::configuration_file
     /// [load-or-create]: ProjectBuilder::load_or_create
-    // project[verify configuration.create.none]
     pub fn without_configuration(
         self,
     ) -> ProjectBuilder<'search, T, project_builder::SetWithoutConfiguration<S>>
@@ -587,7 +576,6 @@ where
     /// [load-or-create]: ProjectBuilder::load_or_create
     /// [undiscoverable]: LoadProjectError::UndiscoverableProject
     /// [unloadable]: LoadProjectError::UnloadableConfiguration
-    // project[impl configuration.create.load]
     pub fn load(self, search: &Search<Marked>) -> Result<Project<T>, LoadProjectError> {
         self.finish(search)
     }
@@ -597,8 +585,9 @@ where
     /// The search runs, and the project reads the file at its configuration
     /// path when a file exists there. When none exists, the closure produces
     /// the configuration, the project writes it to that path, and
-    /// [`configuration`][configuration] then reports the value that the file
-    /// holds. The crate creates the directories that the path needs as well.
+    /// [`configuration`][configuration] then reports the value of the
+    /// closure. The project does not read the new file again. The crate
+    /// creates the directories that the path needs as well.
     ///
     /// Use this method for an application that needs the file. Such an
     /// application keeps a value in the file that it makes for one project,
@@ -662,10 +651,6 @@ where
     /// [uncreatable]: LoadProjectError::UncreatableConfiguration
     /// [undiscoverable]: LoadProjectError::UndiscoverableProject
     /// [unloadable]: LoadProjectError::UnloadableConfiguration
-    // project[impl configuration.create]
-    // project[impl configuration.create.existing]
-    // project[impl configuration.create.none]
-    // project[impl configuration.create.result]
     pub fn load_or_create<F>(
         self,
         search: &Search<Marked>,
@@ -721,11 +706,20 @@ impl<T> Project<T> {
     /// An application writes the files of the project here that must not be
     /// in the working tree, such as a log for each run.
     ///
-    /// `<data>` is `XDG_DATA_HOME`, or `.local/share` in the home directory,
-    /// on Linux and the other systems that follow the XDG Base Directory
-    /// Specification. It is `Library/Application Support` in the home
-    /// directory on macOS, and the directory for the local application data
-    /// of the user on Windows.
+    /// `<data>` is the local data directory of the platform:
+    ///
+    /// - On Linux and the other systems that follow the XDG Base Directory
+    ///   Specification, it is the directory in `XDG_DATA_HOME`. When the
+    ///   variable is not set, is empty, or holds no absolute path, it is
+    ///   `.local/share` in the home directory.
+    /// - On macOS, it is `Library/Application Support` in the home
+    ///   directory. `XDG_DATA_HOME` has no effect there.
+    /// - On Windows, it is the directory for the local application data of
+    ///   the user, such as `C:\Users\<user>\AppData\Local`. The data in it
+    ///   does not roam to the other machines of the user.
+    ///
+    /// Each call determines `<data>` again, so a change to `XDG_DATA_HOME` or
+    /// to the home directory has an effect at the next call.
     ///
     /// The application supplies the identifier, because only the application
     /// knows what makes two checkouts the same project. The project does not
@@ -835,7 +829,6 @@ struct Discovery {
 /// Our projects keep the file of a tool in the subdirectory `.config`, with
 /// the name of the application and the extension `.toml`. The crate states
 /// this convention here, so that no application repeats it.
-// project[impl configuration.location]
 fn configuration_file_of(application: &ApplicationName) -> ConfigurationFile {
     ConfigurationFile::new(PathBuf::from(".config").join(format!("{application}.toml")))
 }
@@ -846,7 +839,6 @@ fn configuration_file_of(application: &ApplicationName) -> ConfigurationFile {
 /// configuration in `config.toml` inside it, next to the other files that it
 /// writes. The directory, like the file layout, is conventional, so no
 /// application repeats it.
-// project[impl configuration.location.directory]
 fn configuration_directory_of(application: &ApplicationName) -> ConfigurationFile {
     ConfigurationFile::new(
         PathBuf::from(".config")
@@ -869,13 +861,6 @@ fn configuration_directory_of(application: &ApplicationName) -> ConfigurationFil
 ///
 /// Returns an error when the local data directory is unknown or relative, and
 /// when the data directory or a directory above it cannot be created.
-// project[impl data.base.absolute]
-// project[impl data.create]
-// project[impl data.create.existing]
-// project[impl data.create.mode]
-// project[impl data.error.create]
-// project[impl data.error.unknown-directory]
-// project[impl data.path]
 fn create_data_directory(
     base: Option<LocalDataDirectory>,
     application: &ApplicationName,
@@ -930,9 +915,6 @@ fn create_data_directory(
 ///
 /// Returns an error when the value cannot be serialized, when the directories
 /// cannot be created, or when the file cannot be written.
-// project[impl configuration.create]
-// project[impl configuration.create.directories]
-// project[impl configuration.create.error]
 fn create_configuration<T>(
     path: &ConfigurationPath,
     configuration: &T,
@@ -966,8 +948,6 @@ where
 /// # Errors
 ///
 /// Returns an error when the file cannot be read, parsed, or deserialized.
-// project[impl configuration.error]
-// project[impl configuration.load]
 fn load_configuration<T>(path: &ConfigurationPath) -> Result<T, LoadProjectError>
 where
     T: DeserializeOwned,
@@ -1035,10 +1015,6 @@ fn is_inside(marker: &Marker) -> bool {
 ///
 /// Returns an error when the start is relative and the working directory is
 /// unknown, or when the start does not exist or cannot be read.
-// project[impl discover.start.absolute+2]
-// project[impl discover.start.error.unknown-directory]
-// project[impl discover.start.error.unreadable]
-// project[impl discover.start.file]
 fn resolve(
     start: &Path,
     working_directory: std::io::Result<PathBuf>,
@@ -1093,14 +1069,6 @@ fn resolve(
 ///
 /// Returns an error when a marker is not a relative path inside a directory,
 /// and when no marker matches in any directory of the walk.
-// project[impl discover.error.missing]
-// project[impl discover.markers]
-// project[impl discover.markers.error.outside]
-// project[impl discover.markers.walk]
-// project[impl discover.order]
-// project[impl discover.precedence]
-// project[impl discover.result]
-// project[impl discover.walk]
 fn walk(
     start: &Path,
     markers: &[Marker],
@@ -1124,7 +1092,6 @@ fn walk(
     }
 
     match fallback {
-        // project[impl discover.fallback]
         Fallback::Start => Ok(Discovery {
             root: ProjectRoot::new(start.to_path_buf()),
             marker: None,
@@ -1190,7 +1157,6 @@ mod tests {
         "example-project".parse().unwrap()
     }
 
-    // project[verify data.create]
     #[test]
     fn create_data_directory_creates_the_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1204,7 +1170,6 @@ mod tests {
     // Each directory that the call creates gets the mode, the base and the
     // directory of the application included. The mask of the process can
     // only remove permissions, so it cannot make a mode wider than `0700`.
-    // project[verify data.create.mode]
     #[cfg(unix)]
     #[test]
     fn create_data_directory_on_unix_creates_directories_for_the_user_alone() {
@@ -1235,7 +1200,6 @@ mod tests {
         assert_eq!(modes, vec![0o700; 4]);
     }
 
-    // project[verify data.path]
     #[test]
     fn create_data_directory_returns_the_directory_of_the_project() {
         let root = tempfile::tempdir().unwrap();
@@ -1252,7 +1216,6 @@ mod tests {
         );
     }
 
-    // project[verify data.error.create]
     #[test]
     fn create_data_directory_with_a_file_as_the_base_names_the_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1275,7 +1238,6 @@ mod tests {
         );
     }
 
-    // project[verify data.error.create]
     #[test]
     fn create_data_directory_with_a_file_as_the_base_reports_the_cause() {
         let root = tempfile::tempdir().unwrap();
@@ -1287,7 +1249,6 @@ mod tests {
         assert!(Error::source(&error).is_some());
     }
 
-    // project[verify data.error.create]
     #[test]
     fn create_data_directory_with_a_file_as_the_base_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1302,7 +1263,6 @@ mod tests {
         ));
     }
 
-    // project[verify data.base.absolute]
     #[test]
     fn create_data_directory_with_a_relative_base_returns_an_error() {
         // A file of the crate is in the path, so that a fault that ignores the
@@ -1317,7 +1277,6 @@ mod tests {
         ));
     }
 
-    // project[verify data.create.existing]
     #[test]
     fn create_data_directory_with_an_existing_directory_returns_the_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1329,7 +1288,6 @@ mod tests {
         assert_eq!(directory.get(), existing);
     }
 
-    // project[verify data.error.unknown-directory]
     #[test]
     fn create_data_directory_without_a_base_returns_an_error() {
         let error = create_data_directory(None, &application(), &identifier()).unwrap_err();
@@ -1342,7 +1300,6 @@ mod tests {
 
     // The application whose project this is names the directory below the
     // base, so the name that the builder took reaches the path.
-    // project[verify data.path]
     #[test]
     fn data_directory_below_returns_the_directory_of_the_application() {
         let root = tempfile::tempdir().unwrap();
@@ -1374,7 +1331,6 @@ mod tests {
     // no other application owns a directory with the name. Only a load that
     // creates the directory, which is the fault that the test finds, leaves
     // the directory behind for a later run.
-    // project[verify data.load]
     #[test]
     fn load_creates_no_data_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1392,7 +1348,6 @@ mod tests {
         assert!(!exists(&base.get().join(application.get())));
     }
 
-    // project[verify discover.start.file]
     #[test]
     fn resolve_with_a_file_returns_its_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1403,7 +1358,6 @@ mod tests {
         assert_eq!(start, canonical(&root).join("src"));
     }
 
-    // project[verify discover.start.absolute+2]
     #[test]
     fn resolve_with_a_relative_start_resolves_against_the_working_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1414,7 +1368,6 @@ mod tests {
         assert_eq!(start, canonical(&root).join("src"));
     }
 
-    // project[verify discover.start.error.unreadable]
     #[test]
     fn resolve_with_a_start_that_does_not_exist_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1431,7 +1384,6 @@ mod tests {
     // points into. A walk that keeps the link therefore passes through a
     // directory that the user never entered, which this test holds the
     // resolution to.
-    // project[verify discover.start.absolute+2]
     #[cfg(unix)]
     #[test]
     fn resolve_with_a_symbolic_link_returns_the_real_path() {
@@ -1444,7 +1396,6 @@ mod tests {
         assert_eq!(start, canonical(&root).join("real").join("inner"));
     }
 
-    // project[verify discover.start.absolute+2]
     #[test]
     fn resolve_with_dot_components_removes_them() {
         let root = tempfile::tempdir().unwrap();
@@ -1459,7 +1410,6 @@ mod tests {
         assert_eq!(start, canonical(&root).join("src"));
     }
 
-    // project[verify discover.start.error.unknown-directory]
     #[test]
     fn resolve_without_a_working_directory_returns_an_error() {
         let unknown = std::io::Error::new(ErrorKind::NotFound, "the working directory is gone");
@@ -1472,7 +1422,6 @@ mod tests {
         ));
     }
 
-    // project[verify discover.markers]
     #[test]
     fn walk_with_a_directory_as_the_marker_returns_the_project() {
         let root = tempfile::tempdir().unwrap();
@@ -1483,7 +1432,6 @@ mod tests {
         assert_eq!(discovery.root.get(), root.path());
     }
 
-    // project[verify discover.markers.error.outside]
     #[test]
     fn walk_with_a_marker_above_the_directory_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1493,7 +1441,6 @@ mod tests {
         assert!(matches!(error, DiscoverProjectError::OutsideMarker { .. }));
     }
 
-    // project[verify discover.walk]
     #[test]
     fn walk_with_a_marker_in_an_ancestor_returns_the_ancestor() {
         let root = tempfile::tempdir().unwrap();
@@ -1505,7 +1452,6 @@ mod tests {
         assert_eq!(discovery.root.get(), root.path());
     }
 
-    // project[verify discover.result]
     #[test]
     fn walk_with_a_marker_in_an_ancestor_returns_the_marker() {
         let root = tempfile::tempdir().unwrap();
@@ -1517,7 +1463,6 @@ mod tests {
         assert_eq!(discovery.marker.unwrap().get(), Path::new(".git"));
     }
 
-    // project[verify discover.order]
     #[test]
     fn walk_with_a_marker_in_two_ancestors_returns_the_nearer_ancestor() {
         let root = tempfile::tempdir().unwrap();
@@ -1531,7 +1476,6 @@ mod tests {
         assert_eq!(discovery.root.get(), parent);
     }
 
-    // project[verify discover.markers.error.outside]
     #[test]
     fn walk_with_a_marker_that_names_no_entry_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1541,7 +1485,6 @@ mod tests {
         assert!(matches!(error, DiscoverProjectError::OutsideMarker { .. }));
     }
 
-    // project[verify discover.markers.error.outside]
     #[test]
     fn walk_with_an_absolute_marker_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1551,7 +1494,6 @@ mod tests {
         assert!(matches!(error, DiscoverProjectError::OutsideMarker { .. }));
     }
 
-    // project[verify discover.precedence]
     #[test]
     fn walk_with_markers_in_the_start_and_an_ancestor_reports_the_start() {
         let root = tempfile::tempdir().unwrap();
@@ -1564,7 +1506,6 @@ mod tests {
         assert_eq!(discovery.root.get(), start);
     }
 
-    // project[verify discover.markers.walk]
     #[test]
     fn walk_with_the_second_marker_in_the_start_returns_the_start() {
         let root = tempfile::tempdir().unwrap();
@@ -1582,7 +1523,6 @@ mod tests {
         assert_eq!(discovery.root.get(), start);
     }
 
-    // project[verify discover.markers.order]
     #[test]
     fn walk_with_two_markers_in_the_start_returns_the_first() {
         let root = tempfile::tempdir().unwrap();
@@ -1599,7 +1539,6 @@ mod tests {
         assert_eq!(discovery.marker.unwrap().get(), Path::new(".git"));
     }
 
-    // project[verify discover.fallback]
     #[test]
     fn walk_without_a_match_and_the_fallback_returns_no_marker() {
         let root = tempfile::tempdir().unwrap();
@@ -1609,7 +1548,6 @@ mod tests {
         assert!(discovery.marker.is_none());
     }
 
-    // project[verify discover.fallback]
     #[test]
     fn walk_without_a_match_and_the_fallback_returns_the_start() {
         let root = tempfile::tempdir().unwrap();
@@ -1619,7 +1557,6 @@ mod tests {
         assert_eq!(discovery.root.get(), root.path());
     }
 
-    // project[verify discover.error.missing.message]
     #[test]
     fn walk_without_a_match_names_the_start_and_the_markers() {
         let root = tempfile::tempdir().unwrap();
@@ -1635,7 +1572,6 @@ mod tests {
         );
     }
 
-    // project[verify discover.error.missing]
     #[test]
     fn walk_without_a_match_returns_an_error() {
         let root = tempfile::tempdir().unwrap();

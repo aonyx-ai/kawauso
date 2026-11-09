@@ -15,7 +15,6 @@ path = "src/main.rs"
 rakko-action = { git = "https://github.com/aonyx-ai/rakko", rev = "5a388524311b77bb49492ade4575238d7358949f" }
 rakko-baseline = { git = "https://github.com/aonyx-ai/rakko", rev = "5a388524311b77bb49492ade4575238d7358949f" }
 rakko-check-msrv = { git = "https://github.com/aonyx-ai/rakko", rev = "5a388524311b77bb49492ade4575238d7358949f" }
-rakko-check-specs = { git = "https://github.com/aonyx-ai/rakko", rev = "5a388524311b77bb49492ade4575238d7358949f" }
 rakko-cli = { git = "https://github.com/aonyx-ai/rakko", rev = "5a388524311b77bb49492ade4575238d7358949f" }
 rakko-format-json = { git = "https://github.com/aonyx-ai/rakko", rev = "5a388524311b77bb49492ade4575238d7358949f" }
 rakko-format-markdown = { git = "https://github.com/aonyx-ai/rakko", rev = "5a388524311b77bb49492ade4575238d7358949f" }

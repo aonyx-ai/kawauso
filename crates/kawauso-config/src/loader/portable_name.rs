@@ -41,8 +41,6 @@ const NUMBERED_DEVICES: [&str; 2] = ["COM", "LPT"];
 /// also exclude the characters that a file system changes or removes, such
 /// as a trailing space on Windows, or that it compares in a normalized form,
 /// such as the accented letters on macOS.
-// config[impl name.characters+2]
-// config[impl name.reserved]
 pub(super) fn is_portable(value: &str) -> bool {
     let characters = !value.is_empty()
         && value.len() <= MAXIMUM_LENGTH
@@ -80,61 +78,51 @@ mod tests {
 
     use super::*;
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_beyond_the_maximum_length_returns_false() {
         assert!(!is_portable(&"a".repeat(251)));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_backslash_returns_false() {
         assert!(!is_portable(r"example\app"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_colon_returns_false() {
         assert!(!is_portable("C:"));
     }
 
-    // config[verify name.reserved]
     #[test]
     fn is_portable_with_a_device_in_lower_case_returns_false() {
         assert!(!is_portable("nul"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_dot_returns_false() {
         assert!(!is_portable("."));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_hyphen_returns_true() {
         assert!(is_portable("example-app"));
     }
 
-    // config[verify name.reserved]
     #[test]
     fn is_portable_with_a_letter_after_the_prefix_of_a_device_returns_true() {
         assert!(is_portable("LPTX"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_letter_outside_ascii_returns_false() {
         assert!(!is_portable("café"));
     }
 
-    // config[verify name.reserved]
     #[test]
     fn is_portable_with_a_numbered_device_in_mixed_case_returns_false() {
         assert!(!is_portable("Com9"));
     }
 
-    // config[verify name.reserved]
     #[test]
     fn is_portable_with_a_numbered_device_returns_false() {
         assert!(!is_portable("LPT0"));
@@ -142,61 +130,51 @@ mod tests {
 
     // A device name with more than one digit is no device, and a name that
     // only starts with a device name is none either.
-    // config[verify name.reserved]
     #[test]
     fn is_portable_with_a_prefix_of_a_device_returns_true() {
         assert!(is_portable("COM10"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_slash_returns_false() {
         assert!(!is_portable("example/app"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_a_space_returns_false() {
         assert!(!is_portable("example "));
     }
 
-    // config[verify name.reserved]
     #[test]
     fn is_portable_with_a_word_that_starts_like_a_device_returns_true() {
         assert!(is_portable("console"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_an_absolute_path_returns_false() {
         assert!(!is_portable("/example"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_an_empty_value_returns_false() {
         assert!(!is_portable(""));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_an_underscore_returns_false() {
         assert!(!is_portable("example_app"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_letters_and_digits_returns_true() {
         assert!(is_portable("Example2"));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_the_maximum_length_returns_true() {
         assert!(is_portable(&"a".repeat(250)));
     }
 
-    // config[verify name.characters+2]
     #[test]
     fn is_portable_with_two_dots_returns_false() {
         assert!(!is_portable(".."));

@@ -23,15 +23,6 @@ jobs:
       checks: ${{ steps.export-commands.outputs.checks }}
       tests: ${{ steps.export-commands.outputs.tests }}
 
-    env:
-      # This job builds the harness and reads the help, and it runs no action,
-      # so nothing here reaches tracey. The variable says so to every step,
-      # and not only to the one that installs the tools, because a step that
-      # starts mise installs what the configuration pins and mise has yet to
-      # build. Without it this job pays the twenty-minute build of tracey, and
-      # every other job of the workflow waits for it.
-      MISE_DISABLE_TOOLS: cargo:https://github.com/bearcove/tracey
-
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -87,19 +78,6 @@ jobs:
 
     needs: commands
 
-    env:
-      # Only `check-specs` calls tracey. Every other job skips both the cache
-      # and the build, which takes about twenty minutes when the cache misses.
-      TRACEY: ${{ matrix.command == 'check-specs' }}
-
-      # A job that never reaches tracey disables the tool, so that the build
-      # stays out of it. The name is the one that `mise.toml` writes, because
-      # a short name disables nothing. A job that does reach tracey leaves the
-      # value empty, so that the harness finds the tool that the step below
-      # installed. The empty value is the fallback of the expression, because
-      # an expression that yields it from the left of `||` yields it always.
-      MISE_DISABLE_TOOLS: ${{ matrix.command != 'check-specs' && 'cargo:https://github.com/bearcove/tracey' || '' }}
-
     strategy:
       fail-fast: false
       matrix:
@@ -112,15 +90,10 @@ jobs:
           # The setup cleans the tree itself, and keeps the build output that
           # an earlier job left on a persistent self-hosted runner.
           clean: false
-          # `check-specs` compares the pull request with its base branch,
-          # which is the first parent of the merge commit
-          fetch-depth: 2
           persist-credentials: false
 
       - name: Set up the tools
         uses: $/.github/actions/setup
-        with:
-          tracey: ${{ env.TRACEY }}
 
       # The task hands every argument to the harness untouched, and the harness
       # is what a contributor runs as well, so a job of CI and a machine of a
@@ -143,10 +116,6 @@ jobs:
       contents: read
 
     needs: commands
-
-    env:
-      # The tests never reach tracey, so no job here pays for the build.
-      MISE_DISABLE_TOOLS: cargo:https://github.com/bearcove/tracey
 
     strategy:
       fail-fast: false

@@ -17,7 +17,6 @@
 
 use rakko_action::ErasedAction;
 use rakko_check_msrv::CheckMsrv;
-use rakko_check_specs::CheckSpecs;
 use rakko_cli::ErasedCommand;
 use rakko_format_json::FormatJson;
 use rakko_format_markdown::FormatMarkdown;
@@ -40,16 +39,13 @@ use rakko_test_rust_docs::TestRustDocs;
 ///
 /// Kawauso publishes libraries, so it mounts the library bundle and not the
 /// binary bundle. The library bundle adds the checks that guard what a
-/// published crate promises. The specifications of the crates link their
-/// requirements to the code, so the harness mounts the check of the
-/// specifications as well.
+/// published crate promises.
 fn main() {
     let pre_commit = PreCommit::new(actions_that_write().into_iter().chain(actions_that_read()));
 
     rakko_cli::builder()
         .mount(rakko_baseline::bundle())
         .mount(rakko_rust_library::bundle())
-        .mount([Box::new(CheckSpecs) as Box<dyn ErasedAction>])
         .mount_commands([
             Box::new(pre_commit) as Box<dyn ErasedCommand>,
             Box::new(SetMsrv::new(Box::new(CheckMsrv))),
@@ -79,7 +75,6 @@ fn actions_that_write() -> Vec<Box<dyn ErasedAction>> {
 /// again, belongs in a scheduled job and not in front of every commit.
 fn actions_that_read() -> Vec<Box<dyn ErasedAction>> {
     vec![
-        Box::new(CheckSpecs),
         Box::new(LintGitHubActions),
         Box::new(LintMarkdown),
         Box::new(LintRust),

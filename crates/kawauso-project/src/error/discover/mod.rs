@@ -33,7 +33,6 @@ pub enum DiscoverProjectError {
     /// The start is the resolved form of the directory at which the walk
     /// began, and the markers are in the order in which the search tested
     /// them.
-    // project[impl discover.error.missing.message]
     #[error(
         "no project exists at or above `{start}`, because no directory holds any of these markers: {markers}"
     )]
@@ -58,7 +57,6 @@ pub enum DiscoverProjectError {
     ///
     /// The variant carries no cause: the value is the full diagnosis, and no
     /// other operation failed.
-    // project[impl discover.markers.error.outside]
     #[error("the marker `{marker}` is not a relative path inside a searched directory")]
     #[non_exhaustive]
     OutsideMarker {

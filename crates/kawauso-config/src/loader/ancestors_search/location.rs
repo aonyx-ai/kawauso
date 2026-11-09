@@ -72,7 +72,6 @@ mod tests {
     const FILE: &str = "example.toml";
 
     // The dot-config convention reads the file before the directory.
-    // config[verify discover.ancestors.dot.files]
     #[test]
     fn dot_config_paths_in_directories_names_the_file_first() {
         let location = Location::DotConfig;
