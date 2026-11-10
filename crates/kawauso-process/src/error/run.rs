@@ -12,6 +12,10 @@ use crate::invocation::Invocation;
 /// that the operating system stopped the crate from collecting the result,
 /// which a caller reports and can try again.
 ///
+/// The message of each variant shows the command line that the
+/// [`Invocation`] renders, so that the reader of a log knows which command
+/// failed.
+///
 /// A command that ran and ended without success is no failure of the run. The
 /// result then carries the status, and the caller decides what it means.
 ///
@@ -31,7 +35,6 @@ pub enum RunCommandError {
     /// failed. Nothing of the run survives such a failure, so the crate
     /// reports it instead of a result with holes in it. The command itself
     /// can still have done its work.
-    // process[impl run.error.message]
     #[error("failed to complete the run of the command `{invocation}`")]
     #[non_exhaustive]
     IncompleteRun {
@@ -47,8 +50,6 @@ pub enum RunCommandError {
     /// No program answers to the name, the working directory does not exist,
     /// or the operating system refused to start the program. Nothing ran, so
     /// there is no status and no output to report.
-    // process[impl run.error]
-    // process[impl run.error.message]
     #[error("failed to start the command `{invocation}`")]
     #[non_exhaustive]
     UnstartableCommand {

@@ -114,7 +114,6 @@ fn project(configuration: Option<(&str, &str)>) -> std::io::Result<TempDir> {
 
 // A file that the type of the application rejects fails the load. The crate
 // reports the problem instead of a repair that loses what the author wrote.
-// project[verify configuration.create.existing]
 #[test]
 fn load_or_create_with_a_broken_configuration_file_keeps_the_file() {
     let directory = project(Some((".config/example.toml", "port = "))).unwrap();
@@ -130,7 +129,6 @@ fn load_or_create_with_a_broken_configuration_file_keeps_the_file() {
     );
 }
 
-// project[verify configuration.create.existing]
 #[test]
 fn load_or_create_with_a_broken_configuration_file_returns_an_error() {
     let directory = project(Some((".config/example.toml", "port = "))).unwrap();
@@ -148,7 +146,6 @@ fn load_or_create_with_a_broken_configuration_file_returns_an_error() {
     );
 }
 
-// project[verify configuration.create.existing]
 #[test]
 fn load_or_create_with_a_configuration_file_keeps_the_file() {
     let directory = project(Some((".config/example.toml", FORMATTED_CONTENTS))).unwrap();
@@ -165,7 +162,6 @@ fn load_or_create_with_a_configuration_file_keeps_the_file() {
     );
 }
 
-// project[verify configuration.create.existing]
 #[test]
 fn load_or_create_with_a_configuration_file_reads_it() {
     let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
@@ -179,7 +175,6 @@ fn load_or_create_with_a_configuration_file_reads_it() {
     assert_eq!(project.configuration().unwrap().port, 8080);
 }
 
-// project[verify configuration.create.error]
 #[test]
 fn load_or_create_with_an_unserializable_configuration_returns_an_error() {
     let directory = project(None).unwrap();
@@ -201,7 +196,6 @@ fn load_or_create_with_an_unserializable_configuration_returns_an_error() {
 // the configuration file adds `.toml` to the name of the application. The
 // longest name that the rules accept must still give a file that the project
 // can create, or the load fails where it would create the file.
-// project[verify name.characters+2]
 #[test]
 fn load_or_create_with_the_longest_name_returns_the_project() {
     let name = longest_name().unwrap();
@@ -215,7 +209,6 @@ fn load_or_create_with_the_longest_name_returns_the_project() {
     assert!(result.is_ok(), "{:?}", result.err());
 }
 
-// project[verify configuration.create]
 #[test]
 fn load_or_create_without_a_configuration_file_creates_it() {
     let directory = project(None).unwrap();
@@ -234,7 +227,6 @@ fn load_or_create_without_a_configuration_file_creates_it() {
 
 // The conventional directory adds a second level below the project, and a
 // project that never held a configuration file has neither of them.
-// project[verify configuration.create.directories]
 #[test]
 fn load_or_create_without_a_configuration_file_creates_the_directories() {
     let directory = project(None).unwrap();
@@ -256,7 +248,6 @@ fn load_or_create_without_a_configuration_file_creates_the_directories() {
     );
 }
 
-// project[verify configuration.create.result]
 #[test]
 fn load_or_create_without_a_configuration_file_reports_the_value() {
     let directory = project(None).unwrap();
@@ -270,7 +261,6 @@ fn load_or_create_without_a_configuration_file_reports_the_value() {
     assert_eq!(project.configuration().unwrap().port, 9090);
 }
 
-// project[verify configuration.error]
 #[test]
 fn load_with_a_broken_configuration_file_returns_an_error() {
     let directory = project(Some((".config/example.toml", "port = "))).unwrap();
@@ -290,7 +280,6 @@ fn load_with_a_broken_configuration_file_returns_an_error() {
 
 // The project reads one location, so a file at the other layout belongs to
 // something else and stays untouched.
-// project[verify configuration.location.directory]
 #[test]
 fn load_with_a_configuration_directory_ignores_the_file_layout() {
     let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
@@ -305,7 +294,6 @@ fn load_with_a_configuration_directory_ignores_the_file_layout() {
     assert!(project.configuration().is_none());
 }
 
-// project[verify configuration.location.directory]
 #[test]
 fn load_with_a_configuration_directory_reads_its_file() {
     let directory = project(Some((".config/example/config.toml", CONTENTS))).unwrap();
@@ -320,7 +308,6 @@ fn load_with_a_configuration_directory_reads_its_file() {
     assert_eq!(project.configuration().unwrap().port, 8080);
 }
 
-// project[verify configuration.location.directory]
 #[test]
 fn load_with_a_configuration_directory_reports_the_directory() {
     let directory = project(None).unwrap();
@@ -342,7 +329,6 @@ fn load_with_a_configuration_directory_reports_the_directory() {
     );
 }
 
-// project[verify configuration.load]
 #[test]
 fn load_with_a_configuration_file_deserializes_it() {
     let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
@@ -356,7 +342,6 @@ fn load_with_a_configuration_file_deserializes_it() {
     assert_eq!(project.configuration().unwrap().port, 8080);
 }
 
-// project[verify configuration.location.custom]
 #[test]
 fn load_with_a_custom_location_reads_the_file_at_that_location() {
     let directory = project(Some((".github/example.toml", CONTENTS))).unwrap();
@@ -377,7 +362,6 @@ fn load_with_a_custom_location_reads_the_file_at_that_location() {
     );
 }
 
-// project[verify configuration.location]
 #[test]
 fn load_with_an_application_name_reads_the_conventional_location() {
     let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
@@ -400,7 +384,6 @@ fn load_with_an_application_name_reads_the_conventional_location() {
 // A read that writes surprises its caller, so a project without a
 // configuration file stays without one until an application asks for the
 // creation.
-// project[verify configuration.create.load]
 #[test]
 fn load_without_a_configuration_file_creates_no_file() {
     let directory = project(None).unwrap();
@@ -414,7 +397,6 @@ fn load_without_a_configuration_file_creates_no_file() {
     assert!(!directory.path().join(".config").exists());
 }
 
-// project[verify configuration.missing]
 #[test]
 fn load_without_a_configuration_file_reports_no_configuration() {
     let directory = project(None).unwrap();
@@ -432,7 +414,6 @@ fn load_without_a_configuration_file_reports_no_configuration() {
 // application declared that it has no configuration file. The project leaves
 // that file alone, so contents that no type of the application describes
 // cannot fail the load.
-// project[verify configuration.none]
 #[test]
 fn load_without_a_configuration_ignores_a_file_at_the_location() {
     let directory = project(Some((".config/example.toml", "port = "))).unwrap();
@@ -446,7 +427,6 @@ fn load_without_a_configuration_ignores_a_file_at_the_location() {
     assert!(project.is_ok());
 }
 
-// project[verify configuration.none]
 #[test]
 fn load_without_a_configuration_reports_no_configuration() {
     let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();

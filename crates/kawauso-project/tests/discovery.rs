@@ -84,7 +84,6 @@ fn report_of(output: &Output) -> String {
     )
 }
 
-// project[verify discover.start.caller]
 #[test]
 fn discover_with_a_start_in_one_of_two_projects_returns_that_project() {
     let directory = tempfile::tempdir().unwrap();
@@ -109,7 +108,6 @@ fn discover_with_a_start_in_one_of_two_projects_returns_that_project() {
     );
 }
 
-// project[verify discover.start.working-directory]
 #[test]
 fn discover_with_the_working_directory_returns_the_working_directory() {
     let working_directory = tempfile::tempdir().unwrap();
@@ -133,7 +131,6 @@ fn discover_with_the_working_directory_returns_the_working_directory() {
 // A caller that reports one line of an error still names what its user has to
 // correct, because the message of the load is the message of the search that
 // produced no project.
-// project[verify discover.error.missing.message]
 #[test]
 fn discover_without_a_match_reports_the_markers() {
     let directory = tempfile::tempdir().unwrap();

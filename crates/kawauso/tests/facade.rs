@@ -10,7 +10,6 @@
 
 use std::collections::BTreeMap;
 
-// kawauso[verify facade.identity]
 #[test]
 fn config_module_is_the_kawauso_config_crate() {
     // The annotation is the assertion: it only compiles when the module and
@@ -22,7 +21,6 @@ fn config_module_is_the_kawauso_config_crate() {
     assert_eq!(configuration["port"], 8080);
 }
 
-// kawauso[verify facade.module]
 #[test]
 fn config_module_provides_the_configuration_loader() {
     let loader = kawauso::config::Loader::contents("port = 8080");
@@ -32,7 +30,6 @@ fn config_module_provides_the_configuration_loader() {
     assert_eq!(configuration["port"], 8080);
 }
 
-// kawauso[verify facade.identity]
 #[test]
 fn process_module_is_the_kawauso_process_crate() {
     // The annotation is the assertion: it only compiles when the module and
@@ -45,7 +42,6 @@ fn process_module_is_the_kawauso_process_crate() {
     assert_eq!(command, "git status");
 }
 
-// kawauso[verify facade.module]
 #[test]
 fn process_module_provides_the_command_invocation() {
     let invocation = kawauso::process::Invocation::new("git").arg("status");
@@ -55,7 +51,6 @@ fn process_module_provides_the_command_invocation() {
     assert_eq!(command, "git status");
 }
 
-// kawauso[verify facade.identity]
 #[test]
 fn project_module_is_the_kawauso_project_crate() {
     // The annotation is the assertion: it only compiles when the module and
@@ -68,7 +63,6 @@ fn project_module_is_the_kawauso_project_crate() {
     assert_eq!(markers, 1);
 }
 
-// kawauso[verify facade.module]
 #[test]
 fn project_module_provides_the_project_search() {
     let search = kawauso::project::Search::start("src/main.rs").marker(".git");

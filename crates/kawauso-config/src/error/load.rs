@@ -61,7 +61,6 @@ pub enum LoadConfigurationError {
     /// The variant carries no cause: that no file exists is the full
     /// diagnosis, and the underlying report of the operating system would
     /// only repeat it.
-    // config[impl load.file.error.missing]
     #[error("no configuration file exists at `{path}`")]
     #[non_exhaustive]
     MissingFile {
@@ -94,7 +93,6 @@ pub enum LoadConfigurationError {
     /// directory in its own way. One of these reports names a permission
     /// that the user cannot correct. The condition is the full diagnosis,
     /// and it is the same on every platform.
-    // config[impl load.file.error.directory]
     #[error("the path `{path}` is a directory, not a configuration file")]
     #[non_exhaustive]
     UnexpectedDirectory {
@@ -106,7 +104,6 @@ pub enum LoadConfigurationError {
     ///
     /// The read can fail because permissions are missing, or because the
     /// file is not valid UTF-8. The cause states the reason.
-    // config[impl load.file.error.unreadable]
     #[error("failed to read the configuration file at `{path}`")]
     #[non_exhaustive]
     UnreadableFile {

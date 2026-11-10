@@ -37,10 +37,6 @@ impl LocalDataDirectory {
     // up with them for us. This type wraps the answer, so that the library
     // stays out of the public API and the crate can replace it without a
     // breaking change.
-    // project[impl data.base.macos]
-    // project[impl data.base.windows]
-    // project[impl data.base.xdg]
-    // project[impl data.base.xdg.default]
     pub(super) fn of_platform() -> Option<Self> {
         dirs::data_local_dir().map(Self::new)
     }
@@ -67,7 +63,6 @@ mod tests {
     // `XDG_DATA_HOME` exercises the variable, and a run without it exercises
     // the default.
 
-    // project[verify data.base.macos]
     #[cfg(target_os = "macos")]
     #[test]
     fn of_platform_on_macos_returns_the_directory_of_apple() {
@@ -81,7 +76,6 @@ mod tests {
         assert_eq!(directory, Some(LocalDataDirectory::new(expected)));
     }
 
-    // project[verify data.base.windows]
     #[cfg(windows)]
     #[test]
     fn of_platform_on_windows_returns_the_local_application_data() {
@@ -94,8 +88,6 @@ mod tests {
         assert_eq!(directory, Some(LocalDataDirectory::new(expected)));
     }
 
-    // project[verify data.base.xdg]
-    // project[verify data.base.xdg.default]
     #[cfg(not(any(target_os = "macos", windows)))]
     #[test]
     fn of_platform_on_xdg_systems_returns_the_data_home() {

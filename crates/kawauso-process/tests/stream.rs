@@ -72,7 +72,6 @@ fn shell(commands: &[&str]) -> Invocation {
 // A caller that abandons the handle, after a timeout for example, drops it.
 // The command writes the file after the drop, so a file that exists at the
 // end is a command that outlived its handle.
-// process[verify stream.abandonment]
 #[cfg(unix)]
 #[tokio::test]
 async fn handle_that_the_caller_drops_ends_the_command() {
@@ -91,7 +90,6 @@ async fn handle_that_the_caller_drops_ends_the_command() {
 // when the command starts, so the caller reads it after the wait as well. The
 // shell writes its own identifier, so the test compares the value of the
 // operating system with the value of the handle.
-// process[verify stream.identity]
 #[cfg(unix)]
 #[tokio::test]
 async fn id_after_a_wait_for_the_end_names_the_command_that_ran() {
@@ -108,7 +106,6 @@ async fn id_after_a_wait_for_the_end_names_the_command_that_ran() {
 // of the platform, needs the identifier while the command runs. The shell
 // writes its own identifier and then keeps running, so the test compares the
 // value of the operating system with the value of the handle.
-// process[verify stream.identity]
 #[cfg(unix)]
 #[tokio::test]
 async fn id_with_a_command_that_runs_names_the_command() {
@@ -122,7 +119,6 @@ async fn id_with_a_command_that_runs_names_the_command() {
 
 // A command writes bytes, and a byte that is part of no character has no
 // place in the text of a line.
-// process[verify stream.decode]
 #[cfg(unix)]
 #[tokio::test]
 async fn next_line_with_a_byte_that_is_no_character_replaces_the_byte() {
@@ -136,7 +132,6 @@ async fn next_line_with_a_byte_that_is_no_character_replaces_the_byte() {
 // The handle exists for the caller that reads the output while the command
 // runs. The command sleeps after it wrote the line, so a handle that reported
 // the line at the end of the command would run into the timeout.
-// process[verify stream]
 #[cfg(unix)]
 #[tokio::test]
 async fn next_line_with_a_command_that_writes_before_it_ends_reports_the_line() {
@@ -154,7 +149,6 @@ async fn next_line_with_a_command_that_writes_before_it_ends_reports_the_line() 
 // shows the two apart needs the stream of every line. The order between the
 // two streams is the order of the operating system, so the test sorts the
 // lines before it compares them.
-// process[verify stream.tag]
 #[tokio::test]
 async fn next_line_with_a_command_that_writes_to_both_streams_names_the_stream_of_each_line() {
     let run = shell(&["echo hello", "echo oops 1>&2"]).start().unwrap();
@@ -175,7 +169,6 @@ async fn next_line_with_a_command_that_writes_to_both_streams_names_the_stream_o
 // as a timeout. The caller drops the read when the other event occurs first.
 // The command writes half of a line before the drop and the rest after it. A
 // read that lost the bytes that it took reports the wrong line.
-// process[verify stream.cancellation]
 #[cfg(unix)]
 #[tokio::test]
 async fn next_line_with_a_future_that_the_caller_dropped_reports_the_whole_line() {
@@ -194,7 +187,6 @@ async fn next_line_with_a_future_that_the_caller_dropped_reports_the_whole_line(
 
 // A command can end after its last byte, without the character that ends a
 // line. The bytes are output, so the caller gets them as a line.
-// process[verify stream]
 #[cfg(unix)]
 #[tokio::test]
 async fn next_line_with_a_last_line_that_has_no_end_reports_the_line() {
@@ -207,7 +199,6 @@ async fn next_line_with_a_last_line_that_has_no_end_reports_the_line() {
 
 // A command on Windows ends a line with two characters, and a caller that
 // compares the text of a line reads the same text on every platform.
-// process[verify stream.crlf]
 #[cfg(unix)]
 #[tokio::test]
 async fn next_line_with_a_line_that_ends_with_a_carriage_return_removes_it() {
@@ -224,7 +215,6 @@ async fn next_line_with_a_line_that_ends_with_a_carriage_return_removes_it() {
     );
 }
 
-// process[verify stream]
 #[tokio::test]
 async fn next_line_with_lines_reports_them_in_the_order_of_the_command() {
     let run = shell(&["echo one", "echo two", "echo three"])
@@ -245,7 +235,6 @@ async fn next_line_with_lines_reports_them_in_the_order_of_the_command() {
 
 // The lines are for a display, and the capture is the output of the command.
 // A byte that no line can show is therefore still in the result.
-// process[verify stream.decode]
 #[cfg(unix)]
 #[tokio::test]
 async fn wait_with_a_byte_that_is_no_character_keeps_the_byte_in_the_capture() {
@@ -260,7 +249,6 @@ async fn wait_with_a_byte_that_is_no_character_keeps_the_byte_in_the_capture() {
 // and a caller that reads the output of such a command waits for nothing. The
 // wait for the end reports that end, because it waits for the command and not
 // for the output.
-// process[verify stream.end]
 #[cfg(unix)]
 #[tokio::test]
 async fn wait_for_end_with_a_command_that_closed_its_streams_waits_for_the_command() {
@@ -274,7 +262,6 @@ async fn wait_for_end_with_a_command_that_closed_its_streams_waits_for_the_comma
 // The wait leaves the handle with the caller. The caller therefore asks for
 // the result of the run after the wait, and the result holds the status and
 // the whole capture.
-// process[verify stream.end]
 #[tokio::test]
 async fn wait_for_end_with_a_command_that_ended_leaves_the_result_with_the_handle() {
     let mut run = shell(&["echo hello", "exit 3"]).start().unwrap();
@@ -294,7 +281,6 @@ async fn wait_for_end_with_a_command_that_ended_leaves_the_result_with_the_handl
 // A caller waits for the end of the command and for an event of its own, and
 // the event can come first. The caller drops the wait then. The command
 // survives that drop, so the caller can still stop it in good order.
-// process[verify stream.end.cancellation]
 #[cfg(unix)]
 #[tokio::test]
 async fn wait_for_end_with_a_future_that_the_caller_dropped_leaves_the_command_running() {
@@ -309,7 +295,6 @@ async fn wait_for_end_with_a_future_that_the_caller_dropped_leaves_the_command_r
     );
 }
 
-// process[verify stream.wait]
 #[tokio::test]
 async fn wait_with_a_command_that_failed_reports_the_exit_code() {
     let run = shell(&["exit 3"]).start().unwrap();
@@ -321,7 +306,6 @@ async fn wait_with_a_command_that_failed_reports_the_exit_code() {
 
 // A command that fills a pipe stops until a reader empties it, so a handle
 // that read one stream after the other would never end this command.
-// process[verify stream.wait]
 #[cfg(unix)]
 #[tokio::test]
 async fn wait_with_a_command_that_fills_both_pipes_captures_everything() {
@@ -346,7 +330,6 @@ async fn wait_with_a_command_that_fills_both_pipes_captures_everything() {
 // The handle reports the result that a run in one call reports, and the
 // identifier is part of that result. The identifier of a command that ended
 // is gone, so a handle that read it after the wait would report none.
-// process[verify run.identity]
 #[cfg(unix)]
 #[tokio::test]
 async fn wait_with_a_command_that_writes_its_identifier_reports_the_same_identifier() {
@@ -362,7 +345,6 @@ async fn wait_with_a_command_that_writes_its_identifier_reports_the_same_identif
 
 // A caller that wants the result and not the progress uses the handle as
 // well, and it gets what a run in one call reports.
-// process[verify stream.wait]
 #[tokio::test]
 async fn wait_without_a_line_that_the_caller_read_returns_the_whole_capture() {
     let run = shell(&["echo hello", "echo oops 1>&2"]).start().unwrap();

@@ -13,9 +13,6 @@ independently to implement features that most applications share.
 mise install
 ```
 
-The first installation builds [Tracey] from source, which takes several
-minutes. Later installations reuse the binary.
-
 Activate mise in your shell, as the [mise documentation][mise-activate]
 describes. Activation puts the pinned tools on your `PATH`, and with them the
 `bin` directory of the repository, which holds a stub for every mise task.
@@ -56,4 +53,3 @@ dual licensed as above, without any additional terms or conditions.
 [mise]: https://mise.jdx.dev
 [mise-activate]: https://mise.jdx.dev/getting-started.html#activate-mise
 [rakko]: https://github.com/aonyx-ai/rakko
-[tracey]: https://tracey.bearcove.eu/

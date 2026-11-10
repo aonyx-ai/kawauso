@@ -19,10 +19,11 @@ use crate::error::ParseApplicationNameError;
 /// user finds the files under a name that they recognize.
 ///
 /// The name becomes part of a path, so it holds from 1 to 250 ASCII
-/// letters, ASCII digits, and hyphens, and it is not the name of a device on
-/// Windows, such as `CON` or `COM1`. Every way to create a name checks these
-/// rules and can fail. A constructor of the loader that takes a name
-/// therefore cannot fail because of it.
+/// letters, ASCII digits, and hyphens. It is also not the name of a device on
+/// Windows: `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, or `LPT0` to
+/// `LPT9`, in upper case, lower case, or a mix of the two. Every way to
+/// create a name checks these rules and can fail. A constructor of the loader
+/// that takes a name therefore cannot fail because of it.
 ///
 /// # Examples
 ///
@@ -70,8 +71,6 @@ impl TryFrom<&str> for ApplicationName {
 impl TryFrom<String> for ApplicationName {
     type Error = ParseApplicationNameError;
 
-    // config[impl name.application]
-    // config[impl name.error]
     fn try_from(name: String) -> Result<Self, Self::Error> {
         if is_portable(&name) {
             Ok(Self(name))
@@ -92,8 +91,6 @@ mod tests {
     // The rules of a name hold more than the set of characters. A name of a
     // device on Windows obeys that set, so only the rule on devices rejects
     // it.
-    // config[verify name.application]
-    // config[verify name.error]
     #[test]
     fn from_str_with_a_device_returns_an_error() {
         let error = "CON".parse::<ApplicationName>().unwrap_err();
@@ -104,8 +101,6 @@ mod tests {
         ));
     }
 
-    // config[verify name.application]
-    // config[verify name.error]
     #[test]
     fn from_str_with_a_malformed_name_returns_an_error() {
         let error = "example/app".parse::<ApplicationName>().unwrap_err();
@@ -116,7 +111,6 @@ mod tests {
         ));
     }
 
-    // config[verify name.application]
     #[test]
     fn from_str_with_a_portable_name_returns_the_name() {
         let name: ApplicationName = "example".parse().unwrap();
@@ -124,7 +118,6 @@ mod tests {
         assert_eq!(name.get(), "example");
     }
 
-    // config[verify name.error]
     #[test]
     fn to_string_of_the_error_escapes_the_value() {
         let error = "COM1\n".parse::<ApplicationName>().unwrap_err();
@@ -135,8 +128,6 @@ mod tests {
         );
     }
 
-    // config[verify name.application]
-    // config[verify name.error]
     #[test]
     fn try_from_a_str_with_a_malformed_name_returns_an_error() {
         let error = ApplicationName::try_from("").unwrap_err();
@@ -147,8 +138,6 @@ mod tests {
         ));
     }
 
-    // config[verify name.application]
-    // config[verify name.error]
     #[test]
     fn try_from_a_string_with_a_malformed_name_returns_an_error() {
         let error = ApplicationName::try_from(String::from("..")).unwrap_err();

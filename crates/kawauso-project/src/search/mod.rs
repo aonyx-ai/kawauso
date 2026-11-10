@@ -31,6 +31,15 @@ use self::state::Unmarked;
 /// which the developer named them, and the first directory that holds any of
 /// them is the project.
 ///
+/// The walk starts at the start directory and goes up one directory at a
+/// time, to the root of the file system. In each directory, it tests every
+/// marker before it goes to the directory above. A project therefore wins
+/// over a directory that contains it, even when that directory holds a
+/// marker that comes first in the list. The walk stops at the first
+/// directory in which a marker matches, and it reads no directory above it.
+/// With a marker such as `.git`, the walk never reads an entry above the
+/// repository.
+///
 /// The type parameter records whether the search names a marker. A search
 /// without one cannot find a project, because the walk tests nothing in every
 /// directory. [`load`][load] therefore takes a `Search<Marked>`, and
@@ -145,7 +154,6 @@ impl Search<Unmarked> {
     ///
     /// [marker]: Search::marker
     /// [start]: Search::start
-    // project[impl discover.start.working-directory]
     pub fn working_directory() -> Self {
         // A relative start resolves against the working directory, and `.`
         // resolves to the working directory itself. The walk needs no case of
@@ -178,7 +186,6 @@ impl<S: State> Search<S> {
     ///
     /// assert_eq!(search.markers()[0].get(), std::path::Path::new(".git"));
     /// ```
-    // project[impl discover.markers.order]
     pub fn marker(self, marker: impl Into<Marker>) -> Search<Marked> {
         let mut markers = self.markers;
         markers.push(marker.into());
@@ -232,7 +239,6 @@ impl<S: State> Search<S> {
     /// ```
     ///
     /// [marker]: crate::Project::marker
-    // project[impl discover.fallback]
     pub fn or_start(mut self) -> Self {
         self.fallback = Fallback::Start;
 
@@ -256,7 +262,6 @@ mod tests {
 
     use super::*;
 
-    // project[verify discover.markers.order]
     #[test]
     fn marker_with_two_markers_keeps_the_order_of_the_calls() {
         let search = Search::start(".").marker(".git").marker("src/main.rs");

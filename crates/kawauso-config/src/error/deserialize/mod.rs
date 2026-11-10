@@ -31,8 +31,8 @@ pub enum DeserializeConfigurationError {
     ///
     /// The position marks where parsing stopped: the first character that
     /// the parser could not accept. The actual mistake, for example a quote
-    /// that was never closed, can lie before that position.
-    // config[impl load.error.syntax]
+    /// that was never closed, can lie before that position. The message
+    /// gives the line and the column of the position.
     #[error("failed to parse the configuration at {position}")]
     #[non_exhaustive]
     MalformedDocument {
@@ -49,8 +49,7 @@ pub enum DeserializeConfigurationError {
     /// example a string where the type expects a number. A key that the type
     /// requires but the document lacks has no path of its own; in that case,
     /// the path points to the table that lacks the key, and the cause names
-    /// the key.
-    // config[impl load.error.field]
+    /// the key. The message gives the path, such as `server.port`.
     #[error("failed to deserialize the configuration at `{path}`")]
     #[non_exhaustive]
     MismatchedField {

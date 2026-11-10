@@ -43,8 +43,6 @@ const NUMBERED_DEVICES: [&str; 2] = ["COM", "LPT"];
 /// also exclude the characters that a file system changes or removes, such
 /// as a trailing space on Windows, or that it compares in a normalized form,
 /// such as the accented letters on macOS.
-// project[impl name.characters+2]
-// project[impl name.reserved]
 pub(super) fn is_portable(value: &str) -> bool {
     let characters = !value.is_empty()
         && value.len() <= MAXIMUM_LENGTH
@@ -82,61 +80,51 @@ mod tests {
 
     use super::*;
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_beyond_the_maximum_length_returns_false() {
         assert!(!is_portable(&"a".repeat(251)));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_a_backslash_returns_false() {
         assert!(!is_portable(r"example\project"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_a_colon_returns_false() {
         assert!(!is_portable("C:"));
     }
 
-    // project[verify name.reserved]
     #[test]
     fn is_portable_with_a_device_in_lower_case_returns_false() {
         assert!(!is_portable("nul"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_a_dot_returns_false() {
         assert!(!is_portable("."));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_a_hyphen_returns_true() {
         assert!(is_portable("example-project"));
     }
 
-    // project[verify name.reserved]
     #[test]
     fn is_portable_with_a_letter_after_the_prefix_of_a_device_returns_true() {
         assert!(is_portable("LPTX"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_a_letter_outside_ascii_returns_false() {
         assert!(!is_portable("café"));
     }
 
-    // project[verify name.reserved]
     #[test]
     fn is_portable_with_a_numbered_device_in_mixed_case_returns_false() {
         assert!(!is_portable("Com9"));
     }
 
-    // project[verify name.reserved]
     #[test]
     fn is_portable_with_a_numbered_device_returns_false() {
         assert!(!is_portable("LPT0"));
@@ -144,61 +132,51 @@ mod tests {
 
     // A device name with more than one digit is no device, and a name that
     // only starts with a device name is none either.
-    // project[verify name.reserved]
     #[test]
     fn is_portable_with_a_prefix_of_a_device_returns_true() {
         assert!(is_portable("COM10"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_a_slash_returns_false() {
         assert!(!is_portable("example/project"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_a_space_returns_false() {
         assert!(!is_portable("example "));
     }
 
-    // project[verify name.reserved]
     #[test]
     fn is_portable_with_a_word_that_starts_like_a_device_returns_true() {
         assert!(is_portable("console"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_an_absolute_path_returns_false() {
         assert!(!is_portable("/example"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_an_empty_value_returns_false() {
         assert!(!is_portable(""));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_an_underscore_returns_false() {
         assert!(!is_portable("example_project"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_letters_and_digits_returns_true() {
         assert!(is_portable("Example2"));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_the_maximum_length_returns_true() {
         assert!(is_portable(&"a".repeat(250)));
     }
 
-    // project[verify name.characters+2]
     #[test]
     fn is_portable_with_two_dots_returns_false() {
         assert!(!is_portable(".."));

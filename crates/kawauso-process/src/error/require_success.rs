@@ -53,7 +53,6 @@ pub enum RequireSuccessError {
 /// a report has only this message and the command wrote its reason there. A
 /// command that wrote nothing says so, so that no reader looks for a text
 /// that does not exist.
-// process[impl run.success.message]
 impl Display for RequireSuccessError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         match self {

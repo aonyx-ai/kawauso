@@ -27,7 +27,6 @@ pub enum DiscoverConfigurationError {
     /// The search reached the end of its locations. The user can create the
     /// file at any of them, and the one that the message names first is the
     /// one that wins.
-    // config[impl discover.error.missing]
     #[error("no configuration file exists at any of these locations: {locations}")]
     #[non_exhaustive]
     MissingFile {
@@ -47,7 +46,6 @@ pub enum DiscoverConfigurationError {
     ///
     /// The variant carries no cause: the value is the full diagnosis, and no
     /// other operation failed.
-    // config[impl discover.ancestors.subdirectories.error.outside]
     #[error("the subdirectory `{subdirectory}` is not a relative path inside a searched directory")]
     #[non_exhaustive]
     OutsideSubdirectory {
@@ -59,8 +57,8 @@ pub enum DiscoverConfigurationError {
     ///
     /// The search stops at such a location instead of moving on. A directory
     /// with the name of the file is a mistake that is hard to see, and a
-    /// file from a later location would hide it.
-    // config[impl discover.error.directory.path]
+    /// file from a later location would hide it. The message gives the path
+    /// of the directory.
     #[error("the path `{path}` is a directory, not a configuration file")]
     #[non_exhaustive]
     UnexpectedDirectory {

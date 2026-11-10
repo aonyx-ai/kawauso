@@ -397,7 +397,6 @@ dependencies = [
  "rakko-action",
  "rakko-baseline",
  "rakko-check-msrv",
- "rakko-check-specs",
  "rakko-cli",
  "rakko-format-json",
  "rakko-format-markdown",
@@ -741,23 +740,6 @@ dependencies = [
  "rakko-tool",
  "serde",
  "serde_json",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "rakko-check-specs"
-version = "0.1.0"
-source = "git+https://github.com/aonyx-ai/rakko?rev=5a388524311b77bb49492ade4575238d7358949f#5a388524311b77bb49492ade4575238d7358949f"
-dependencies = [
- "bon",
- "getset",
- "kawauso-process",
- "rakko-action",
- "rakko-tool",
- "serde",
- "serde_json",
- "tempfile",
  "thiserror",
  "tokio",
 ]

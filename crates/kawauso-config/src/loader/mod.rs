@@ -124,7 +124,9 @@ impl Loader {
     /// Each directory then has more than one location. The search reads the
     /// directory itself first, and then each location in the order in which
     /// the developer added them. It reads every location of one directory
-    /// before it reads a location of the directory above.
+    /// before it reads a location of the directory above. A location that
+    /// does not exist holds no file, and the search continues with the next
+    /// location.
     ///
     /// The working directory is read when [`load`][load] runs, not at the
     /// time of this call.
@@ -340,6 +342,9 @@ impl Loader {
     /// Returns [`UndiscoverableFile`][undiscoverable] when the source is a
     /// search, and the search finds no configuration file.
     ///
+    /// When a search finds a file, the loader reads that file as it reads a
+    /// path. The errors of a path then also apply to that file.
+    ///
     /// [deserialize]: https://docs.rs/serde/latest/serde/trait.Deserialize.html
     /// [directory]: LoadConfigurationError::UnexpectedDirectory
     /// [invalid-contents]: LoadConfigurationError::InvalidContents
@@ -350,7 +355,6 @@ impl Loader {
     // Each arm reads the locations of its own source, and no arm falls back
     // to the locations of another one, so the user always knows where the
     // application looks.
-    // config[impl discover.strategy]
     pub fn load<T>(&self) -> Result<T, LoadConfigurationError>
     where
         T: DeserializeOwned,
@@ -418,7 +422,6 @@ where
 ///
 /// Returns an error when the file cannot be read, when its contents are
 /// not valid TOML, or when the document does not match the caller's type.
-// config[impl load.file]
 fn load_file<T>(path: &ConfigurationPath) -> Result<T, LoadConfigurationError>
 where
     T: DeserializeOwned,
@@ -446,7 +449,6 @@ where
 /// Returns an error when the search found no file, when the file cannot be
 /// read, when its contents are not valid TOML, or when the document does not
 /// match the caller's type.
-// config[impl discover.load]
 fn load_found<T>(
     found: Result<ConfigurationPath, DiscoverConfigurationError>,
     application: &ApplicationName,
@@ -486,13 +488,6 @@ where
 /// Returns an error when a subdirectory is not a relative path inside its
 /// directory, when the working directory is unknown, when no location holds
 /// the file, or when a location holds a directory with the name of the file.
-// config[impl discover.ancestors.error.unknown-directory]
-// config[impl discover.ancestors.name+2]
-// config[impl discover.ancestors.order]
-// config[impl discover.ancestors.parents]
-// config[impl discover.ancestors.subdirectories.error.outside]
-// config[impl discover.ancestors.subdirectories.walk]
-// config[impl discover.ancestors.working-directory]
 fn find_in_ancestors(
     working_directory: std::io::Result<PathBuf>,
     search: &AncestorsSearch,
@@ -535,10 +530,6 @@ fn find_in_ancestors(
 /// A location that does not exist is still a location. The search reads what
 /// the file system reports about each location, and a location that it
 /// reports nothing about holds no configuration file.
-// config[impl discover.ancestors.dot]
-// config[impl discover.ancestors.dot.files]
-// config[impl discover.ancestors.subdirectories]
-// config[impl discover.ancestors.subdirectories.order+2]
 fn locations_in(
     directory: &Path,
     application: &ApplicationName,
@@ -599,8 +590,6 @@ fn is_inside(subdirectory: &Subdirectory) -> bool {
 /// Returns an error when the configuration directory of the platform is
 /// unknown, when the location holds no file, or when it holds a directory
 /// with the name of the file.
-// config[impl discover.user.error.unknown-directory]
-// config[impl discover.user.name]
 fn find_in_user_directory(
     directory: Option<ConfigurationDirectory>,
     application: &ApplicationName,
@@ -634,10 +623,6 @@ fn find_in_user_directory(
 ///
 /// Returns an error when no location holds the file, or when a location
 /// holds a directory with the name of the file.
-// config[impl discover.ancestors.precedence]
-// config[impl discover.ancestors.subdirectories.missing]
-// config[impl discover.error]
-// config[impl discover.error.directory]
 fn first_file(
     locations: SearchedLocations,
 ) -> Result<ConfigurationPath, DiscoverConfigurationError> {
@@ -670,8 +655,6 @@ fn first_file(
 ///
 /// Returns an error when the contents are not valid TOML, or when the
 /// document does not match the caller's type.
-// config[impl load.deserialize]
-// config[impl load.error]
 fn deserialize<T>(contents: &str) -> Result<T, DeserializeConfigurationError>
 where
     T: DeserializeOwned,
@@ -713,7 +696,6 @@ where
 ///
 /// Returns an error when no file exists at the path, when the path holds a
 /// directory, or when the file cannot be read.
-// config[impl load.file.error]
 fn read(path: &ConfigurationPath) -> Result<String, LoadConfigurationError> {
     std::fs::read_to_string(path.get()).map_err(|source| match source.kind() {
         ErrorKind::NotFound => LoadConfigurationError::MissingFile { path: path.clone() },
@@ -810,7 +792,6 @@ mod tests {
             .collect()
     }
 
-    // config[verify discover.error.directory]
     #[test]
     fn find_in_ancestors_with_a_directory_ends_the_search() {
         let root = tempfile::tempdir().unwrap();
@@ -828,7 +809,6 @@ mod tests {
         ));
     }
 
-    // config[verify discover.error.directory.path]
     #[test]
     fn find_in_ancestors_with_a_directory_reports_its_path() {
         let root = tempfile::tempdir().unwrap();
@@ -850,7 +830,6 @@ mod tests {
         );
     }
 
-    // config[verify discover.ancestors.parents]
     #[test]
     fn find_in_ancestors_with_a_file_in_a_parent_returns_it() {
         let root = tempfile::tempdir().unwrap();
@@ -863,7 +842,6 @@ mod tests {
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
 
-    // config[verify discover.ancestors.subdirectories]
     #[test]
     fn find_in_ancestors_with_a_file_in_a_subdirectory_returns_it() {
         let root = tempfile::tempdir().unwrap();
@@ -879,7 +857,6 @@ mod tests {
         assert_eq!(path.get(), expected);
     }
 
-    // config[verify discover.ancestors.working-directory]
     #[test]
     fn find_in_ancestors_with_a_file_in_the_working_directory_returns_it() {
         let root = tempfile::tempdir().unwrap();
@@ -898,7 +875,6 @@ mod tests {
     // A subdirectory is a convention, not a promise: most projects have none
     // of them, and a search that failed on the first project without a
     // `.github` would be useless.
-    // config[verify discover.ancestors.subdirectories.missing]
     #[test]
     fn find_in_ancestors_with_a_missing_subdirectory_continues_the_search() {
         let root = tempfile::tempdir().unwrap();
@@ -932,7 +908,6 @@ mod tests {
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
 
-    // config[verify discover.ancestors.subdirectories.error.outside]
     #[test]
     fn find_in_ancestors_with_a_subdirectory_above_the_directory_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -953,7 +928,6 @@ mod tests {
     // The order of the calls decides which location wins, so a subdirectory
     // that the developer names before the dot-config convention beats it in a
     // directory of the walk.
-    // config[verify discover.ancestors.subdirectories.order+2]
     #[test]
     fn find_in_ancestors_with_a_subdirectory_before_the_convention_returns_the_subdirectory() {
         let root = tempfile::tempdir().unwrap();
@@ -992,7 +966,6 @@ mod tests {
     // directory comes before the first location of its parent. A rule that
     // read one subdirectory across every directory first would let the parent
     // win here.
-    // config[verify discover.ancestors.subdirectories.walk]
     #[test]
     fn find_in_ancestors_with_a_subdirectory_of_the_working_directory_beats_a_parent() {
         let root = tempfile::tempdir().unwrap();
@@ -1011,7 +984,6 @@ mod tests {
 
     // An absolute subdirectory takes every directory of the walk to the same
     // place, and that place can be outside the project.
-    // config[verify discover.ancestors.subdirectories.error.outside]
     #[test]
     fn find_in_ancestors_with_an_absolute_subdirectory_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1030,7 +1002,6 @@ mod tests {
         ));
     }
 
-    // config[verify discover.ancestors.name+2]
     #[test]
     fn find_in_ancestors_with_another_file_in_the_working_directory_skips_it() {
         let root = tempfile::tempdir().unwrap();
@@ -1047,7 +1018,6 @@ mod tests {
     // The file layout wins over the directory layout, so an application that
     // creates its directory for the other files it owns does not change which
     // configuration file its user has.
-    // config[verify discover.ancestors.dot.files]
     #[test]
     fn find_in_ancestors_with_both_dot_config_layouts_returns_the_file() {
         let root = tempfile::tempdir().unwrap();
@@ -1079,7 +1049,6 @@ mod tests {
         );
     }
 
-    // config[verify discover.ancestors.dot]
     #[test]
     fn find_in_ancestors_with_config_in_dot_config_file_returns_it() {
         let root = tempfile::tempdir().unwrap();
@@ -1103,7 +1072,6 @@ mod tests {
         );
     }
 
-    // config[verify discover.ancestors.dot]
     #[test]
     fn find_in_ancestors_with_config_in_the_dot_config_directory_returns_it() {
         let root = tempfile::tempdir().unwrap();
@@ -1157,7 +1125,6 @@ mod tests {
     // A subdirectory is an addition, not a replacement. A project that keeps
     // the file where it always kept it must not lose it to a subdirectory
     // that the application started to accept later.
-    // config[verify discover.ancestors.subdirectories.order+2]
     #[test]
     fn find_in_ancestors_with_files_in_a_directory_and_its_subdirectory_returns_the_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1174,7 +1141,6 @@ mod tests {
         assert_eq!(path.get(), working_directory.join("kawauso.toml"));
     }
 
-    // config[verify discover.ancestors.precedence]
     #[test]
     fn find_in_ancestors_with_files_in_two_directories_returns_the_nearest() {
         let root = tempfile::tempdir().unwrap();
@@ -1194,7 +1160,6 @@ mod tests {
     // The subdirectories are named in the reverse of their alphabetical
     // order, so a result of `.github` can only come from the order of the
     // calls that named them.
-    // config[verify discover.ancestors.subdirectories.order+2]
     #[test]
     fn find_in_ancestors_with_files_in_two_subdirectories_returns_the_first_named() {
         let root = tempfile::tempdir().unwrap();
@@ -1216,7 +1181,6 @@ mod tests {
     // The order of the calls decides which one wins, so a convention that the
     // developer names before a subdirectory beats it in a directory of the
     // walk, and the file that the convention reads comes first.
-    // config[verify discover.ancestors.subdirectories.order+2]
     #[test]
     fn find_in_ancestors_with_the_convention_before_a_subdirectory_returns_the_convention() {
         let root = tempfile::tempdir().unwrap();
@@ -1254,7 +1218,6 @@ mod tests {
         );
     }
 
-    // config[verify discover.ancestors.order]
     #[test]
     fn find_in_ancestors_without_a_file_lists_the_locations_from_the_bottom_up() {
         let root = tempfile::tempdir().unwrap();
@@ -1274,7 +1237,6 @@ mod tests {
     // go, and a subdirectory is a place that the user cannot guess. The list
     // therefore holds both locations of every directory, in the order in
     // which they win.
-    // config[verify discover.ancestors.subdirectories.walk]
     #[test]
     fn find_in_ancestors_without_a_file_lists_the_locations_of_each_subdirectory() {
         let root = tempfile::tempdir().unwrap();
@@ -1298,7 +1260,6 @@ mod tests {
         assert_eq!(locations_of(&error), expected);
     }
 
-    // config[verify discover.error.missing]
     #[test]
     fn find_in_ancestors_without_a_file_reports_every_location() {
         let root = tempfile::tempdir().unwrap();
@@ -1318,7 +1279,6 @@ mod tests {
         );
     }
 
-    // config[verify discover.error]
     #[test]
     fn find_in_ancestors_without_a_file_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1331,7 +1291,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // config[verify discover.ancestors.error.unknown-directory]
     #[test]
     fn find_in_ancestors_without_a_working_directory_returns_an_error() {
         let failure = std::io::Error::from(ErrorKind::NotFound);
@@ -1348,7 +1307,6 @@ mod tests {
     // The two strategies look for different files in different places. A file
     // that the walk up the ancestors would find is therefore no answer for the
     // search in the directory of the user.
-    // config[verify discover.strategy]
     #[test]
     fn find_in_user_directory_with_a_file_of_the_other_strategy_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1362,7 +1320,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // config[verify discover.user.name]
     #[test]
     fn find_in_user_directory_without_a_file_searches_the_directory_of_the_application() {
         let root = tempfile::tempdir().unwrap();
@@ -1377,7 +1334,6 @@ mod tests {
         assert_eq!(locations_of(&error), expected);
     }
 
-    // config[verify discover.user.error.unknown-directory]
     #[test]
     fn find_in_user_directory_without_a_directory_returns_an_error() {
         let error = find_in_user_directory(None, &application()).unwrap_err();
@@ -1446,7 +1402,6 @@ mod tests {
         assert!(!inside);
     }
 
-    // config[verify discover.load]
     #[test]
     fn load_found_with_a_file_returns_the_configuration() {
         let root = tempfile::tempdir().unwrap();

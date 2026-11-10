@@ -24,7 +24,7 @@ command.
 
 ## Bundles and Actions
 
-The harness mounts two bundles and one action:
+The harness mounts two bundles:
 
 - [`rakko-baseline`][rakko-baseline] carries the actions that format and
   examine the files that any repository holds, whatever language it is
@@ -34,9 +34,6 @@ The harness mounts two bundles and one action:
   project runs, and the checks that guard the promises a published library
   makes: the floor of each dependency, the oldest toolchain that the crates
   compile on, and the examples in the documentation.
-- [`rakko-check-specs`][rakko-check-specs] runs [Tracey] to check that the
-  specifications of the crates are valid, and that the code and the tests
-  refer to their requirements correctly.
 
 Kawauso publishes libraries and no binary, so the harness mounts the library
 bundle and not `rakko-rust-binary`.
@@ -93,8 +90,6 @@ repository and the revision that this harness builds. A revision moves in one
 commit, which is what a review of the update reads.
 
 [rakko-baseline]: https://github.com/aonyx-ai/rakko/blob/main/bundles/rakko-baseline/README.md
-[rakko-check-specs]: https://github.com/aonyx-ai/rakko/blob/main/actions/rakko-check-specs
 [rakko-pre-commit]: https://github.com/aonyx-ai/rakko/blob/main/commands/rakko-pre-commit/README.md
 [rakko-rust-library]: https://github.com/aonyx-ai/rakko/blob/main/bundles/rakko-rust-library/README.md
 [rakko-set-msrv]: https://github.com/aonyx-ai/rakko/blob/main/commands/rakko-set-msrv/README.md
-[tracey]: https://tracey.bearcove.eu/

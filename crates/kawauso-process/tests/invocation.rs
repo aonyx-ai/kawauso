@@ -41,7 +41,6 @@ fn removals(invocation: &Invocation) -> Vec<String> {
 
 // A character that a shell expands reaches the program as the caller wrote
 // it, because no shell reads the command.
-// process[verify invocation.arguments]
 #[test]
 fn arg_with_a_metacharacter_keeps_the_argument() {
     let invocation = Invocation::new("ls").arg("*.rs");
@@ -51,7 +50,6 @@ fn arg_with_a_metacharacter_keeps_the_argument() {
 
 // A space inside an argument does not separate two arguments, which is what
 // a shell would make of it.
-// process[verify invocation.arguments]
 #[test]
 fn arg_with_a_space_keeps_one_argument() {
     let invocation = Invocation::new("git").arg("--message=two words");
@@ -59,7 +57,6 @@ fn arg_with_a_space_keeps_one_argument() {
     assert_eq!(invocation.arguments().len(), 1);
 }
 
-// process[verify invocation.arguments]
 #[test]
 fn arg_with_two_arguments_keeps_the_order_of_the_calls() {
     let invocation = Invocation::new("git").arg("status").arg("--short");
@@ -69,7 +66,6 @@ fn arg_with_two_arguments_keeps_the_order_of_the_calls() {
     assert_eq!(arguments, vec!["status", "--short"]);
 }
 
-// process[verify invocation.arguments]
 #[test]
 fn args_with_a_collection_appends_every_argument() {
     let invocation = Invocation::new("cargo")
@@ -81,7 +77,6 @@ fn args_with_a_collection_appends_every_argument() {
 
 // A space separates the words of a command line, so a program whose path
 // holds one would read as a program and an argument.
-// process[verify invocation.display]
 #[test]
 fn display_with_a_program_that_holds_a_space_marks_it() {
     let invocation = Invocation::new("/opt/my tool/bin/tool");
@@ -92,7 +87,6 @@ fn display_with_a_program_that_holds_a_space_marks_it() {
 // No shell takes a name out of the environment of one command, and the `env`
 // program writes a minus sign in front of the name. A reader of a log line
 // sees the same form here.
-// process[verify invocation.environment.removal.display]
 #[test]
 fn display_with_a_removed_name_shows_it_in_front_of_the_program() {
     let invocation = Invocation::new("git").arg("status").env_remove("GIT_DIR");
@@ -102,7 +96,6 @@ fn display_with_a_removed_name_shows_it_in_front_of_the_program() {
 
 // A line that mixed the two would leave a reader guessing which name the
 // command holds and which one it misses, so the removals come first.
-// process[verify invocation.environment.removal.display]
 #[test]
 fn display_with_a_removed_name_and_a_variable_shows_the_removal_first() {
     let invocation = Invocation::new("git")
@@ -115,7 +108,6 @@ fn display_with_a_removed_name_and_a_variable_shows_the_removal_first() {
 
 // A shell sets a variable for one command in front of the program, and a
 // reader of a log line knows that form.
-// process[verify invocation.environment.display]
 #[test]
 fn display_with_a_variable_shows_it_in_front_of_the_program() {
     let invocation = Invocation::new("cargo")
@@ -131,7 +123,6 @@ fn display_with_a_variable_shows_it_in_front_of_the_program() {
 // A value that holds a space would read as a variable and an argument in a
 // line that separates the words with spaces. The marks go around the value
 // alone, the way a shell writes them.
-// process[verify invocation.environment.display]
 #[test]
 fn display_with_a_variable_whose_value_holds_a_space_marks_the_value() {
     let invocation = Invocation::new("cargo")
@@ -146,7 +137,6 @@ fn display_with_a_variable_whose_value_holds_a_space_marks_the_value() {
 
 // A value that is empty would leave the reader with a name and an equals sign,
 // and the marks show that the value ends where it starts.
-// process[verify invocation.environment.display]
 #[test]
 fn display_with_a_variable_whose_value_is_empty_marks_the_value() {
     let invocation = Invocation::new("cargo").arg("build").env("NO_COLOR", "");
@@ -156,7 +146,6 @@ fn display_with_a_variable_whose_value_is_empty_marks_the_value() {
 
 // An argument that holds a space would read as two arguments in a line that
 // separates the arguments with spaces.
-// process[verify invocation.display]
 #[test]
 fn display_with_an_argument_that_holds_a_space_marks_it() {
     let invocation = Invocation::new("sh").arg("-c").arg("echo hello world");
@@ -164,7 +153,6 @@ fn display_with_an_argument_that_holds_a_space_marks_it() {
     assert_eq!(invocation.to_string(), "sh -c \"echo hello world\"");
 }
 
-// process[verify invocation.display]
 #[test]
 fn display_with_arguments_names_the_program_and_every_argument() {
     let invocation = Invocation::new("git").arg("status").arg("--short");
@@ -172,7 +160,6 @@ fn display_with_arguments_names_the_program_and_every_argument() {
     assert_eq!(invocation.to_string(), "git status --short");
 }
 
-// process[verify invocation.environment.display]
 #[test]
 fn display_with_two_variables_keeps_the_order_of_the_calls() {
     let invocation = Invocation::new("cargo")
@@ -187,7 +174,6 @@ fn display_with_two_variables_keeps_the_order_of_the_calls() {
 
 // The caller reads back what it took out, which is how an application logs
 // or asserts the environment that a command will run in.
-// process[verify invocation.environment.removal]
 #[test]
 fn env_remove_with_a_name_keeps_it() {
     let invocation = Invocation::new("git").env_remove("GIT_DIR");
@@ -197,7 +183,6 @@ fn env_remove_with_a_name_keeps_it() {
 
 // A name is either set or taken out. A caller that sets a variable and then
 // takes the name out means the command to miss it, so the variable goes.
-// process[verify invocation.environment.exclusion]
 #[test]
 fn env_remove_with_the_name_of_a_variable_takes_the_variable_out() {
     let invocation = Invocation::new("git")
@@ -209,7 +194,6 @@ fn env_remove_with_the_name_of_a_variable_takes_the_variable_out() {
 
 // A caller that names the same variable twice means it once, and the second
 // call says nothing new.
-// process[verify invocation.environment.removal]
 #[test]
 fn env_remove_with_a_repeated_name_keeps_one() {
     let invocation = Invocation::new("git")
@@ -221,7 +205,6 @@ fn env_remove_with_a_repeated_name_keeps_one() {
 
 // A caller that takes several names out reads them back in the order that it
 // named them, as it does for the variables that it set.
-// process[verify invocation.environment.removal]
 #[test]
 fn env_remove_with_two_names_keeps_the_order_of_the_calls() {
     let invocation = Invocation::new("git")
@@ -233,7 +216,6 @@ fn env_remove_with_two_names_keeps_the_order_of_the_calls() {
 
 // The last call for a name decides, so a caller that takes a name out and
 // then sets it means the command to read the value.
-// process[verify invocation.environment.exclusion]
 #[test]
 fn env_with_the_name_of_a_removed_name_takes_the_name_back() {
     let invocation = Invocation::new("git")
@@ -243,7 +225,6 @@ fn env_with_the_name_of_a_removed_name_takes_the_name_back() {
     assert_eq!(removals(&invocation), Vec::<String>::new());
 }
 
-// process[verify invocation.environment]
 #[test]
 fn env_with_a_variable_keeps_it() {
     let invocation = Invocation::new("cargo").env("RUSTUP_TOOLCHAIN", "nightly");
@@ -254,7 +235,6 @@ fn env_with_a_variable_keeps_it() {
 // A variable that a later call replaces stays where the first call put it, so
 // a caller that reads the environment sees the order of the names as it set
 // them.
-// process[verify invocation.environment.replacement]
 #[test]
 fn env_with_the_name_of_an_earlier_variable_keeps_the_place() {
     let invocation = Invocation::new("cargo")
@@ -273,7 +253,6 @@ fn env_with_the_name_of_an_earlier_variable_keeps_the_place() {
 
 // A variable holds one value, so a later call with the same name leaves one
 // variable with the later value, and not two variables with the same name.
-// process[verify invocation.environment.replacement]
 #[test]
 fn env_with_the_name_of_an_earlier_variable_replaces_the_value() {
     let invocation = Invocation::new("cargo")
@@ -283,7 +262,6 @@ fn env_with_the_name_of_an_earlier_variable_replaces_the_value() {
     assert_eq!(variables(&invocation), vec!["RUSTUP_TOOLCHAIN=nightly"]);
 }
 
-// process[verify invocation.environment]
 #[test]
 fn env_with_two_variables_keeps_the_order_of_the_calls() {
     let invocation = Invocation::new("cargo")
@@ -296,7 +274,6 @@ fn env_with_two_variables_keeps_the_order_of_the_calls() {
     );
 }
 
-// process[verify invocation.environment]
 #[test]
 fn envs_with_a_collection_sets_every_variable() {
     let invocation = Invocation::new("cargo")
@@ -308,7 +285,6 @@ fn envs_with_a_collection_sets_every_variable() {
 
 // A collection goes through the same steps as one call per variable, so a
 // name that appears twice in the collection leaves one variable behind.
-// process[verify invocation.environment.replacement]
 #[test]
 fn envs_with_the_name_of_an_earlier_variable_replaces_the_value() {
     let invocation = Invocation::new("cargo").envs([
@@ -319,7 +295,6 @@ fn envs_with_the_name_of_an_earlier_variable_replaces_the_value() {
     assert_eq!(variables(&invocation), vec!["RUSTUP_TOOLCHAIN=nightly"]);
 }
 
-// process[verify invocation.directory]
 #[test]
 fn in_directory_with_a_directory_keeps_it() {
     let invocation = Invocation::new("cargo").in_directory("crates/example");
@@ -332,7 +307,6 @@ fn in_directory_with_a_directory_keeps_it() {
     );
 }
 
-// process[verify invocation.program]
 #[test]
 fn new_with_a_program_keeps_the_program() {
     let invocation = Invocation::new("/usr/bin/git");
@@ -342,7 +316,6 @@ fn new_with_a_program_keeps_the_program() {
 
 // A command that names no directory of its own is a complete command, and
 // not a mistake that the crate reports.
-// process[verify invocation.directory]
 #[test]
 fn new_without_a_directory_reports_no_directory() {
     let invocation = Invocation::new("git").arg("status");
