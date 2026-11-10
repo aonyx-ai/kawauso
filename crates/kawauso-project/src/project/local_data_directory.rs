@@ -1,5 +1,8 @@
 //! The directory in which a platform keeps the local data of a user
 
+use std::ffi::OsString;
+use std::path::PathBuf;
+
 use typed_fields::path;
 
 path!(
@@ -33,12 +36,48 @@ impl LocalDataDirectory {
     /// when the function cannot determine the home directory of the user.
     ///
     /// [xdg]: https://specifications.freedesktop.org/basedir/latest/
-    // The rules of a platform belong to that platform, and a library keeps
-    // up with them for us. This type wraps the answer, so that the library
-    // stays out of the public API and the crate can replace it without a
-    // breaking change.
+    // A library finds the home directory of the user and the known folders
+    // of Windows, because the platform decides where they are. The rules of
+    // XDG and of Apple then give the directory from the home directory and
+    // one variable. `from_environment` applies them to the values that it
+    // gets as arguments, so that a test can give each case to it.
     pub(super) fn of_platform() -> Option<Self> {
-        dirs::data_local_dir().map(Self::new)
+        if cfg!(windows) {
+            dirs::data_local_dir().map(Self::new)
+        } else {
+            Self::from_environment(std::env::var_os("XDG_DATA_HOME"), dirs::home_dir())
+        }
+    }
+
+    /// Returns the local data directory that the convention of Apple gives
+    ///
+    /// The directory is `Library/Application Support` in `home`. The
+    /// convention of Apple does not use `XDG_DATA_HOME`, so the value of
+    /// `_xdg_data_home` has no effect. The parameter is there so that this
+    /// function and the one for XDG have the same signature.
+    ///
+    /// Returns [`None`] when `home` is [`None`].
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    fn from_environment(_xdg_data_home: Option<OsString>, home: Option<PathBuf>) -> Option<Self> {
+        home.map(|home| Self::new(home.join("Library").join("Application Support")))
+    }
+
+    /// Returns the local data directory that the XDG specification gives
+    ///
+    /// The directory is `xdg_data_home` when it holds an absolute path. When
+    /// it is [`None`], empty, or relative, the directory is `.local/share` in
+    /// `home`. The specification tells an application to ignore a relative
+    /// path, and an empty path is relative.
+    ///
+    /// Returns [`None`] when `xdg_data_home` holds no absolute path and
+    /// `home` is [`None`].
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    fn from_environment(xdg_data_home: Option<OsString>, home: Option<PathBuf>) -> Option<Self> {
+        xdg_data_home
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .or_else(|| home.map(|home| home.join(".local").join("share")))
+            .map(Self::new)
     }
 }
 
@@ -48,22 +87,116 @@ mod tests {
     // test would repeat that and give the reader no information.
     #![allow(clippy::missing_panics_doc)]
 
-    use std::path::PathBuf;
-
     use super::*;
 
-    // Each of these tests states the rule of one platform, and it runs only on
-    // that platform. A test cannot set an environment variable to reach the
-    // rule of another one, because a process shares its environment with every
-    // thread in it and tests run in parallel. The rule of a platform therefore
-    // stays unverified until a machine of that platform runs the tests.
+    // The rule of each platform is in `from_environment`, which gets the
+    // value of `XDG_DATA_HOME` and the home directory as arguments. Its
+    // tests give each case to it directly. A test that sets an environment
+    // variable changes it for every thread of the process, and the tests run
+    // in parallel. The tests of a rule run only on the platforms that use
+    // it.
     //
-    // The environment that the test got decides which branch of a rule it
-    // reaches. On a system that follows the XDG specification, a run with
-    // `XDG_DATA_HOME` exercises the variable, and a run without it exercises
-    // the default.
+    // The tests of `of_platform` check that it reads the environment of the
+    // process and gives it to the rule. Their expected value comes from the
+    // same environment, so each run reaches only the case that the
+    // environment gives.
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn from_environment_on_macos_with_a_variable_returns_the_directory_of_apple() {
+        let xdg_data_home = Some(OsString::from("/xdg/data"));
+        let home = Some(PathBuf::from("/Users/user"));
+
+        let directory = LocalDataDirectory::from_environment(xdg_data_home, home);
+
+        assert_eq!(
+            directory,
+            Some(LocalDataDirectory::new(PathBuf::from(
+                "/Users/user/Library/Application Support"
+            )))
+        );
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn from_environment_on_macos_without_a_home_returns_none() {
+        let xdg_data_home = Some(OsString::from("/xdg/data"));
+
+        let directory = LocalDataDirectory::from_environment(xdg_data_home, None);
+
+        assert_eq!(directory, None);
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
+    #[test]
+    fn from_environment_on_xdg_systems_with_a_relative_variable_returns_the_default() {
+        let xdg_data_home = Some(OsString::from("xdg/data"));
+        let home = Some(PathBuf::from("/home/user"));
+
+        let directory = LocalDataDirectory::from_environment(xdg_data_home, home);
+
+        assert_eq!(
+            directory,
+            Some(LocalDataDirectory::new(PathBuf::from(
+                "/home/user/.local/share"
+            )))
+        );
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
+    #[test]
+    fn from_environment_on_xdg_systems_with_an_absolute_variable_returns_the_variable() {
+        let xdg_data_home = Some(OsString::from("/xdg/data"));
+        let home = Some(PathBuf::from("/home/user"));
+
+        let directory = LocalDataDirectory::from_environment(xdg_data_home, home);
+
+        assert_eq!(
+            directory,
+            Some(LocalDataDirectory::new(PathBuf::from("/xdg/data")))
+        );
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
+    #[test]
+    fn from_environment_on_xdg_systems_with_an_empty_variable_returns_the_default() {
+        let xdg_data_home = Some(OsString::new());
+        let home = Some(PathBuf::from("/home/user"));
+
+        let directory = LocalDataDirectory::from_environment(xdg_data_home, home);
+
+        assert_eq!(
+            directory,
+            Some(LocalDataDirectory::new(PathBuf::from(
+                "/home/user/.local/share"
+            )))
+        );
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
+    #[test]
+    fn from_environment_on_xdg_systems_without_a_home_returns_none() {
+        let directory = LocalDataDirectory::from_environment(None, None);
+
+        assert_eq!(directory, None);
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
+    #[test]
+    fn from_environment_on_xdg_systems_without_a_variable_returns_the_default() {
+        let home = Some(PathBuf::from("/home/user"));
+
+        let directory = LocalDataDirectory::from_environment(None, home);
+
+        assert_eq!(
+            directory,
+            Some(LocalDataDirectory::new(PathBuf::from(
+                "/home/user/.local/share"
+            )))
+        );
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     #[test]
     fn of_platform_on_macos_returns_the_directory_of_apple() {
         let home = std::env::var_os("HOME").expect("the test needs a home directory");
@@ -88,7 +221,7 @@ mod tests {
         assert_eq!(directory, Some(LocalDataDirectory::new(expected)));
     }
 
-    #[cfg(not(any(target_os = "macos", windows)))]
+    #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
     #[test]
     fn of_platform_on_xdg_systems_returns_the_data_home() {
         let home = std::env::var_os("HOME").expect("the test needs a home directory");
