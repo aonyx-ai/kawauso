@@ -1,7 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "github>aonyx-ai/renovate-config",
-    "github>aonyx-ai/rakko-update#20990c89af119f58a202df1513ff3449ee8ace96"
-  ]
+  "extends": ["github>aonyx-ai/renovate-config", "github>aonyx-ai/rakko-update"]
 }
