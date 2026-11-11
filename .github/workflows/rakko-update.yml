@@ -1,0 +1,28 @@
+---
+name: Rakko Update
+
+# An update of Rakko can change the tools that the mounted actions declare,
+# and Rakko then stops every command except the help and `doctor` until
+# `doctor --fix` writes the tool pins again. The action runs that repair in the pull request of Renovate, and it
+# commits the changed files to the branch of the pull request.
+
+"on":
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    name: Repair the tool pins
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # The action pushes its repair to the branch.
+
+    steps:
+      - name: Repair the tool pins
+        uses: aonyx-ai/rakko-update@20990c89af119f58a202df1513ff3449ee8ace96

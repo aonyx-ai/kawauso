@@ -8,16 +8,14 @@
 //! action in it.
 //!
 //! It also mounts commands, for a maintenance activity that no single action
-//! describes. A command comes from a crate, as an action does, and this file
-//! names it. When a command runs actions, this file names those actions as
-//! well and gives them to the command.
+//! describes, and groups, such as pre-commit. A group is a name and a list of
+//! actions that run together. This file names the actions of each group.
 //!
 //! Run it with `mise run rakko`, or with `rakko` where the environment
 //! supplies the shortcut.
 
-use rakko_action::ErasedAction;
+use rakko::Bundle;
 use rakko_check_msrv::CheckMsrv;
-use rakko_cli::ErasedCommand;
 use rakko_format_json::FormatJson;
 use rakko_format_markdown::FormatMarkdown;
 use rakko_format_rust::FormatRust;
@@ -34,52 +32,42 @@ use rakko_test_rust_docs::TestRustDocs;
 
 /// Builds the command line of this repository and runs it
 ///
-/// The call ends the process itself, so a harness stays a `main` that names
-/// what the repository mounts and returns nothing.
-///
 /// Kawauso publishes libraries, so it mounts the library bundle and not the
 /// binary bundle. The library bundle adds the checks that guard what a
 /// published crate promises.
-fn main() {
-    let pre_commit = PreCommit::new(actions_that_write().into_iter().chain(actions_that_read()));
+fn main() -> std::process::ExitCode {
+    let pre_commit = PreCommit::new(actions_that_guard_a_commit());
 
     rakko_cli::builder()
         .mount(rakko_baseline::bundle())
         .mount(rakko_rust_library::bundle())
-        .mount_commands([
-            Box::new(pre_commit) as Box<dyn ErasedCommand>,
-            Box::new(SetMsrv::new(Box::new(CheckMsrv))),
-        ])
-        .run();
+        .mount(SetMsrv::new(CheckMsrv))
+        .mount(pre_commit)
+        .run()
 }
 
-/// Returns the actions that write to the tree before a commit, in their order
-///
-/// The order is the one in which this repository formatted before the
-/// pre-commit command existed. The formatters overlap in the files that they
-/// write, so the last formatter that writes a file decides its content.
-fn actions_that_write() -> Vec<Box<dyn ErasedAction>> {
-    vec![
-        Box::new(FormatJson),
-        Box::new(FormatMarkdown),
-        Box::new(FormatYaml),
-        Box::new(FormatToml),
-        Box::new(FormatRust),
-    ]
-}
-
-/// Returns the actions that only read the tree before a commit, in their order
+/// Returns the actions that guard a commit
 ///
 /// The list is shorter than the list that the harness mounts. An action such
 /// as `check-latest-deps`, which resolves the dependencies of the project
 /// again, belongs in a scheduled job and not in front of every commit.
-fn actions_that_read() -> Vec<Box<dyn ErasedAction>> {
-    vec![
-        Box::new(LintGitHubActions),
-        Box::new(LintMarkdown),
-        Box::new(LintRust),
-        Box::new(LintYaml),
-        Box::new(TestRust),
-        Box::new(TestRustDocs),
-    ]
+///
+/// The pre-commit command runs the actions that write before the actions that
+/// read. The order among the formatters is the one in which this repository
+/// formatted before the pre-commit command existed. The formatters overlap in
+/// the files that they write, so the last formatter that writes a file decides
+/// its content.
+fn actions_that_guard_a_commit() -> Bundle {
+    Bundle::default()
+        .with(FormatJson)
+        .with(FormatMarkdown)
+        .with(FormatYaml)
+        .with(FormatToml)
+        .with(FormatRust)
+        .with(LintGitHubActions)
+        .with(LintMarkdown)
+        .with(LintRust)
+        .with(LintYaml)
+        .with(TestRust)
+        .with(TestRustDocs)
 }

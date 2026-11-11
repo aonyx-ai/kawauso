@@ -19,21 +19,6 @@ url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.26.2/ca
 url_api = "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/assets/695465979"
 provenance = "github-attestations"
 
-[[tools."cargo:cargo-deny"]]
-version = "0.20.2"
-backend = "cargo:cargo-deny"
-specifiers = ["0.20.2"]
-
-[[tools."cargo:cargo-nextest"]]
-version = "0.9.151"
-backend = "cargo:cargo-nextest"
-specifiers = ["0.9.151"]
-
-[[tools."cargo:cargo-udeps"]]
-version = "0.1.61"
-backend = "cargo:cargo-udeps"
-specifiers = ["0.1.61"]
-
 [[tools.jq]]
 version = "1.8.2"
 backend = "aqua:jqlang/jq"
@@ -64,21 +49,6 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.gz"
 checksum = "sha256:d38bd5e5a2ddce6bbb5ce45e46e208337da4d51fffe611e567fd32073d6439f6"
 url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-darwin-arm64.tar.gz"
 
-[[tools."npm:markdownlint-cli"]]
-version = "0.50.0"
-backend = "npm:markdownlint-cli"
-specifiers = ["0.50.0"]
-
-[[tools."npm:prettier"]]
-version = "3.9.10"
-backend = "npm:prettier"
-specifiers = ["3.9.10"]
-
-[[tools."npm:renovate"]]
-version = "44.199.2"
-backend = "npm:renovate"
-specifiers = ["44.199.2"]
-
 [[tools."pipx:pre-commit"]]
 version = "4.7.0"
 backend = "pipx:pre-commit"
@@ -104,40 +74,3 @@ components = "rustfmt"
 version = "1.85.0"
 backend = "core:rust"
 specifiers = ["1.85.0"]
-
-[[tools.taplo]]
-version = "0.10.0"
-backend = "aqua:tamasfe/taplo"
-specifiers = ["0.10.0"]
-
-[tools.taplo."platforms.linux-x64"]
-checksum = "sha256:8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156"
-url = "https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-x86_64.gz"
-url_api = "https://api.github.com/repos/tamasfe/taplo/releases/assets/257322600"
-
-[tools.taplo."platforms.macos-arm64"]
-checksum = "sha256:713734314c3e71894b9e77513c5349835eefbd52908445a0d73b0c7dc469347d"
-url = "https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-darwin-aarch64.gz"
-url_api = "https://api.github.com/repos/tamasfe/taplo/releases/assets/257323110"
-
-[[tools.yamllint]]
-version = "1.38.0"
-backend = "pipx:yamllint"
-specifiers = ["1.38.0"]
-
-[[tools.zizmor]]
-version = "1.32.0"
-backend = "aqua:zizmorcore/zizmor"
-specifiers = ["1.32.0"]
-
-[tools.zizmor."platforms.linux-x64"]
-checksum = "sha256:bb110cc765eca9cd7efb2e284a956be5974c60027b0970f16397d86208a9957b"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.32.0/zizmor-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/703541932"
-provenance = "github-attestations"
-
-[tools.zizmor."platforms.macos-arm64"]
-checksum = "sha256:6efed18c4539a663fd3c851a2be9533fd8456c4e646d9416206da059154a0d3c"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.32.0/zizmor-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/703541933"
-provenance = "github-attestations"
