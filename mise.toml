@@ -1,8 +1,9 @@
-# Mise provisions every external tool that this repository needs, at the
-# versions that this file pins. The actions of the harness install nothing:
-# each of them resolves its tool through mise and stops when mise reports
-# none, so a pin that is missing here fails a command instead of letting it
-# run against whatever the machine happens to carry.
+# Mise provisions every external tool that this repository needs. This file
+# pins the toolchains and the tools that no action of the harness declares.
+# The tools that the mounted actions declare are pinned in
+# `.config/mise/conf.d/rakko.toml`, which `mise run rakko -- doctor --fix`
+# writes. The actions of the harness install nothing: each of them resolves
+# its tool through mise and stops when mise reports none.
 
 [tools]
 # Mise builds a tool of the cargo backend from source, unless cargo-binstall is
@@ -46,25 +47,18 @@ rust = [
   ] },
   { version = "1.85.0" },
 ]
-
-"cargo:cargo-deny" = "0.20.2"
-"cargo:cargo-nextest" = "0.9.151"
-"cargo:cargo-udeps" = "0.1.61"
 jq = "1.8.2"
-"npm:markdownlint-cli" = "0.50.0"
 # The release of pre-commit is a Python zipapp, and the registry maps that
 # file to no Windows download, so the pin names the backend that installs
 # from the package index instead and works on every platform.
 "pipx:pre-commit" = "4.7.0"
-"npm:prettier" = "3.9.10"
-# Renovate publishes several releases a day. The shared preset of Renovate that
-# this repository extends moves the pin once a week, so that the releases
-# arrive as one pull request per week and not as several per day.
-"npm:renovate" = "44.199.2"
-taplo = "0.10.0"
 
-yamllint = "1.38.0"
-zizmor = "1.32.0"
+# The pin below installs no tool that an action runs. Mise installs
+# pre-commit above and the yamllint of `lint-yaml` from the package index of
+# Python, and it reaches for uv to do so, and to record their dependencies in
+# the lockfile. Not every machine carries a uv that works, so the pin provides
+# one.
+uv = "0.13.7"
 
 [settings]
 # The lockfile records the version that each pin resolved to, and for a tool
