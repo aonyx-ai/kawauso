@@ -49,8 +49,9 @@ url_api = "https://api.github.com/repos/tamasfe/taplo/releases/assets/257323110"
 
 [[tools.yamllint]]
 version = "1.38.0"
-backend = "pipx:yamllint"
+backend = "pypi:yamllint"
 specifiers = ["1.38.0"]
+uv = { path = "locks/yamllint/1.38.0", digest = "sha256:a720bfa7646dbff70bb1357859a6c6ada014c160ba91d6c5f5d17e357d296f43" }
 
 [[tools.zizmor]]
 version = "1.32.0"

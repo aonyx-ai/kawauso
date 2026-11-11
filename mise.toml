@@ -53,6 +53,13 @@ jq = "1.8.2"
 # from the package index instead and works on every platform.
 "pipx:pre-commit" = "4.7.0"
 
+# The pin below installs no tool that an action runs. Mise installs
+# pre-commit above and the yamllint of `lint-yaml` from the package index of
+# Python, and it reaches for uv to do so, and to record their dependencies in
+# the lockfile. Not every machine carries a uv that works, so the pin provides
+# one.
+uv = "0.13.7"
+
 [settings]
 # The lockfile records the version that each pin resolved to, and for a tool
 # that mise downloads, the address and the checksum of the file for each
