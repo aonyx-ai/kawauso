@@ -58,7 +58,7 @@ jq = "1.8.2"
 # Python, and it reaches for uv to do so, and to record their dependencies in
 # the lockfile. Not every machine carries a uv that works, so the pin provides
 # one.
-uv = "0.13.7"
+uv = "0.13.8"
 
 [settings]
 # The lockfile records the version that each pin resolved to, and for a tool
