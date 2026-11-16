@@ -26,14 +26,17 @@ impl From<std::path::PathBuf> for WorkingDirectory {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // An application that runs a command in the project that it found holds
-    // a `PathBuf`, and the working directory takes it without a borrow.
+    /// Keeps the path from a `PathBuf`
+    ///
+    /// An application that runs a command in the project that it found holds
+    /// a `PathBuf`, and the working directory takes it without a borrow.
     #[test]
     fn from_path_buf_keeps_the_path() {
         let directory = WorkingDirectory::from(std::path::PathBuf::from("crates/example"));

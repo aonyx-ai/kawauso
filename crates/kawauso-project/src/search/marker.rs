@@ -15,9 +15,9 @@ path!(
     /// `.git` is a directory, and a worktree, where it is a file. A symbolic
     /// link whose target does not exist does not match.
     ///
-    /// The search never reads the entry. An application that has to examine
-    /// its contents, such as a `main.rs` file with a specific macro, examines
-    /// the entry in the project that the search found.
+    /// The search never reads the entry. An application that has to examine its
+    /// contents examines the entry in the project that the search found. An
+    /// example is a `main.rs` file with a specific macro.
     ///
     /// The value is a relative path that stays inside its directory. It can
     /// name more than one level, such as `.config/example.toml`. A value that
@@ -40,14 +40,17 @@ impl From<std::path::PathBuf> for Marker {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A path that the application builds at runtime arrives as a `PathBuf`,
-    // and the marker takes it without a borrow.
+    /// Shows that a marker accepts a path built at runtime
+    ///
+    /// A path that the application builds at runtime arrives as a `PathBuf`,
+    /// and the marker takes it without a borrow.
     #[test]
     fn from_path_buf_keeps_the_path() {
         let marker = Marker::from(std::path::PathBuf::from(".git"));

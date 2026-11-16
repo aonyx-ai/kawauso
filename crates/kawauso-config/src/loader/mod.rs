@@ -1,14 +1,14 @@
 //! Loading of configuration files
 //!
 //! This module turns a configuration into a value of the caller's type.
-//! [`Loader`] is the entry point of the crate: a constructor selects
-//! the source of the configuration, and [`load`][load] reads the source,
-//! parses its contents as TOML, and deserializes them.
+//! [`Loader`] is the entry point of the crate. A constructor selects the source
+//! of the configuration. [`load`][load] reads the source, parses its contents
+//! as TOML, and deserializes them.
 //!
 //! A source can be a search. The module then holds the two strategies that
-//! find a configuration file: a walk from the working directory up to the
-//! root of the file system, and a look into the directory in which the
-//! platform keeps the configuration of a user.
+//! find a configuration file. One is a walk from the working directory up to
+//! the root of the file system. The other is a look into the directory in
+//! which the platform keeps the configuration of a user.
 //!
 //! A strategy that has options carries them in a type of its own, such as
 //! [`AncestorsSearch`], which the constructor of that strategy takes. An
@@ -21,15 +21,9 @@ pub mod ancestors_search;
 pub mod application_name;
 pub mod configuration_path;
 
-// A caller never names the contents of a configuration or the directory of a
-// platform: a constructor of the loader takes what they wrap, and no error
-// reports one. Their modules are therefore private, which keeps them out of
-// the public API and leaves the crate free to change them.
 mod configuration_directory;
 mod contents;
 
-// Only the name of an application applies the rules of a portable name, so
-// the module that states them is private as well.
 mod portable_name;
 
 use std::io::ErrorKind;
@@ -58,13 +52,16 @@ use crate::error::discover::SearchedLocations;
 /// Loads a configuration from one source
 ///
 /// A loader owns one source of a configuration, and each constructor of the
-/// loader names one source: [`contents`][contents] for contents that the
-/// caller supplies, [`path`][path] for a file at a caller-supplied path,
-/// [`ancestors`][ancestors] for a search near the working directory, and
-/// [`user`][user] for a search in the directory of the user. The constructor
-/// takes everything that its source needs, so a loader without a source
-/// cannot exist, and [`load`][load] fails only for reasons that come from
-/// the source.
+/// loader names one source:
+///
+/// - [`contents`][contents] for contents that the caller supplies
+/// - [`path`][path] for a file at a caller-supplied path
+/// - [`ancestors`][ancestors] for a search near the working directory
+/// - [`user`][user] for a search in the directory of the user
+///
+/// The constructor takes everything that its source needs, so a loader
+/// without a source cannot exist. [`load`][load] fails only for reasons that
+/// come from the source.
 ///
 /// The loader is not generic over the configuration type; [`load`][load] is.
 /// A loader can therefore live in a field, load more than once, and
@@ -102,13 +99,13 @@ pub struct Loader {
 impl Loader {
     /// Creates a loader that searches the working directory and its ancestors
     ///
-    /// The configuration of a project belongs to the project, and a user
-    /// runs the application from the project or from a directory in it. The
-    /// search therefore starts at the working directory of the process and
-    /// goes up, one directory at a time, until it reaches the root of the
-    /// file system. It looks in each directory for a file that has the name
-    /// of the application and the extension `.toml`, and it takes the first
-    /// one that it finds. A project can thus override the configuration of
+    /// The configuration of a project belongs to the project.
+    /// A user runs the application from the project or from a directory in it.
+    /// The search therefore starts at the working directory of the process. It
+    /// goes up, one directory at a time, until it reaches the root of the file
+    /// system. It looks in each directory for a file that has the name
+    /// of the application and the extension `.toml`. It takes the first one
+    /// that it finds. A project can thus override the configuration of
     /// the directory that contains it.
     ///
     /// The search never reads the configuration directory of the user;
@@ -117,9 +114,10 @@ impl Loader {
     ///
     /// The name of an application is enough to start the search. A project
     /// that keeps the file somewhere else needs an [`AncestorsSearch`]. It
-    /// adds the locations that the application also accepts: a subdirectory
-    /// that many tools share, such as `.github`, and the dot-config
-    /// convention, which gives the application a directory of its own.
+    /// adds the locations that the application also accepts. One is a
+    /// subdirectory that many tools share, such as `.github`. The other is the
+    /// dot-config convention, which gives the application a directory of its
+    /// own.
     ///
     /// Each directory then has more than one location. The search reads the
     /// directory itself first, and then each location in the order in which
@@ -268,14 +266,14 @@ impl Loader {
     /// Creates a loader that searches the configuration directory of the user
     ///
     /// The configuration of a user belongs to the user, and every platform
-    /// has a place for it. The application gets a directory of its own in
-    /// that place, which leaves room for the files that it writes later, and
-    /// the search reads the file `config.toml` in that directory.
+    /// has a place for it. The application gets a directory of its own in that
+    /// place. That leaves room for the files that it writes later. The search
+    /// reads the file `config.toml` in that directory.
     ///
-    /// On Linux, and on the other systems that follow the [XDG Base
-    /// Directory Specification][xdg], the place is the directory that
-    /// `XDG_CONFIG_HOME` names, and `.config` in the home directory when the
-    /// variable holds no absolute path. On macOS, it is `Library/Application
+    /// On Linux, and on the other systems that follow the [XDG Base Directory
+    /// Specification][xdg], the place is the directory that `XDG_CONFIG_HOME`
+    /// names. When the variable holds no absolute path, the place is `.config`
+    /// in the home directory. On macOS, it is `Library/Application
     /// Support` in the home directory, and a user who sets `XDG_CONFIG_HOME`
     /// keeps the file where the rest of the platform is. On Windows, it is
     /// the directory for the roaming application data of the user.
@@ -345,6 +343,26 @@ impl Loader {
     /// When a search finds a file, the loader reads that file as it reads a
     /// path. The errors of a path then also apply to that file.
     ///
+    /// Each arm reads the locations of its own source. No arm falls back to the
+    /// locations of another one, so the user always knows where the application
+    /// looks.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use serde::Deserialize;
+    /// use kawauso_config::Loader;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct Configuration {
+    ///     port: u16,
+    /// }
+    ///
+    /// let configuration: Configuration = Loader::contents("port = 8080").load()?;
+    /// assert_eq!(configuration.port, 8080);
+    /// # Ok::<(), kawauso_config::error::LoadConfigurationError>(())
+    /// ```
+    ///
     /// [deserialize]: https://docs.rs/serde/latest/serde/trait.Deserialize.html
     /// [directory]: LoadConfigurationError::UnexpectedDirectory
     /// [invalid-contents]: LoadConfigurationError::InvalidContents
@@ -352,9 +370,6 @@ impl Loader {
     /// [missing]: LoadConfigurationError::MissingFile
     /// [undiscoverable]: LoadConfigurationError::UndiscoverableFile
     /// [unreadable]: LoadConfigurationError::UnreadableFile
-    // Each arm reads the locations of its own source, and no arm falls back
-    // to the locations of another one, so the user always knows where the
-    // application looks.
     pub fn load<T>(&self) -> Result<T, LoadConfigurationError>
     where
         T: DeserializeOwned,
@@ -379,10 +394,10 @@ impl Loader {
 
 /// The source from which a loader obtains the configuration
 ///
-/// Each variant stores what one constructor of the loader takes. The enum is
-/// private on purpose: the public vocabulary of the crate is its set of
-/// constructors, which can grow without a breaking change, while a public
-/// enum would fix the vocabulary in its first release.
+/// Each variant stores what one constructor of the loader takes. The enum is private
+/// on purpose. The public vocabulary of the crate is its set of constructors,
+/// which can grow without a breaking change. A public enum would fix the
+/// vocabulary in its first release.
 #[derive(Clone, Debug)]
 enum Source {
     /// A search of the working directory and its ancestors
@@ -420,8 +435,8 @@ where
 ///
 /// # Errors
 ///
-/// Returns an error when the file cannot be read, when its contents are
-/// not valid TOML, or when the document does not match the caller's type.
+/// Returns an error when the file cannot be read, when its contents are not
+/// valid TOML, or when they do not match the caller's type.
 fn load_file<T>(path: &ConfigurationPath) -> Result<T, LoadConfigurationError>
 where
     T: DeserializeOwned,
@@ -440,15 +455,15 @@ where
 /// Loads the configuration file that a search found
 ///
 /// The search and the load are separate actions with separate errors, and
-/// this function joins them. A search that found nothing becomes a load
-/// failure that names the application, and a search that found a file hands
-/// its path to the load.
+/// this function joins them. A search that found nothing becomes a load failure
+/// that names the application. A search that found a file hands its path to the
+/// load.
 ///
 /// # Errors
 ///
-/// Returns an error when the search found no file, when the file cannot be
-/// read, when its contents are not valid TOML, or when the document does not
-/// match the caller's type.
+/// Returns an error when the search found no file or when the file cannot be
+/// read. It also returns an error when its contents are not valid TOML or when
+/// the document does not match the caller's type.
 fn load_found<T>(
     found: Result<ConfigurationPath, DiscoverConfigurationError>,
     application: &ApplicationName,
@@ -470,24 +485,25 @@ where
 /// operating system can refuse to report it. The refusal becomes a failure
 /// of the search here, next to the walk that needs the directory.
 ///
-/// The locations are the working directory and each of its ancestors, in
-/// that order, and each of them holds a file with the name of the
-/// application and the extension `.toml`. A location that the developer
+/// The locations are the working directory and each of its ancestors, in that
+/// order. Each of them holds a file with the name of the application and the
+/// extension `.toml`. A location that the developer
 /// added, a subdirectory or the dot-config convention, holds its own file in
 /// the directory that contains the location.
 ///
 /// A subdirectory that leaves its directory fails the search before it reads
 /// the file system. Such a value comes from the application, not from the
 /// user, and it is the same mistake in every environment. The report is
-/// therefore the same in every environment as well, and it does not depend
-/// on a working directory that the process can fail to name. The dot-config
+/// therefore the same in every environment as well. It does not depend on a
+/// working directory that the process can fail to name. The dot-config
 /// convention never leaves its directory, so it needs no such check.
 ///
 /// # Errors
 ///
 /// Returns an error when a subdirectory is not a relative path inside its
-/// directory, when the working directory is unknown, when no location holds
-/// the file, or when a location holds a directory with the name of the file.
+/// directory or when the working directory is unknown. It also returns an error
+/// when no location holds the file or when a location holds a directory with
+/// the name of the file.
 fn find_in_ancestors(
     working_directory: std::io::Result<PathBuf>,
     search: &AncestorsSearch,
@@ -518,14 +534,14 @@ fn find_in_ancestors(
 
 /// Returns the locations that one directory of the walk contributes
 ///
-/// The directory itself comes first, so a project that names a subdirectory
-/// or the dot-config convention still finds the file that it kept in the
-/// directory before. The locations follow in the order in which the developer
-/// named them, which is the order in which they win. The dot-config
-/// convention contributes two paths, and its file comes before its directory.
-/// A location that contributes the same path as an earlier one contributes no
-/// second location, so a subdirectory `.config` next to the convention does
-/// not read the same file twice.
+/// The directory itself comes first. A project that names a subdirectory or
+/// the dot-config convention therefore still finds the file that it kept in
+/// the directory before. The locations follow in the order in which the
+/// developer named them, which is the order in which they win. The
+/// dot-config convention contributes two paths, and its file comes before its
+/// directory. A location that contributes the same path as an earlier one
+/// contributes no second location. A subdirectory `.config` next to the
+/// convention therefore does not read the same file twice.
 ///
 /// A location that does not exist is still a location. The search reads what
 /// the file system reports about each location, and a location that it
@@ -554,12 +570,12 @@ fn locations_in(
 ///
 /// A path that joins onto a directory can leave it again. An absolute path
 /// replaces the directory, and a `..` component moves above it. Either one
-/// takes the search to a place that the walk never reaches, and an absolute
-/// path takes every directory of the walk to the same place.
+/// takes the search to a place that the walk never reaches. An absolute path
+/// also takes every directory of the walk to the same place.
 ///
-/// A path that names no directory at all, such as an empty path or `.`, is
-/// no subdirectory either: it repeats the location that the directory
-/// already contributes.
+/// A path that names no directory at all, such as an empty path or `.`, is no
+/// subdirectory either. It repeats the location that the directory already
+/// contributes.
 fn is_inside(subdirectory: &Subdirectory) -> bool {
     let mut names_a_directory = false;
 
@@ -582,14 +598,14 @@ fn is_inside(subdirectory: &Subdirectory) -> bool {
 /// that needs the directory.
 ///
 /// The application gets a directory of its own, so that it has room for the
-/// files that it writes later, and its configuration is the file
-/// `config.toml` in that directory.
+/// files that it writes later. Its configuration is the file `config.toml` in
+/// that directory.
 ///
 /// # Errors
 ///
-/// Returns an error when the configuration directory of the platform is
-/// unknown, when the location holds no file, or when it holds a directory
-/// with the name of the file.
+/// Returns an error when the configuration directory of the platform is unknown
+/// or when the location holds no file. It also returns an error when the
+/// location holds a directory with the name of the file.
 fn find_in_user_directory(
     directory: Option<ConfigurationDirectory>,
     application: &ApplicationName,
@@ -606,9 +622,9 @@ fn find_in_user_directory(
 /// Returns the first location in the list that holds a configuration file
 ///
 /// A location that the file system cannot report on holds no configuration
-/// file. A parent directory that does not exist, a subdirectory that only
-/// some projects have, and a directory that the user cannot read, are
-/// therefore not failures of the search.
+/// file. A parent directory that does not exist is therefore not a failure of
+/// the search. The same holds for a subdirectory that only some projects have
+/// and for a directory that the user cannot read.
 ///
 /// A directory with the name of the configuration file ends the search. Such
 /// a directory is a mistake that is hard to see, and a file from a location
@@ -648,8 +664,8 @@ fn first_file(
 /// Deserializes the contents of a configuration document into the caller's type
 ///
 /// Parsing and deserialization are separate steps, because a failure in each
-/// carries different context: a parse failure has a position in the text,
-/// and a mismatch has the path of a field.
+/// carries different context. A parse failure has a position in the text. A
+/// mismatch has the path of a field.
 ///
 /// # Errors
 ///
@@ -681,10 +697,9 @@ where
 /// Reads the configuration file at the caller-supplied path
 ///
 /// A path at which no file exists and a file that cannot be read map to
-/// different variants. The distinction comes from the kind of the read
-/// error, not from a check before the read, so no window exists in which
-/// another process can create or remove the file between a check and the
-/// read.
+/// different variants. The distinction comes from the kind of the read error,
+/// and not from a check before the read. No window therefore exists in which
+/// another process can create or remove the file between a check and the read.
 ///
 /// A path that holds a directory is the exception. The kind of that read
 /// error is not the same on every platform, and one platform reports a
@@ -721,23 +736,27 @@ fn is_directory(path: &ConfigurationPath) -> bool {
 /// Translates a byte offset in a document into a line and a column
 ///
 /// Lines and columns count from one, and columns count characters, not
-/// bytes. An offset that is out of bounds, or that points into the middle of
-/// a multi-byte character, yields the position of the end of the document:
-/// in an error report, an imprecise position is better than a panic.
+/// bytes. An offset that is out of bounds yields the position of the end of the
+/// document. So does an offset that points into the middle of a multi-byte
+/// character. In an error report, an imprecise position is better than a panic.
 fn position_of(document: &str, offset: usize) -> Position {
     let head = document.get(..offset).unwrap_or(document);
 
     let line = head.matches('\n').count() + 1;
     let column = head.rsplit('\n').next().unwrap_or_default().chars().count() + 1;
 
-    Position::new(Line::new(line), Column::new(column))
+    Position::builder()
+        .line(Line::new(line))
+        .column(Column::new(column))
+        .build()
 }
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use serde::Deserialize;
 
@@ -872,9 +891,11 @@ mod tests {
         assert_eq!(path.get(), working_directory.join("kawauso.toml"));
     }
 
-    // A subdirectory is a convention, not a promise: most projects have none
-    // of them, and a search that failed on the first project without a
-    // `.github` would be useless.
+    /// Shows that a missing subdirectory does not stop the search
+    ///
+    /// A subdirectory is a convention, not a promise. Most projects have none
+    /// of them, and a search that failed on the first project without a
+    /// `.github` would be useless.
     #[test]
     fn find_in_ancestors_with_a_missing_subdirectory_continues_the_search() {
         let root = tempfile::tempdir().unwrap();
@@ -890,10 +911,12 @@ mod tests {
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
 
-    // A named pipe is the case that matters: a read of one blocks until
-    // another process writes to it, so a search that took it for a
-    // configuration file would hang. A socket is the object that a test can
-    // create without a call to libc.
+    /// Shows that a socket is no configuration file
+    ///
+    /// A named pipe is the case that matters. A read of one blocks until
+    /// another process writes to it, so a search that took it for a
+    /// configuration file would hang. A socket is the object that a test can
+    /// create without a call to libc.
     #[cfg(unix)]
     #[test]
     fn find_in_ancestors_with_a_socket_continues_the_search() {
@@ -925,9 +948,11 @@ mod tests {
         ));
     }
 
-    // The order of the calls decides which location wins, so a subdirectory
-    // that the developer names before the dot-config convention beats it in a
-    // directory of the walk.
+    /// Shows that a subdirectory named before the convention wins
+    ///
+    /// The order of the calls decides which location wins. A subdirectory that
+    /// the developer names before the dot-config convention therefore beats it
+    /// in a directory of the walk.
     #[test]
     fn find_in_ancestors_with_a_subdirectory_before_the_convention_returns_the_subdirectory() {
         let root = tempfile::tempdir().unwrap();
@@ -962,10 +987,12 @@ mod tests {
         );
     }
 
-    // The walk is the outer loop, so the last location of the working
-    // directory comes before the first location of its parent. A rule that
-    // read one subdirectory across every directory first would let the parent
-    // win here.
+    /// Shows that working directory locations beat parent directory locations
+    ///
+    /// The walk is the outer loop, so the last location of the working
+    /// directory comes before the first location of its parent. A rule that
+    /// read one subdirectory across every directory first would let the parent
+    /// win here.
     #[test]
     fn find_in_ancestors_with_a_subdirectory_of_the_working_directory_beats_a_parent() {
         let root = tempfile::tempdir().unwrap();
@@ -982,8 +1009,10 @@ mod tests {
         assert_eq!(path.get(), expected);
     }
 
-    // An absolute subdirectory takes every directory of the walk to the same
-    // place, and that place can be outside the project.
+    /// Shows that an absolute subdirectory is rejected
+    ///
+    /// An absolute subdirectory takes every directory of the walk to the same
+    /// place, and that place can be outside the project.
     #[test]
     fn find_in_ancestors_with_an_absolute_subdirectory_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1015,9 +1044,11 @@ mod tests {
         assert_eq!(path.get(), root.path().join("kawauso.toml"));
     }
 
-    // The file layout wins over the directory layout, so an application that
-    // creates its directory for the other files it owns does not change which
-    // configuration file its user has.
+    /// Shows that file layout wins over directory layout
+    ///
+    /// The file layout wins over the directory layout. An application that
+    /// creates its directory for the other files it owns therefore does not
+    /// change which configuration file its user has.
     #[test]
     fn find_in_ancestors_with_both_dot_config_layouts_returns_the_file() {
         let root = tempfile::tempdir().unwrap();
@@ -1101,8 +1132,10 @@ mod tests {
         );
     }
 
-    // A subdirectory `.config` contributes the same file as the first layout
-    // of the convention, so the report must not name it twice.
+    /// Shows that duplicated locations are listed only once
+    ///
+    /// A subdirectory `.config` contributes the same file as the first layout
+    /// of the convention, so the report must not name it twice.
     #[test]
     fn find_in_ancestors_with_dot_config_and_a_config_subdirectory_lists_each_location_once() {
         let root = tempfile::tempdir().unwrap();
@@ -1122,9 +1155,11 @@ mod tests {
         assert_eq!(locations.len(), distinct.len());
     }
 
-    // A subdirectory is an addition, not a replacement. A project that keeps
-    // the file where it always kept it must not lose it to a subdirectory
-    // that the application started to accept later.
+    /// Shows that a directory file is not replaced by a subdirectory file
+    ///
+    /// A subdirectory is an addition, not a replacement. A project that keeps
+    /// the file where it always kept it must not lose it to a subdirectory
+    /// that the application started to accept later.
     #[test]
     fn find_in_ancestors_with_files_in_a_directory_and_its_subdirectory_returns_the_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1157,9 +1192,11 @@ mod tests {
         assert_eq!(path.get(), working_directory.join("kawauso.toml"));
     }
 
-    // The subdirectories are named in the reverse of their alphabetical
-    // order, so a result of `.github` can only come from the order of the
-    // calls that named them.
+    /// Shows that an earlier subdirectory wins over later ones
+    ///
+    /// The subdirectories are named in the reverse of their alphabetical order.
+    /// A result of `.github` can therefore only come from the order of the
+    /// calls that named them.
     #[test]
     fn find_in_ancestors_with_files_in_two_subdirectories_returns_the_first_named() {
         let root = tempfile::tempdir().unwrap();
@@ -1178,9 +1215,11 @@ mod tests {
         assert_eq!(path.get(), expected);
     }
 
-    // The order of the calls decides which one wins, so a convention that the
-    // developer names before a subdirectory beats it in a directory of the
-    // walk, and the file that the convention reads comes first.
+    /// Shows that a convention named first beats later subdirectories
+    ///
+    /// The order of the calls decides which one wins. A convention that the
+    /// developer names before a subdirectory therefore beats it in a directory
+    /// of the walk. The file that the convention reads comes first.
     #[test]
     fn find_in_ancestors_with_the_convention_before_a_subdirectory_returns_the_convention() {
         let root = tempfile::tempdir().unwrap();
@@ -1233,10 +1272,11 @@ mod tests {
         assert_eq!(locations_of(&error), expected);
     }
 
-    // The report of a failed search has to teach the user where the file can
-    // go, and a subdirectory is a place that the user cannot guess. The list
-    // therefore holds both locations of every directory, in the order in
-    // which they win.
+    /// Shows that search reports all subdirectory locations
+    ///
+    /// The report of a failed search has to teach the user where the file can go.
+    /// A subdirectory is a place that the user cannot guess.
+    /// The list therefore holds both locations of every directory, in the order in which they win.
     #[test]
     fn find_in_ancestors_without_a_file_lists_the_locations_of_each_subdirectory() {
         let root = tempfile::tempdir().unwrap();
@@ -1304,9 +1344,11 @@ mod tests {
         ));
     }
 
-    // The two strategies look for different files in different places. A file
-    // that the walk up the ancestors would find is therefore no answer for the
-    // search in the directory of the user.
+    /// Shows that strategies do not find each other's files
+    ///
+    /// The two strategies look for different files in different places. A file
+    /// that the walk up the ancestors would find is therefore no answer for the
+    /// search in the directory of the user.
     #[test]
     fn find_in_user_directory_with_a_file_of_the_other_strategy_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
@@ -1321,6 +1363,16 @@ mod tests {
     }
 
     #[test]
+    fn find_in_user_directory_without_a_directory_returns_an_error() {
+        let error = find_in_user_directory(None, &application()).unwrap_err();
+
+        assert!(matches!(
+            error,
+            DiscoverConfigurationError::UnknownConfigurationDirectory { .. }
+        ));
+    }
+
+    #[test]
     fn find_in_user_directory_without_a_file_searches_the_directory_of_the_application() {
         let root = tempfile::tempdir().unwrap();
         let expected = vec![root.path().join("kawauso").join("config.toml")];
@@ -1332,16 +1384,6 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(locations_of(&error), expected);
-    }
-
-    #[test]
-    fn find_in_user_directory_without_a_directory_returns_an_error() {
-        let error = find_in_user_directory(None, &application()).unwrap_err();
-
-        assert!(matches!(
-            error,
-            DiscoverConfigurationError::UnknownConfigurationDirectory { .. }
-        ));
     }
 
     #[test]
@@ -1380,8 +1422,10 @@ mod tests {
         assert!(inside);
     }
 
-    // A `..` that follows a name still leaves the directory, so the check
-    // reads every component and not only the first one.
+    /// Shows that a parent directory component still leaves the directory
+    ///
+    /// A `..` that follows a name still leaves the directory, so the check
+    /// reads every component and not only the first one.
     #[test]
     fn is_inside_with_a_parent_directory_returns_false() {
         let subdirectory = Subdirectory::from(".github/..");
@@ -1391,8 +1435,10 @@ mod tests {
         assert!(!inside);
     }
 
-    // An empty path names no directory, and it has no component that the
-    // check can reject. It therefore needs an answer of its own.
+    /// Shows that an empty path is not inside the directory
+    ///
+    /// An empty path names no directory, and it has no component that the
+    /// check can reject. It therefore needs an answer of its own.
     #[test]
     fn is_inside_with_an_empty_path_returns_false() {
         let subdirectory = Subdirectory::from("");
@@ -1415,12 +1461,25 @@ mod tests {
     }
 
     #[test]
+    fn loader_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Loader>();
+    }
+
+    #[test]
     fn position_of_beyond_the_document_returns_the_end() {
         let document = "name = \"kawauso\"\nport = 8080\n";
 
         let position = position_of(document, usize::MAX);
 
-        assert_eq!(position, Position::new(Line::new(3), Column::new(1)));
+        assert_eq!(
+            position,
+            Position::builder()
+                .line(Line::new(3))
+                .column(Column::new(1))
+                .build()
+        );
     }
 
     #[test]
@@ -1429,7 +1488,13 @@ mod tests {
 
         let position = position_of(document, 24);
 
-        assert_eq!(position, Position::new(Line::new(2), Column::new(8)));
+        assert_eq!(
+            position,
+            Position::builder()
+                .line(Line::new(2))
+                .column(Column::new(8))
+                .build()
+        );
     }
 
     #[test]
@@ -1438,7 +1503,13 @@ mod tests {
 
         let position = position_of(document, 9);
 
-        assert_eq!(position, Position::new(Line::new(2), Column::new(1)));
+        assert_eq!(
+            position,
+            Position::builder()
+                .line(Line::new(2))
+                .column(Column::new(1))
+                .build()
+        );
     }
 
     #[test]
@@ -1447,6 +1518,19 @@ mod tests {
 
         let position = position_of(document, 0);
 
-        assert_eq!(position, Position::new(Line::new(1), Column::new(1)));
+        assert_eq!(
+            position,
+            Position::builder()
+                .line(Line::new(1))
+                .column(Column::new(1))
+                .build()
+        );
+    }
+
+    #[test]
+    fn source_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Source>();
     }
 }

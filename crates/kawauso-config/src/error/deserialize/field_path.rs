@@ -11,6 +11,13 @@ use std::fmt::{Display, Formatter, Result};
 ///
 /// A path identifies a value for a human reader. It is not a query: the
 /// crate offers no way to look a path up in a document.
+///
+/// # Examples
+///
+/// ```
+/// let path = kawauso_config::error::deserialize::FieldPath::new("server.port");
+/// assert_eq!(path.to_string(), "server.port");
+/// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct FieldPath(String);
 
@@ -19,11 +26,25 @@ impl FieldPath {
     ///
     /// The text is stored as given; the function does not parse or validate
     /// it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let path = kawauso_config::error::deserialize::FieldPath::new("server.port");
+    /// assert_eq!(path.as_str(), "server.port");
+    /// ```
     pub fn new(path: impl Into<String>) -> Self {
         Self(path.into())
     }
 
     /// Returns the path as text
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let path = kawauso_config::error::deserialize::FieldPath::new("server.port");
+    /// assert_eq!(path.as_str(), "server.port");
+    /// ```
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -38,11 +59,18 @@ impl Display for FieldPath {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
+
+    #[test]
+    fn field_path_is_send_sync_and_unpin() {
+        fn assert_send_sync_unpin<T: Send + Sync + Unpin>() {}
+        assert_send_sync_unpin::<FieldPath>();
+    }
 
     #[test]
     fn trait_display() {

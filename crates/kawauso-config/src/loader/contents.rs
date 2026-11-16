@@ -1,4 +1,9 @@
 //! The contents of a configuration file
+//!
+//! A caller never names the contents of a configuration. A constructor of the
+//! loader takes what they wrap, and no error reports them. The module is
+//! therefore private, which keeps it out of the public API and leaves the
+//! crate free to change it.
 
 use typed_fields::name;
 

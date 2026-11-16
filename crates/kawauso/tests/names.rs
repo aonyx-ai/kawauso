@@ -9,15 +9,16 @@
 //! The facade is the one crate that depends on both, so it holds the test that
 //! the two copies agree.
 
-// An assertion in a test panics by design. A `# Panics` section on every test
-// would repeat that and give the reader no information.
-#![allow(clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_panics_doc,
+    reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+)]
 
 /// Characters on both sides of the rule on characters
 ///
-/// The set holds a letter in each case, a digit, the hyphen, and characters
-/// that the rule rejects: the dot, separators, a colon, a space, an
-/// underscore, and a letter outside ASCII.
+/// The set holds a letter in each case, a digit, and the hyphen. It includes
+/// characters that the rule rejects: the dot, separators, a colon, a space,
+/// an underscore, and a letter outside ASCII.
 const CHARACTERS: [char; 11] = ['a', 'Z', '0', '-', '.', '_', '/', '\\', ':', ' ', 'é'];
 
 /// The names of devices on Windows, and the prefixes of numbered devices
@@ -25,11 +26,12 @@ const DEVICES: [&str; 6] = ["AUX", "CON", "NUL", "PRN", "COM", "LPT"];
 
 /// Values on both sides of each rule of a name
 ///
-/// The values are every string of up to three characters from
-/// [`CHARACTERS`], each device in three cases with each suffix that the rule
-/// on devices tells apart, and a name of each length up to 300 characters.
-/// The lengths go beyond the limit of the rules on both sides, so the values
-/// sample the limit wherever the rules put it, without a copy of it here.
+/// The values are every string of up to three characters from [`CHARACTERS`].
+/// They include each device in three cases with each suffix that the rule on
+/// devices tells apart. They also include a name of each length up to 300
+/// characters. The lengths go beyond the limit of the rules on both sides.
+/// The values therefore sample the limit wherever the rules put it, without a
+/// copy of it here.
 fn values() -> Vec<String> {
     let mut values = vec![String::new()];
 

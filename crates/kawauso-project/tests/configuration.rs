@@ -5,9 +5,10 @@
 //! configuration. Every test names its own start directory, so the tests need
 //! no environment of their own and run beside each other.
 
-// An assertion in a test panics by design. A `# Panics` section on every test
-// would repeat that and give the reader no information.
-#![allow(clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_panics_doc,
+    reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+)]
 
 use std::path::PathBuf;
 
@@ -112,8 +113,10 @@ fn project(configuration: Option<(&str, &str)>) -> std::io::Result<TempDir> {
     Ok(directory)
 }
 
-// A file that the type of the application rejects fails the load. The crate
-// reports the problem instead of a repair that loses what the author wrote.
+/// Shows that a broken configuration file fails the load and stays untouched
+///
+/// A file that the type of the application rejects fails the load. The crate
+/// reports the problem instead of a repair that loses what the author wrote.
 #[test]
 fn load_or_create_with_a_broken_configuration_file_keeps_the_file() {
     let directory = project(Some((".config/example.toml", "port = "))).unwrap();
@@ -192,10 +195,12 @@ fn load_or_create_with_an_unserializable_configuration_returns_an_error() {
     );
 }
 
-// Most file systems accept a component of a path with up to 255 bytes, and
-// the configuration file adds `.toml` to the name of the application. The
-// longest name that the rules accept must still give a file that the project
-// can create, or the load fails where it would create the file.
+/// Shows that the longest name that the rules accept still creates its file
+///
+/// Most file systems accept a component of a path with up to 255 bytes. The
+/// configuration file adds `.toml` to the name of the application. The longest name
+/// that the rules accept must still give a file that the project can create.
+/// Otherwise the load fails where it would create the file.
 #[test]
 fn load_or_create_with_the_longest_name_returns_the_project() {
     let name = longest_name().unwrap();
@@ -225,8 +230,10 @@ fn load_or_create_without_a_configuration_file_creates_it() {
     );
 }
 
-// The conventional directory adds a second level below the project, and a
-// project that never held a configuration file has neither of them.
+/// Shows that the load creates the directories of the conventional location
+///
+/// The conventional directory adds a second level below the project, and a
+/// project that never held a configuration file has neither of them.
 #[test]
 fn load_or_create_without_a_configuration_file_creates_the_directories() {
     let directory = project(None).unwrap();
@@ -278,8 +285,10 @@ fn load_with_a_broken_configuration_file_returns_an_error() {
     );
 }
 
-// The project reads one location, so a file at the other layout belongs to
-// something else and stays untouched.
+/// Shows that the directory layout ignores a file at the file layout
+///
+/// The project reads one location, so a file at the other layout belongs to
+/// something else and stays untouched.
 #[test]
 fn load_with_a_configuration_directory_ignores_the_file_layout() {
     let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();
@@ -381,9 +390,11 @@ fn load_with_an_application_name_reads_the_conventional_location() {
     );
 }
 
-// A read that writes surprises its caller, so a project without a
-// configuration file stays without one until an application asks for the
-// creation.
+/// Shows that a load creates no configuration file
+///
+/// A read that writes surprises its caller, so a project without a
+/// configuration file stays without one until an application asks for the
+/// creation.
 #[test]
 fn load_without_a_configuration_file_creates_no_file() {
     let directory = project(None).unwrap();
@@ -410,10 +421,12 @@ fn load_without_a_configuration_file_reports_no_configuration() {
     assert!(project.configuration().is_none());
 }
 
-// A file at the conventional location belongs to something else when the
-// application declared that it has no configuration file. The project leaves
-// that file alone, so contents that no type of the application describes
-// cannot fail the load.
+/// Shows that a project without a configuration ignores a file at the location
+///
+/// A file at the conventional location belongs to something else when the
+/// application declared that it has no configuration file. The project leaves
+/// that file alone, so contents that no type of the application describes
+/// cannot fail the load.
 #[test]
 fn load_without_a_configuration_ignores_a_file_at_the_location() {
     let directory = project(Some((".config/example.toml", "port = "))).unwrap();
@@ -441,9 +454,11 @@ fn load_without_a_configuration_reports_no_configuration() {
     assert!(project.configuration().is_none());
 }
 
-// A project that reads a file into `NoConfiguration` gets contents that no
-// type of the application describes. The load fails, which tells the
-// developer that the application reads a file that it never described.
+/// Shows that a file that no type describes fails the load
+///
+/// A project that reads a file into `NoConfiguration` gets contents that no
+/// type of the application describes. The load fails, which tells the developer
+/// that the application reads a file that it never described.
 #[test]
 fn load_without_a_configuration_type_and_with_a_file_returns_an_error() {
     let directory = project(Some((".config/example.toml", CONTENTS))).unwrap();

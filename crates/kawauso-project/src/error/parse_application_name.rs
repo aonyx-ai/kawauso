@@ -10,13 +10,27 @@ use thiserror::Error;
 ///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
+///
+/// # Examples
+///
+/// ```
+/// use kawauso_project::error::ParseApplicationNameError;
+/// use kawauso_project::project::ApplicationName;
+///
+/// let result = "not/a-name".parse::<ApplicationName>();
+///
+/// assert!(matches!(
+///     result,
+///     Err(ParseApplicationNameError::MalformedName { .. })
+/// ));
+/// ```
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ParseApplicationNameError {
     /// The value does not follow the rules of a name
     ///
-    /// The message quotes the value with the escapes of Rust, so that a
-    /// control character in it cannot change the terminal or the log that
+    /// The message quotes the value with the escapes of Rust. A control
+    /// character in it therefore cannot change the terminal or the log that
     /// shows the message.
     ///
     /// The variant carries no cause: the value is the full diagnosis, and no
@@ -33,20 +47,30 @@ pub enum ParseApplicationNameError {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller sends the error between threads and keeps it in a report that
-    // another thread reads. This test holds the error to the auto traits that
-    // make this possible, because a private field of a later version could
-    // take them away without a word from the compiler.
+    /// Shows that `ParseApplicationNameError` is Send and Sync
+    ///
+    /// A caller sends the error between threads and keeps it in a report that
+    /// another thread reads. This test holds the error to the auto traits that
+    /// make this possible. The test exists because a private field of a later
+    /// version could take them away without a word from the compiler.
     #[test]
     fn parse_application_name_error_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<ParseApplicationNameError>();
+    }
+
+    #[test]
+    fn parse_application_name_error_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<ParseApplicationNameError>();
     }
 }

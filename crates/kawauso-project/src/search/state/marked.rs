@@ -7,6 +7,28 @@
 ///
 /// The type has no value that carries information; it only names the state of
 /// a search.
+///
+/// # Examples
+///
+/// ```
+/// use kawauso_project::Search;
+///
+/// use kawauso_project::search::Marked;
+///
+/// let search: Search<Marked> = Search::start(".").marker(".git");
+/// ```
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 #[non_exhaustive]
 pub struct Marked;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn marked_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Marked>();
+    }
+}

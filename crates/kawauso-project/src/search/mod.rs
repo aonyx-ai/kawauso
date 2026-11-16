@@ -27,9 +27,9 @@ use self::state::Unmarked;
 /// The search for the project of an application
 ///
 /// A search names the directory at which the walk starts, and the markers
-/// that identify the project. The walk tests the markers in the order in
-/// which the developer named them, and the first directory that holds any of
-/// them is the project.
+/// that identify the project. The walk tests the markers in the order in which
+/// the developer named them. The first directory that holds any of them is the
+/// project.
 ///
 /// The walk starts at the start directory and goes up one directory at a
 /// time, to the root of the file system. In each directory, it tests every
@@ -152,12 +152,13 @@ impl Search<Unmarked> {
     /// assert_eq!(search.markers().len(), 1);
     /// ```
     ///
+    /// A relative start resolves against the working directory, and `.`
+    /// resolves to the working directory itself. The walk needs no case of
+    /// its own for this start.
+    ///
     /// [marker]: Search::marker
     /// [start]: Search::start
     pub fn working_directory() -> Self {
-        // A relative start resolves against the working directory, and `.`
-        // resolves to the working directory itself. The walk needs no case of
-        // its own for this start.
         Self::start(".")
     }
 }
@@ -199,20 +200,40 @@ impl<S: State> Search<S> {
     }
 
     /// Returns what the search reports when no marker matches
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::Search;
+    ///
+    /// let search = Search::start(".");
+    ///
+    /// assert!(matches!(search.fallback(), kawauso_project::search::Fallback::Error));
+    /// ```
     pub fn fallback(&self) -> Fallback {
         self.fallback
     }
 
     /// Returns the markers of the search, in the order of the test
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::Search;
+    ///
+    /// let search = Search::start(".").marker(".git");
+    ///
+    /// assert_eq!(search.markers()[0].get(), std::path::Path::new(".git"));
+    /// ```
     pub fn markers(&self) -> &[Marker] {
         &self.markers
     }
 
     /// Reports the start directory as the project when no marker matches
     ///
-    /// A search without this option returns an error when the walk reaches
-    /// the root of the file system, because an application that creates files
-    /// must not write them into a directory that nothing identifies as a
+    /// A search without this option returns an error when the walk reaches the
+    /// root of the file system. This is because an application that creates
+    /// files must not write them into a directory that nothing identifies as a
     /// project.
     ///
     /// Use this option for an application that also runs outside a project,
@@ -249,6 +270,19 @@ impl<S: State> Search<S> {
     ///
     /// The value is the path that the developer named, and not its resolved
     /// form. The search resolves it when it runs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::Search;
+    ///
+    /// let search = Search::start("src/main.rs");
+    ///
+    /// assert_eq!(
+    ///     search.start_directory().get(),
+    ///     std::path::Path::new("src/main.rs")
+    /// );
+    /// ```
     pub fn start_directory(&self) -> &StartDirectory {
         &self.start
     }
@@ -256,9 +290,10 @@ impl<S: State> Search<S> {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
@@ -277,14 +312,23 @@ mod tests {
         );
     }
 
-    // A caller keeps the search in a field of a type that another thread
-    // reads. This test holds the search to the auto traits that make this
-    // possible, because a private field of a later version could take them
-    // away without a word from the compiler.
+    /// Shows that `Search<Marked>` is Send and Sync
+    ///
+    /// A caller keeps the search in a field of a type that another thread reads.
+    /// This test holds the search to the auto traits that make this possible. The
+    /// test exists because a private field of a later version could take them
+    /// away without a word from the compiler.
     #[test]
     fn search_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<Search<Marked>>();
+    }
+
+    #[test]
+    fn search_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Search<Marked>>();
     }
 }

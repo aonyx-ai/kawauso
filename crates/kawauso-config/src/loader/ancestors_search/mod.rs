@@ -180,6 +180,17 @@ impl AncestorsSearch {
     }
 
     /// Returns the name of the application whose configuration file the search finds
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_config::AncestorsSearch;
+    ///
+    /// let search = AncestorsSearch::new("example".parse()?);
+    ///
+    /// assert_eq!(search.application().get(), "example");
+    /// # Ok::<(), kawauso_config::error::ParseApplicationNameError>(())
+    /// ```
     pub fn application(&self) -> &ApplicationName {
         &self.application
     }
@@ -199,14 +210,24 @@ impl From<ApplicationName> for AncestorsSearch {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // The order of the calls is the order in which the locations win, so the
-    // type must not sort them or remove a repeat.
+    #[test]
+    fn ancestors_search_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<AncestorsSearch>();
+    }
+
+    /// Shows that the locations keep the order of the calls
+    ///
+    /// The order of the calls is the order in which the locations win, so the
+    /// type must not sort them or remove a repeat.
     #[test]
     fn dot_config_then_subdirectory_keeps_the_order_of_the_calls() {
         let search = AncestorsSearch::new("example".parse().unwrap())
@@ -222,8 +243,10 @@ mod tests {
         );
     }
 
-    // A name alone becomes a search, so that an application with no other
-    // option passes its name to the loader directly.
+    /// Shows that a name alone becomes a search
+    ///
+    /// A name alone becomes a search, so that an application with no other
+    /// option passes its name to the loader directly.
     #[test]
     fn from_application_name_keeps_the_name() {
         let application: ApplicationName = "example".parse().unwrap();

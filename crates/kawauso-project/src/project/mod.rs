@@ -12,10 +12,6 @@ pub mod no_configuration;
 pub mod project_identifier;
 pub mod project_root;
 
-// A caller never names the directory of a platform: the data directory of a
-// project wraps it, and no error reports it. The rules of a name are shared
-// by two types and belong to neither. These modules are therefore private,
-// which keeps them out of the public API.
 mod local_data_directory;
 mod portable_name;
 
@@ -53,8 +49,8 @@ use crate::search::state::Marked;
 /// application anchors the relative paths of its resources at this directory,
 /// and it writes the files that it creates there.
 ///
-/// The search observed the directory during the walk. No application derives
-/// it from the path of a file, because such a calculation repeats the
+/// The search observed the directory during the walk. No application derives it
+/// from the path of a file. This is because such a calculation repeats the
 /// convention of the search and breaks when the convention changes.
 ///
 /// The type parameter is the configuration of the project. An application
@@ -62,14 +58,14 @@ use crate::search::state::Marked;
 /// into, such as `Project<Configuration>`.
 ///
 /// The parameter defaults to [`NoConfiguration`] for an application that
-/// never reads its configuration file. Without the default, such an
-/// application would still have to name a type that it never uses, because
-/// nothing else in its code would say what the parameter is. It writes
+/// never reads its configuration file. Without the default, such an application
+/// would still have to name a type that it never uses. This is because nothing
+/// else in its code would say what the parameter is. It writes
 /// `Project` instead.
 ///
-/// Every project of an application is one type, whether or not a file exists
-/// at its configuration path, so a caller can hold more than one project in a
-/// collection.
+/// Every project of an application is one type, whether or not a file exists at
+/// its configuration path. A caller can therefore hold more than one project in
+/// a collection.
 ///
 /// # Examples
 ///
@@ -203,41 +199,39 @@ where
     /// [without-configuration]: ProjectBuilder::without_configuration
     /// [undiscoverable]: LoadProjectError::UndiscoverableProject
     /// [unloadable]: LoadProjectError::UnloadableConfiguration
-    // The original function stays private, so `builder` is the only way to
-    // describe a project. Its own visibility is set here, because bon gives
-    // the generated functions the visibility of the function that it wraps.
-    //
-    // The generated finishing function stays private as well. A caller
-    // finishes with `load` or with `load_or_create`. The two differ in what
-    // they do with a project that has no configuration file, and bon
-    // generates one finishing function.
     #[builder(
         builder_type(vis = "pub"),
         state_mod(vis = "pub"),
-        start_fn(name = builder, vis = "pub"),
         finish_fn(name = finish, vis = "")
     )]
-    fn new(
-        // bon requires the argument of the finishing function before the
-        // members that get a setter.
-        #[builder(finish_fn)] search: &Search<Marked>,
+    pub fn new(
+        /// The search that finds the project
+        ///
+        /// Bon requires the argument of the finishing function before the
+        /// members that get a setter.
+        #[builder(finish_fn)]
+        search: &Search<Marked>,
         application: ApplicationName,
-        // The generated setter is private. The two public methods on the
-        // builder wrap it, and each one requires this member to be unset, so
-        // a caller cannot name two locations for one file.
+        /// The location of the configuration file
+        ///
+        /// The generated setter is private. The two public methods on the
+        /// builder wrap it, and each one requires this member to be unset. A
+        /// caller therefore cannot name two locations for one file.
         #[builder(default = ConfigurationSource::Conventional, setters(name = configuration_source, vis = ""))]
         configuration: ConfigurationSource,
-        // The generated setters are private, and `without_configuration`
-        // wraps them. The member records the declaration in the state of the
-        // builder. `load_or_create` then requires it to be unset, because an
-        // application that reads no configuration file creates none either.
+        /// The declaration that the application has no configuration file
+        ///
+        /// The generated setters are private, and `without_configuration`
+        /// wraps them. The member records the declaration in the state of the
+        /// builder. `load_or_create` then requires it to be unset, because an
+        /// application that reads no configuration file creates none either.
         #[builder(default, setters(name = no_configuration_file, vis = ""))]
         without_configuration: WithoutConfiguration,
     ) -> Result<Self, LoadProjectError> {
-        let start = resolve(search.start_directory().get(), std::env::current_dir())
+        let start = load_start_directory(search.start_directory().get(), std::env::current_dir())
             .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
 
-        let discovery = walk(&start, search.markers(), search.fallback())
+        let Discovery { root, marker } = walk(&start, search.markers(), search.fallback())
             .map_err(|source| LoadProjectError::UndiscoverableProject { source })?;
 
         let configuration_file = match &configuration {
@@ -246,13 +240,9 @@ where
             ConfigurationSource::Directory => configuration_directory_of(&application),
         };
 
-        let configuration_path =
-            ConfigurationPath::new(discovery.root.get().join(configuration_file.get()));
+        let configuration_path = ConfigurationPath::new(root.get().join(configuration_file.get()));
 
         let configuration = match without_configuration {
-            // An application that declared that it has no configuration file
-            // reads none. A file at the location belongs to something else,
-            // and it stays untouched.
             WithoutConfiguration::Present => None,
             WithoutConfiguration::Absent => {
                 if exists(configuration_path.get()) {
@@ -264,9 +254,9 @@ where
         };
 
         Ok(Self {
-            root: discovery.root,
+            root,
             application,
-            marker: discovery.marker,
+            marker,
             configuration,
             configuration_path,
         })
@@ -314,6 +304,9 @@ enum WithoutConfiguration {
     Absent,
 
     /// The developer declared that the application has no configuration file
+    ///
+    /// An application that declared this reads no file. A file at the location
+    /// belongs to something else, and it stays untouched.
     Present,
 }
 
@@ -598,12 +591,15 @@ where
     /// Creation is the only write. A file that a user wrote holds their
     /// comments and the order of their fields. A serializer that writes the
     /// whole document loses both, so this method does not repair a file that
-    /// exists. A file that the type of the application rejects fails the
-    /// load, and the message of the error names the problem for the user to
-    /// correct.
+    /// exists. A file that the type of the application rejects fails the load.
+    /// The message of the error names the problem for the user to correct.
     ///
     /// The search runs before the write, and a search that finds no project
     /// fails, so this method writes no file outside a project.
+    ///
+    /// A project reports a configuration when a file exists at its path, and
+    /// the load already read that file. The closure therefore runs only for a
+    /// project whose file this method creates.
     ///
     /// # Errors
     ///
@@ -663,9 +659,6 @@ where
     {
         let mut project = self.finish(search)?;
 
-        // A project reports a configuration when a file exists at its path,
-        // and the load already read that file. The closure therefore runs
-        // only for a project whose file this method creates.
         if project.configuration.is_none() {
             let configuration = configuration();
 
@@ -687,6 +680,26 @@ impl<T> Project<T> {
     /// [`configuration_path`][configuration-path] tells its user where to put
     /// the file.
     ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use kawauso_project::Project;
+    /// # use kawauso_project::Search;
+    /// # use serde::Deserialize;
+    /// # #[derive(Deserialize)]
+    /// # struct Configuration {
+    /// #     port: u16,
+    /// # }
+    /// let search = Search::start(".").marker(".git");
+    /// let project: Project<Configuration> = Project::builder()
+    ///     .application("example".parse()?)
+    ///     .load(&search)?;
+    /// if let Some(config) = project.configuration() {
+    ///     println!("Port: {}", config.port);
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
     /// [configuration-path]: Project::configuration_path
     pub fn configuration(&self) -> Option<&T> {
         self.configuration.as_ref()
@@ -695,6 +708,20 @@ impl<T> Project<T> {
     /// Returns the path at which the project keeps its configuration file
     ///
     /// The path is known whether or not a file exists at it.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use kawauso_project::Project;
+    /// # use kawauso_project::Search;
+    /// let search = Search::start(".").marker(".git");
+    /// let project: Project = Project::builder()
+    ///     .application("example".parse()?)
+    ///     .load(&search)?;
+    /// let config_path = project.configuration_path();
+    /// println!("Config at: {}", config_path.get().display());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn configuration_path(&self) -> &ConfigurationPath {
         &self.configuration_path
     }
@@ -728,8 +755,8 @@ impl<T> Project<T> {
     ///
     /// Each call creates the directory and the directories above it when they
     /// do not exist. A directory that the user deleted while the application
-    /// ran therefore exists again after the next call, and a call for a
-    /// directory that exists succeeds. On Unix, the directories that the call
+    /// ran therefore exists again after the next call. A call for a directory
+    /// that exists succeeds. On Unix, the directories that the call
     /// creates get the mode `0700`, so that only the user can read them. A
     /// directory that exists keeps its mode.
     ///
@@ -740,9 +767,9 @@ impl<T> Project<T> {
     /// # Errors
     ///
     /// Returns [`UnknownLocalDataDirectory`][unknown] when the platform has no
-    /// local data directory, when the crate cannot determine the home
-    /// directory of the user, or when the directory that it finds is not an
-    /// absolute path.
+    /// local data directory or when the crate cannot determine the home
+    /// directory of the user. It also returns this error when the directory
+    /// that it finds is not an absolute path.
     ///
     /// Returns [`UncreatableDataDirectory`][uncreatable] when the directory
     /// or a directory above it cannot be created. The error names the path of
@@ -781,7 +808,7 @@ impl<T> Project<T> {
 
     /// Creates the data directory of the project below a base directory
     ///
-    /// The base is an argument, so that a test can name a directory of its
+    /// The base is an argument. A test can therefore name a directory of its
     /// own and does not write to the directory of the user.
     ///
     /// # Errors
@@ -800,11 +827,40 @@ impl<T> Project<T> {
     ///
     /// Returns `None` when no marker matched and the search fell back to the
     /// start directory.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use kawauso_project::Project;
+    /// # use kawauso_project::Search;
+    /// let search = Search::start(".").marker(".git").marker("Cargo.toml");
+    /// let project: Project = Project::builder()
+    ///     .application("example".parse()?)
+    ///     .load(&search)?;
+    /// if let Some(marker) = project.marker() {
+    ///     println!("Found marker: {}", marker.get().display());
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn marker(&self) -> Option<&Marker> {
         self.marker.as_ref()
     }
 
     /// Returns the directory of the project
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use kawauso_project::Project;
+    /// # use kawauso_project::Search;
+    /// let search = Search::start(".").marker(".git");
+    /// let project: Project = Project::builder()
+    ///     .application("example".parse()?)
+    ///     .load(&search)?;
+    /// let root_path = project.root();
+    /// println!("Project root: {}", root_path.get().display());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn root(&self) -> &ProjectRoot {
         &self.root
     }
@@ -849,13 +905,21 @@ fn configuration_directory_of(application: &ApplicationName) -> ConfigurationFil
 
 /// Creates the data directory of a project and returns its path
 ///
-/// The local data directory of the platform is an argument, so that a test
-/// can name a directory of its own, and does not write to the directory of
-/// the user. `None` stands for a platform that names no such directory.
+/// The local data directory of the platform is an argument. A test can
+/// therefore name a directory of its own, and does not write to the directory
+/// of the user. `None` stands for a platform that names no such directory.
 ///
-/// A base that is not an absolute path counts as unknown. Such a path
-/// resolves against the working directory, and the data directory would then
-/// be inside the working tree that it exists to avoid.
+/// A base that is not an absolute path counts as unknown. Such a path, one from
+/// a relative `HOME` for example, resolves against the working directory. The
+/// data directory would then be inside the working tree that it exists to
+/// avoid. The working tree can be the repository.
+///
+/// The segment `projects` keeps the directory of the application free for
+/// files that belong to no project, so that no identifier collides with them.
+///
+/// A recursive builder succeeds when the directory exists. It gives its mode
+/// to each directory that it creates, the base and the directory of the
+/// application included.
 ///
 /// # Errors
 ///
@@ -866,15 +930,10 @@ fn create_data_directory(
     application: &ApplicationName,
     identifier: &ProjectIdentifier,
 ) -> Result<DataDirectory, CreateDataDirectoryError> {
-    // A relative base, such as one from a relative `HOME`, would put the
-    // directory below the working directory, which can be the repository.
     let base = base
         .filter(|base| base.get().is_absolute())
         .ok_or(CreateDataDirectoryError::UnknownLocalDataDirectory {})?;
 
-    // The segment `projects` keeps the directory of the application free for
-    // files that belong to no project, so that no identifier collides with
-    // them.
     let directory = DataDirectory::new(
         base.get()
             .join(application.get())
@@ -882,9 +941,6 @@ fn create_data_directory(
             .join(identifier.get()),
     );
 
-    // A recursive builder succeeds when the directory exists, and it gives
-    // its mode to each directory that it creates, the base and the directory
-    // of the application included.
     let mut builder = std::fs::DirBuilder::new();
     builder.recursive(true);
 
@@ -940,8 +996,8 @@ where
 
 /// Reads a configuration file and deserializes it
 ///
-/// The read and the deserialization belong to `kawauso-config`, so a failure
-/// in a file of a project is reported in the same words as for every other
+/// The read and the deserialization belong to `kawauso-config`. A failure in a
+/// file of a project is therefore reported in the same words as for every other
 /// configuration file. The cause is boxed, because the type that produced it
 /// belongs to a dependency and never crosses the boundary of this crate.
 ///
@@ -974,12 +1030,12 @@ fn exists(path: &Path) -> bool {
 /// Reports whether a marker names an entry inside another directory
 ///
 /// A path that joins onto a directory can leave it again. An absolute path
-/// replaces the directory, and a `..` component moves above it. Either one
-/// takes the search to a place that the walk never reaches, and an absolute
-/// path takes every directory of the walk to the same place.
+/// replaces the directory, and a `..` component moves above it. Either one takes the
+/// search to a place that the walk never reaches. An absolute path also takes
+/// every directory of the walk to the same place.
 ///
 /// A path that names no entry at all, such as an empty path or `.`, is no
-/// marker either: every directory holds it, so the start would always be the
+/// marker either. Every directory holds it, so the start would always be the
 /// project.
 fn is_inside(marker: &Marker) -> bool {
     let mut names_an_entry = false;
@@ -995,46 +1051,49 @@ fn is_inside(marker: &Marker) -> bool {
     names_an_entry
 }
 
-/// Resolves the start of the walk to the canonical path of a directory
+/// Loads the start of the walk as the canonical path of a directory
 ///
 /// A relative start resolves against the working directory of the process,
-/// which the caller supplies, so that a test can name one. The result is the
-/// canonical path: the `.` and `..` components go, and the symbolic links
-/// resolve.
+/// which the caller supplies, so that a test can name one. An empty path is
+/// the working directory to every other operation of the standard library.
+/// Joining it onto the working directory therefore gives the same answer
+/// here. The result is the canonical path: the `.` and `..` components go,
+/// and the symbolic links resolve.
+///
+/// Canonicalization reads the file system. A start that does not exist, or
+/// that the process cannot read, therefore fails here. The report names the
+/// start as the caller gave it, resolved against the working directory. It does
+/// so because the canonical path of such a start does not exist.
+/// Canonicalization already read the path, so the file system answers the
+/// question whether it is a directory. A path that it cannot answer for is no
+/// directory.
 ///
 /// The walk goes up one component at a time. A `..` component after a
 /// symbolic link would otherwise take the walk through a directory that the
 /// caller never entered. The directory that the walk reports is the directory
-/// that holds the marker, and a caller that joins a path onto it reaches the
-/// entry that the walk saw.
+/// that holds the marker. A caller that joins a path onto it reaches the entry
+/// that the walk saw.
 ///
-/// A start that names a file yields the directory that holds the file,
+/// A start that names a file yields the directory that holds the file. This is
 /// because the project that governs a file is the project of that directory.
 ///
 /// # Errors
 ///
 /// Returns an error when the start is relative and the working directory is
 /// unknown, or when the start does not exist or cannot be read.
-fn resolve(
+fn load_start_directory(
     start: &Path,
     working_directory: std::io::Result<PathBuf>,
 ) -> Result<PathBuf, DiscoverProjectError> {
     let absolute = if start.is_absolute() {
         start.to_path_buf()
     } else {
-        // An empty path is the working directory to every other operation of
-        // the standard library, and joining it onto the working directory
-        // gives the same answer here.
         let working_directory = working_directory
             .map_err(|source| DiscoverProjectError::UnknownWorkingDirectory { source })?;
 
         working_directory.join(start)
     };
 
-    // Canonicalization reads the file system, so a start that does not exist,
-    // or that the process cannot read, fails here. The report names the start
-    // as the caller gave it, resolved against the working directory, because
-    // the canonical path of such a start does not exist.
     let start = std::fs::canonicalize(&absolute).map_err(|source| {
         DiscoverProjectError::UnreadableStart {
             start: StartDirectory::new(absolute),
@@ -1042,8 +1101,6 @@ fn resolve(
         }
     })?;
 
-    // Canonicalization already read the path, so the file system answers this
-    // question, and a path that it cannot answer for is no directory.
     if start.is_dir() {
         return Ok(start);
     }
@@ -1061,8 +1118,8 @@ fn resolve(
 /// before any marker is tested in the directory above it. A project therefore
 /// wins over the directory that contains it.
 ///
-/// The markers are tested before the walk begins, because a marker that
-/// leaves its directory is a mistake in the application, and reading the file
+/// The markers are tested before the walk begins. This is because a marker that
+/// leaves its directory is a mistake in the application. Reading the file
 /// system would not make the answer any better.
 ///
 /// # Errors
@@ -1105,9 +1162,10 @@ fn walk(
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use std::io::ErrorKind;
 
@@ -1158,6 +1216,13 @@ mod tests {
     }
 
     #[test]
+    fn configuration_source_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<ConfigurationSource>();
+    }
+
+    #[test]
     fn create_data_directory_creates_the_directory() {
         let root = tempfile::tempdir().unwrap();
         let base = LocalDataDirectory::new(root.path().join("data"));
@@ -1167,9 +1232,11 @@ mod tests {
         assert!(directory.get().is_dir());
     }
 
-    // Each directory that the call creates gets the mode, the base and the
-    // directory of the application included. The mask of the process can
-    // only remove permissions, so it cannot make a mode wider than `0700`.
+    /// Shows that directories are created with mode 0700 on Unix
+    ///
+    /// Each directory that the call creates gets the mode, the base and the
+    /// directory of the application included. The mask of the process can
+    /// only remove permissions, so it cannot make a mode wider than `0700`.
     #[cfg(unix)]
     #[test]
     fn create_data_directory_on_unix_creates_directories_for_the_user_alone() {
@@ -1263,10 +1330,12 @@ mod tests {
         ));
     }
 
+    /// Shows that a relative base returns an error
+    ///
+    /// A file of the crate is in the path. A fault that ignores the rule
+    /// therefore cannot create a directory in the working tree of the test.
     #[test]
     fn create_data_directory_with_a_relative_base_returns_an_error() {
-        // A file of the crate is in the path, so that a fault that ignores the
-        // rule cannot create a directory in the working tree of the test.
         let base = LocalDataDirectory::new(PathBuf::from("Cargo.toml").join("data"));
 
         let error = create_data_directory(Some(base), &application(), &identifier()).unwrap_err();
@@ -1298,8 +1367,10 @@ mod tests {
         ));
     }
 
-    // The application whose project this is names the directory below the
-    // base, so the name that the builder took reaches the path.
+    /// Shows that the application name reaches the data directory path
+    ///
+    /// The application whose project this is names the directory below the
+    /// base, so the name that the builder took reaches the path.
     #[test]
     fn data_directory_below_returns_the_directory_of_the_application() {
         let root = tempfile::tempdir().unwrap();
@@ -1325,12 +1396,21 @@ mod tests {
         );
     }
 
-    // The test reads the local data directory of the user, and writes
-    // nothing there. It therefore needs an environment that names that
-    // directory. The name of the application is unique to this test, so that
-    // no other application owns a directory with the name. Only a load that
-    // creates the directory, which is the fault that the test finds, leaves
-    // the directory behind for a later run.
+    #[test]
+    fn discovery_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Discovery>();
+    }
+
+    /// Shows that load does not create a data directory
+    ///
+    /// The test reads the local data directory of the user, and writes
+    /// nothing there. It therefore needs an environment that names that
+    /// directory. The name of the application is unique to this test, so that
+    /// no other application owns a directory with the name. Only a load that
+    /// creates the directory, which is the fault that the test finds, leaves
+    /// the directory behind for a later run.
     #[test]
     fn load_creates_no_data_directory() {
         let root = tempfile::tempdir().unwrap();
@@ -1349,30 +1429,33 @@ mod tests {
     }
 
     #[test]
-    fn resolve_with_a_file_returns_its_directory() {
+    fn load_start_directory_with_a_file_returns_its_directory() {
         let root = tempfile::tempdir().unwrap();
         file(&root, "src/main.rs");
 
-        let start = resolve(&root.path().join("src").join("main.rs"), Ok(PathBuf::new())).unwrap();
+        let start =
+            load_start_directory(&root.path().join("src").join("main.rs"), Ok(PathBuf::new()))
+                .unwrap();
 
         assert_eq!(start, canonical(&root).join("src"));
     }
 
     #[test]
-    fn resolve_with_a_relative_start_resolves_against_the_working_directory() {
+    fn load_start_directory_with_a_relative_start_resolves_against_the_working_directory() {
         let root = tempfile::tempdir().unwrap();
         directory(&root, "src");
 
-        let start = resolve(Path::new("src"), Ok(root.path().to_path_buf())).unwrap();
+        let start = load_start_directory(Path::new("src"), Ok(root.path().to_path_buf())).unwrap();
 
         assert_eq!(start, canonical(&root).join("src"));
     }
 
     #[test]
-    fn resolve_with_a_start_that_does_not_exist_returns_an_error() {
+    fn load_start_directory_with_a_start_that_does_not_exist_returns_an_error() {
         let root = tempfile::tempdir().unwrap();
 
-        let error = resolve(&root.path().join("absent"), Ok(PathBuf::new())).unwrap_err();
+        let error =
+            load_start_directory(&root.path().join("absent"), Ok(PathBuf::new())).unwrap_err();
 
         assert!(matches!(
             error,
@@ -1380,28 +1463,32 @@ mod tests {
         ));
     }
 
-    // A `..` component after a symbolic link leaves the tree that the link
-    // points into. A walk that keeps the link therefore passes through a
-    // directory that the user never entered, which this test holds the
-    // resolution to.
+    /// Shows that symbolic links are canonicalized
+    ///
+    /// A `..` component after a symbolic link leaves the tree that the link
+    /// points into. A walk that keeps the link therefore passes through a
+    /// directory that the user never entered, which this test holds the
+    /// resolution to.
     #[cfg(unix)]
     #[test]
-    fn resolve_with_a_symbolic_link_returns_the_real_path() {
+    fn load_start_directory_with_a_symbolic_link_returns_the_real_path() {
         let root = tempfile::tempdir().unwrap();
         directory(&root, "real/inner");
         std::os::unix::fs::symlink(root.path().join("real"), root.path().join("link")).unwrap();
 
-        let start = resolve(&root.path().join("link").join("inner"), Ok(PathBuf::new())).unwrap();
+        let start =
+            load_start_directory(&root.path().join("link").join("inner"), Ok(PathBuf::new()))
+                .unwrap();
 
         assert_eq!(start, canonical(&root).join("real").join("inner"));
     }
 
     #[test]
-    fn resolve_with_dot_components_removes_them() {
+    fn load_start_directory_with_dot_components_removes_them() {
         let root = tempfile::tempdir().unwrap();
         directory(&root, "src");
 
-        let start = resolve(
+        let start = load_start_directory(
             &root.path().join("src").join("..").join("src"),
             Ok(PathBuf::new()),
         )
@@ -1411,15 +1498,22 @@ mod tests {
     }
 
     #[test]
-    fn resolve_without_a_working_directory_returns_an_error() {
+    fn load_start_directory_without_a_working_directory_returns_an_error() {
         let unknown = std::io::Error::new(ErrorKind::NotFound, "the working directory is gone");
 
-        let error = resolve(Path::new("src"), Err(unknown)).unwrap_err();
+        let error = load_start_directory(Path::new("src"), Err(unknown)).unwrap_err();
 
         assert!(matches!(
             error,
             DiscoverProjectError::UnknownWorkingDirectory { .. }
         ));
+    }
+
+    #[test]
+    fn project_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Project>();
     }
 
     #[test]
@@ -1579,5 +1673,12 @@ mod tests {
         let error = walk(root.path(), &[Marker::from(ABSENT)], Fallback::Error).unwrap_err();
 
         assert!(matches!(error, DiscoverProjectError::MissingProject { .. }));
+    }
+
+    #[test]
+    fn without_configuration_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<WithoutConfiguration>();
     }
 }

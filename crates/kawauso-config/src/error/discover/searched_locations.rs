@@ -14,6 +14,19 @@ use crate::loader::ConfigurationPath;
 /// The list exists for the report that a failed search produces. It is not a
 /// record of what the file system holds: a location in it can hold a file, a
 /// directory, or nothing at all.
+///
+/// # Examples
+///
+/// ```
+/// use kawauso_config::error::discover::SearchedLocations;
+/// use kawauso_config::loader::ConfigurationPath;
+///
+/// let locations = SearchedLocations::new(vec![
+///     ConfigurationPath::from("/etc/app.toml"),
+///     ConfigurationPath::from("~/.config/app.toml"),
+/// ]);
+/// assert_eq!(locations.as_slice().len(), 2);
+/// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct SearchedLocations(Vec<ConfigurationPath>);
 
@@ -22,11 +35,35 @@ impl SearchedLocations {
     ///
     /// The order is preserved as given, because it decides which location
     /// wins and in which order a report names them.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_config::error::discover::SearchedLocations;
+    /// use kawauso_config::loader::ConfigurationPath;
+    ///
+    /// let locations = SearchedLocations::new(vec![
+    ///     ConfigurationPath::from("/etc/app.toml"),
+    /// ]);
+    /// assert_eq!(locations.as_slice().len(), 1);
+    /// ```
     pub fn new(locations: impl Into<Vec<ConfigurationPath>>) -> Self {
         Self(locations.into())
     }
 
     /// Returns the locations in the order of the search
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_config::error::discover::SearchedLocations;
+    /// use kawauso_config::loader::ConfigurationPath;
+    ///
+    /// let locations = SearchedLocations::new(vec![
+    ///     ConfigurationPath::from("/etc/app.toml"),
+    /// ]);
+    /// assert_eq!(locations.as_slice().len(), 1);
+    /// ```
     pub fn as_slice(&self) -> &[ConfigurationPath] {
         &self.0
     }
@@ -49,11 +86,18 @@ impl Display for SearchedLocations {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
+
+    #[test]
+    fn searched_locations_is_send_sync_and_unpin() {
+        fn assert_send_sync_unpin<T: Send + Sync + Unpin>() {}
+        assert_send_sync_unpin::<SearchedLocations>();
+    }
 
     #[test]
     fn trait_display() {

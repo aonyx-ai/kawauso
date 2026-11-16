@@ -10,15 +10,43 @@ use crate::loader::Subdirectory;
 
 /// The error returned when a search does not produce a configuration file
 ///
-/// The variants separate what the user of the application has to do next. A
-/// search that read every location of its strategy and found nothing needs a
-/// new file, and the error names the locations where it can go. A location
-/// that holds a directory needs that directory removed. A search that never
-/// started needs an environment in which the process can name its own
-/// working directory or the directory of the user.
+/// The variants separate what the user of the application has to do next.
+/// A search that read every location of its strategy and found nothing needs a new file.
+/// The error names the locations where it can go.
+/// A location that holds a directory needs that directory removed.
+/// A search that never started needs an environment.
+/// The process must name its own working directory or the directory of the user.
 ///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
+///
+/// # Examples
+///
+/// ```
+/// use serde::Deserialize;
+///
+/// use kawauso_config::ApplicationName;
+/// use kawauso_config::Loader;
+/// use kawauso_config::error::DiscoverConfigurationError;
+/// use kawauso_config::error::LoadConfigurationError;
+///
+/// #[derive(Deserialize)]
+/// struct Configuration {
+///     port: u16,
+/// }
+///
+/// let application: ApplicationName = "kawauso-doctest-without-a-file".parse()?;
+/// let result = Loader::ancestors(application).load::<Configuration>();
+///
+/// assert!(matches!(
+///     result,
+///     Err(LoadConfigurationError::UndiscoverableFile {
+///         source: DiscoverConfigurationError::MissingFile { .. },
+///         ..
+///     })
+/// ));
+/// # Ok::<(), kawauso_config::error::ParseApplicationNameError>(())
+/// ```
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum DiscoverConfigurationError {
@@ -55,9 +83,9 @@ pub enum DiscoverConfigurationError {
 
     /// A location holds a directory with the name of the configuration file
     ///
-    /// The search stops at such a location instead of moving on. A directory
-    /// with the name of the file is a mistake that is hard to see, and a
-    /// file from a later location would hide it. The message gives the path
+    /// The search stops at such a location instead of moving on. A directory with the
+    /// name of the file is a mistake that is hard to see. A file from a later
+    /// location would hide it. The message gives the path
     /// of the directory.
     #[error("the path `{path}` is a directory, not a configuration file")]
     #[non_exhaustive]
@@ -94,20 +122,30 @@ pub enum DiscoverConfigurationError {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller sends the error between threads and keeps it in a report that
-    // another thread reads. This test holds the error to the auto traits that
-    // make this possible, because a private field of a later version could
-    // take them away without a word from the compiler.
+    /// Shows that `DiscoverConfigurationError` is Send and Sync
+    ///
+    /// A caller sends the error between threads and keeps it in a report that
+    /// another thread reads. This test holds the error to the auto traits that
+    /// make this possible. The test exists because a private field of a later
+    /// version could take them away without a word from the compiler.
     #[test]
     fn discover_configuration_error_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<DiscoverConfigurationError>();
+    }
+
+    #[test]
+    fn discover_configuration_error_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<DiscoverConfigurationError>();
     }
 }

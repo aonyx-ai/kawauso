@@ -15,9 +15,9 @@ use std::path::PathBuf;
 /// reads the command. A value that holds a space is one value.
 ///
 /// The value is an [`OsString`], because the environment of a program holds
-/// the strings of the operating system and not the strings of Rust. A value is
-/// often a path, such as the directory that a build tool writes to, and a
-/// path becomes a value without a conversion of its own.
+/// the strings of the operating system and not the strings of Rust. A value is often a
+/// path, such as the directory that a build tool writes to. A path becomes a
+/// value without a conversion of its own.
 ///
 /// # Examples
 ///
@@ -48,6 +48,16 @@ impl VariableValue {
     }
 
     /// Returns the value as the caller wrote it
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::invocation::VariableValue;
+    ///
+    /// let value = VariableValue::from("target");
+    ///
+    /// assert_eq!(value.get(), "target");
+    /// ```
     pub fn get(&self) -> &OsStr {
         &self.0
     }
@@ -108,14 +118,17 @@ impl From<PathBuf> for VariableValue {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // An application that reads a value from the environment holds an
-    // `OsString`, and the value takes it without a conversion of its own.
+    /// Keeps an `OsString` without conversion
+    ///
+    /// An application that reads a value from the environment holds an
+    /// `OsString`, and the value takes it without a conversion of its own.
     #[test]
     fn from_os_string_keeps_the_value() {
         let value = VariableValue::from(OsString::from("always"));
@@ -123,8 +136,10 @@ mod tests {
         assert_eq!(value.get(), "always");
     }
 
-    // An application that names a directory for a command holds a path, and
-    // the value takes it without a conversion of its own.
+    /// Keeps a path without conversion
+    ///
+    /// An application that names a directory for a command holds a path, and
+    /// the value takes it without a conversion of its own.
     #[test]
     fn from_path_keeps_the_path() {
         let value = VariableValue::from(Path::new("target/coverage"));
@@ -132,12 +147,21 @@ mod tests {
         assert_eq!(value.get(), "target/coverage");
     }
 
-    // The text of a value reaches a log line through `Display`, and a caller
-    // that shows one value gets it without quotation marks.
+    /// Shows a value in logs without quotation marks
+    ///
+    /// The text of a value reaches a log line through `Display`, and a caller
+    /// that shows one value gets it without quotation marks.
     #[test]
     fn to_string_returns_the_value() {
         let value = VariableValue::from("-D warnings");
 
         assert_eq!(value.to_string(), "-D warnings");
+    }
+
+    #[test]
+    fn variable_value_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<VariableValue>();
     }
 }

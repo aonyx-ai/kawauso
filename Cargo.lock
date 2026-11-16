@@ -194,6 +194,7 @@ dependencies = [
 name = "kawauso-config"
 version = "0.4.0"
 dependencies = [
+ "bon",
  "dirs",
  "indoc",
  "serde",
@@ -208,6 +209,7 @@ dependencies = [
 name = "kawauso-process"
 version = "0.2.1"
 dependencies = [
+ "bon",
  "rustix",
  "tempfile",
  "thiserror 2.0.21",

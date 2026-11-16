@@ -48,6 +48,16 @@ impl Argument {
     }
 
     /// Returns the argument as the caller wrote it
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::invocation::Argument;
+    ///
+    /// let argument = Argument::from("--verbose");
+    ///
+    /// assert_eq!(argument.get(), "--verbose");
+    /// ```
     pub fn get(&self) -> &OsStr {
         &self.0
     }
@@ -108,14 +118,24 @@ impl From<PathBuf> for Argument {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // An application that reads an argument from the environment holds an
-    // `OsString`, and the argument takes it without a conversion of its own.
+    #[test]
+    fn argument_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Argument>();
+    }
+
+    /// Shows that from an OsString preserves the string unchanged
+    ///
+    /// An application that reads an argument from the environment holds an
+    /// `OsString`, and the argument takes it without a conversion of its own.
     #[test]
     fn from_os_string_keeps_the_string() {
         let argument = Argument::from(OsString::from("--short"));
@@ -123,8 +143,10 @@ mod tests {
         assert_eq!(argument.get(), "--short");
     }
 
-    // An application that names a file for a command holds a path, and the
-    // argument takes it without a conversion of its own.
+    /// Shows that from a path preserves the path unchanged
+    ///
+    /// An application that names a file for a command holds a path, and the
+    /// argument takes it without a conversion of its own.
     #[test]
     fn from_path_keeps_the_path() {
         let argument = Argument::from(Path::new("src/main.rs"));
@@ -132,8 +154,10 @@ mod tests {
         assert_eq!(argument.get(), "src/main.rs");
     }
 
-    // The text of an argument reaches a log line through `Display`, and a
-    // caller that shows one argument gets it without quotation marks.
+    /// Shows that Display formats an argument without quotation marks
+    ///
+    /// The text of an argument reaches a log line through `Display`, and a
+    /// caller that shows one argument gets it without quotation marks.
     #[test]
     fn to_string_returns_the_argument() {
         let argument = Argument::from("two words");

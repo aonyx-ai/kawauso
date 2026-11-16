@@ -8,9 +8,9 @@ use std::fmt::Result;
 /// The bytes that a command wrote to one of its streams
 ///
 /// The value holds the bytes as the command wrote them. A command writes what
-/// it wants: the lines of a report, the bytes of an archive, or a sequence
-/// that is not valid UTF-8 at all. A conversion into text would lose the
-/// bytes that have no character, so the type keeps the bytes and offers the
+/// it wants. It can write the lines of a report, the bytes of an archive, or a
+/// sequence that is not valid UTF-8 at all. A conversion into text would lose the bytes
+/// that have no character. The type therefore keeps the bytes and offers the
 /// text to the caller that wants it.
 ///
 /// # Examples
@@ -42,11 +42,31 @@ impl Capture {
     }
 
     /// Returns the bytes as the command wrote them
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::execution::Capture;
+    ///
+    /// let capture = Capture::new(b"hello");
+    ///
+    /// assert_eq!(capture.get(), b"hello");
+    /// ```
     pub fn get(&self) -> &[u8] {
         &self.0
     }
 
     /// Returns whether the command wrote nothing to the stream
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::execution::Capture;
+    ///
+    /// let capture = Capture::new("");
+    ///
+    /// assert!(capture.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -95,16 +115,19 @@ impl From<Vec<u8>> for Capture {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller keeps the capture of a run in a report that another thread
-    // reads. This test holds the type to the auto traits that make this
-    // possible, because a private field of a later version could take them
-    // away without a word from the compiler.
+    /// Shows that `Capture` is Send and Sync
+    ///
+    /// A caller keeps the capture of a run in a report that another thread reads.
+    /// This test holds the type to the auto traits that make this possible. The
+    /// test exists because a private field of a later version could take them
+    /// away without a word from the compiler.
     #[test]
     fn capture_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
@@ -112,8 +135,17 @@ mod tests {
         assert_send_and_sync::<Capture>();
     }
 
-    // A command that writes nothing leaves an empty capture, and a caller
-    // that reports only what a command said asks for this state.
+    #[test]
+    fn capture_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Capture>();
+    }
+
+    /// Shows that a command that writes nothing leaves an empty capture
+    ///
+    /// A command that writes nothing leaves an empty capture, and a caller that
+    /// reports only what a command said asks for this state.
     #[test]
     fn is_empty_without_bytes_reports_an_empty_capture() {
         let capture = Capture::default();
@@ -121,8 +153,10 @@ mod tests {
         assert!(capture.is_empty());
     }
 
-    // The text of the capture reaches a log line through `Display`, and a
-    // caller that shows it gets the same text as the lossy conversion.
+    /// Shows that the text of the capture reaches a log line through `Display`
+    ///
+    /// The text of the capture reaches a log line through `Display`, and a caller
+    /// that shows it gets the same text as the lossy conversion.
     #[test]
     fn to_string_returns_the_capture_as_text() {
         let capture = Capture::new("hello");

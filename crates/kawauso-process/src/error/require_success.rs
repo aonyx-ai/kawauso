@@ -26,6 +26,27 @@ use crate::invocation::Invocation;
 ///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
+///
+/// # Examples
+///
+/// ```no_run
+/// use kawauso_process::Invocation;
+/// use kawauso_process::error::RequireSuccessError;
+///
+/// # #[tokio::main(flavor = "current_thread")]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let execution = Invocation::new("git")
+///     .arg("no-such-subcommand")
+///     .run()
+///     .await?;
+///
+/// assert!(matches!(
+///     execution.require_success(),
+///     Err(RequireSuccessError::UnsuccessfulCommand { .. })
+/// ));
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Eq, PartialEq, Debug)]
 #[non_exhaustive]
 pub enum RequireSuccessError {
@@ -49,8 +70,9 @@ pub enum RequireSuccessError {
 
 /// States which command ended how, and what it wrote about it
 ///
-/// The message holds the capture of the standard error, because the reader of
-/// a report has only this message and the command wrote its reason there. A
+/// The message holds the capture of the standard error. This is because the
+/// reader of a report has only this message, and the command wrote its reason
+/// there. A
 /// command that wrote nothing says so, so that no reader looks for a text
 /// that does not exist.
 impl Display for RequireSuccessError {
@@ -84,16 +106,19 @@ impl Error for RequireSuccessError {}
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller sends the error between threads and keeps it in a report that
-    // another thread reads. This test holds the error to the auto traits that
-    // make this possible, because a private field of a later version could
-    // take them away without a word from the compiler.
+    /// Shows that `RequireSuccessError` is Send and Sync
+    ///
+    /// A caller sends the error between threads and keeps it in a report that
+    /// another thread reads. This test holds the error to the auto traits that
+    /// make this possible. The test exists because a private field of a later
+    /// version could take them away without a word from the compiler.
     #[test]
     fn require_success_error_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
@@ -101,10 +126,19 @@ mod tests {
         assert_send_and_sync::<RequireSuccessError>();
     }
 
-    // A result carries its error by value, and a consumer wraps the error in
-    // an error of its own. An error that grows makes every such wrapper grow
-    // with it, until the wrapper needs a box that the consumer writes. This
-    // test holds the error to a size that leaves the consumer that room.
+    #[test]
+    fn require_success_error_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<RequireSuccessError>();
+    }
+
+    /// Shows that an error stays small for consumers wrapping it
+    ///
+    /// A result carries its error by value. A consumer wraps the error in an
+    /// error of its own. An error that grows makes every such wrapper grow
+    /// with it, until the wrapper needs a box that the consumer writes. This test holds the error to a
+    /// size that leaves the consumer that room.
     #[test]
     fn require_success_error_stays_small() {
         assert!(size_of::<RequireSuccessError>() <= 6 * size_of::<usize>());

@@ -1,17 +1,18 @@
 //! Tests for the run of a command through the public API
 //!
 //! Every test here starts a real program, because the obligations of a run
-//! exist only when a program runs: the capture of a stream, the status of a
-//! command, and the pipes that never block. The shell of the platform is the
+//! exist only when a program runs. They are the capture of a stream, the status
+//! of a command, and the pipes that never block. The shell of the platform is the
 //! program that every machine has, so most tests give a command line to it.
 //!
 //! Some tests need a tool that only a Unix system has, and they run there
 //! alone. The project has no Windows runner, so no test pins the behavior of
 //! the crate on that platform.
 
-// An assertion in a test panics by design. A `# Panics` section on every test
-// would repeat that and give the reader no information.
-#![allow(clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_panics_doc,
+    reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+)]
 
 #[cfg(unix)]
 use std::path::Path;
@@ -50,33 +51,6 @@ fn shell(commands: &[&str]) -> Invocation {
     }
 }
 
-// A variable that the process holds reaches every command that it starts, and
-// a caller that takes the name out means the command to miss it. The shell
-// writes an empty line for a name that the environment does not hold, and it
-// does not put `HOME` back when the environment arrives without it.
-#[cfg(unix)]
-#[tokio::test]
-async fn run_with_a_removed_name_hides_the_variable_of_the_process() {
-    let invocation = shell(&["echo \"$HOME\""]).env_remove("HOME");
-
-    let execution = invocation.run().await.expect("expected the command to run");
-
-    assert_eq!(execution.stdout().to_string_lossy().trim(), "");
-}
-
-// The removal reaches the command alone. A process that took a name out of
-// one command still holds the variable itself, which is what lets it run
-// several commands at once.
-#[cfg(unix)]
-#[tokio::test]
-async fn run_with_a_removed_name_keeps_the_variable_of_the_process() {
-    let invocation = shell(&["echo \"$HOME\""]).env_remove("HOME");
-
-    invocation.run().await.expect("expected the command to run");
-
-    assert!(std::env::var("HOME").is_ok());
-}
-
 #[tokio::test]
 async fn require_success_with_a_command_that_failed_names_the_command() {
     let invocation = shell(&["exit 3"]);
@@ -87,8 +61,10 @@ async fn require_success_with_a_command_that_failed_names_the_command() {
     assert!(error.to_string().contains(&invocation.to_string()));
 }
 
-// A program states on its standard error why it stopped, and the reader of a
-// report has only the message of the error.
+/// Shows that the error names the standard error of the failed command
+///
+/// A program states on its standard error why it stopped, and the reader of a
+/// report has only the message of the error.
 #[tokio::test]
 async fn require_success_with_a_command_that_failed_names_the_standard_error() {
     let execution = shell(&["echo oops 1>&2", "exit 3"]).run().await.unwrap();
@@ -120,8 +96,10 @@ async fn require_success_with_a_command_that_failed_returns_an_error() {
     ));
 }
 
-// The check returns the result of the run, so a caller that required success
-// reads the output of the command from the value that it got back.
+/// Shows that a command that succeeded returns the execution
+///
+/// The check returns the result of the run. A caller that required success
+/// therefore reads the output of the command from the value that it got back.
 #[tokio::test]
 async fn require_success_with_a_command_that_succeeded_returns_the_execution() {
     let execution = shell(&["echo hello"]).run().await.unwrap();
@@ -131,9 +109,11 @@ async fn require_success_with_a_command_that_succeeded_returns_the_execution() {
     assert_eq!(execution.stdout().to_string_lossy().trim(), "hello");
 }
 
-// A timeout, and every other caller that abandons a run, drops the future of
-// the run. The command writes the file after the drop, so a file that exists
-// at the end is a command that outlived its run.
+/// Shows that dropping the run ends the command
+///
+/// A timeout, and every other caller that abandons a run, drops the future of
+/// the run. The command writes the file after the drop, so a file that exists
+/// at the end is a command that outlived its run.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_that_the_caller_drops_ends_the_command() {
@@ -147,8 +127,10 @@ async fn run_that_the_caller_drops_ends_the_command() {
     assert!(!marker.exists());
 }
 
-// The crate gives the program to the operating system as the caller wrote it,
-// and the platform resolves a bare name. The crate searches no path itself.
+/// Shows that a bare program name starts the program
+///
+/// The crate gives the program to the operating system as the caller wrote it,
+/// and the platform resolves a bare name. The crate searches no path itself.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_bare_program_name_starts_the_program() {
@@ -159,8 +141,10 @@ async fn run_with_a_bare_program_name_starts_the_program() {
     assert!(execution.status().success());
 }
 
-// A command that ends without success is a result and not an error of the
-// run, so the run reports the code that the command chose.
+/// Shows that a command that fails reports its exit code
+///
+/// A command that ends without success is a result and not an error of the run.
+/// The run therefore reports the code that the command chose.
 #[tokio::test]
 async fn run_with_a_command_that_fails_reports_the_exit_code() {
     let invocation = shell(&["exit 3"]);
@@ -189,8 +173,10 @@ async fn run_with_a_command_that_fills_both_pipes_captures_everything() {
     );
 }
 
-// The command reads a variable that the process holds, and it reports the
-// same value, so the command runs in the environment of the process.
+/// Shows that a command sees the environment of the process
+///
+/// The command reads a variable that the process holds, and it reports the
+/// same value, so the command runs in the environment of the process.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_command_that_reads_the_environment_sees_the_environment_of_the_process() {
@@ -204,9 +190,11 @@ async fn run_with_a_command_that_reads_the_environment_sees_the_environment_of_t
     );
 }
 
-// The command counts the bytes of its standard input. A command that read the
-// input of the process would report another number, and a command that waited
-// for input would never end.
+/// Shows that a command sees the end of the standard input
+///
+/// The command counts the bytes of its standard input. A command that read the
+/// input of the process would report another number, and a command that waited
+/// for input would never end.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_command_that_reads_the_standard_input_sees_the_end_of_the_input() {
@@ -226,8 +214,10 @@ async fn run_with_a_command_that_succeeds_reports_a_successful_status() {
     assert!(execution.status().success());
 }
 
-// The command sleeps for the time that the assertion names, so a run that
-// reported the time of the call, or no time at all, fails here.
+/// Shows that a run reports the duration of the command
+///
+/// The command sleeps for the time that the assertion names. A run that
+/// reported the time of the call, or no time at all, therefore fails here.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_command_that_takes_time_reports_the_duration() {
@@ -238,10 +228,12 @@ async fn run_with_a_command_that_takes_time_reports_the_duration() {
     assert!(execution.duration() >= Duration::from_millis(200));
 }
 
-// An application that reports which program ran needs the identifier of the
-// command, and the run is the only place that has it. The shell writes its
-// own identifier, so the test compares the value of the operating system with
-// the value of the result.
+/// Shows that the result carries the identifier that the operating system gave
+///
+/// An application that reports which program ran needs the identifier of the
+/// command, and the run is the only place that has it. The shell writes its
+/// own identifier, so the test compares the value of the operating system with
+/// the value of the result.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_command_that_writes_its_identifier_reports_the_same_identifier() {
@@ -307,10 +299,43 @@ async fn run_with_a_program_that_does_not_exist_returns_an_error() {
     assert!(matches!(error, RunCommandError::UnstartableCommand { .. }));
 }
 
-// A program that takes a decision from a variable, and from no flag, has to
-// see the variable that the caller set for the command. The command writes
-// the value that it reads, so a run that dropped the variable reports an
-// empty line.
+/// Shows that a removed name hides the variable of the process from the command
+///
+/// A variable that the process holds reaches every command that it starts. A
+/// caller that takes the name out means the command to miss it. The shell writes an
+/// empty line for a name that the environment does not hold. It does not put
+/// `HOME` back when the environment arrives without it.
+#[cfg(unix)]
+#[tokio::test]
+async fn run_with_a_removed_name_hides_the_variable_of_the_process() {
+    let invocation = shell(&["echo \"$HOME\""]).env_remove("HOME");
+
+    let execution = invocation.run().await.expect("expected the command to run");
+
+    assert_eq!(execution.stdout().to_string_lossy().trim(), "");
+}
+
+/// Shows that a removed name keeps the variable in the process
+///
+/// The removal reaches the command alone. A process that took a name out of
+/// one command still holds the variable itself, which is what lets it run
+/// several commands at once.
+#[cfg(unix)]
+#[tokio::test]
+async fn run_with_a_removed_name_keeps_the_variable_of_the_process() {
+    let invocation = shell(&["echo \"$HOME\""]).env_remove("HOME");
+
+    invocation.run().await.expect("expected the command to run");
+
+    assert!(std::env::var("HOME").is_ok());
+}
+
+/// Shows that a variable that the caller set reaches the command
+///
+/// A program that takes a decision from a variable, and from no flag, has to
+/// see the variable that the caller set for the command. The command writes
+/// the value that it reads, so a run that dropped the variable reports an
+/// empty line.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_variable_gives_the_command_the_variable() {
@@ -322,10 +347,12 @@ async fn run_with_a_variable_gives_the_command_the_variable() {
     assert_eq!(execution.stdout().to_string_lossy().trim(), "value");
 }
 
-// The variables of the caller come on top of the environment of the process,
-// and not in its place. A command that reads a variable of the process
-// therefore sees the same value as the process, although the caller set a
-// variable of its own.
+/// Shows that a variable of the caller keeps the environment of the process
+///
+/// The variables of the caller come on top of the environment of the process,
+/// and not in its place. A command that reads a variable of the process
+/// therefore sees the same value as the process. This holds although the caller
+/// set a variable of its own.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_variable_keeps_the_environment_of_the_process() {
@@ -339,10 +366,12 @@ async fn run_with_a_variable_keeps_the_environment_of_the_process() {
     );
 }
 
-// A variable of the caller with the name of a variable of the process holds
-// the value of the caller for the command. Every process has a home
-// directory in its environment, and the command reports the one that the
-// caller set.
+/// Shows that a variable of the caller replaces the variable of the process for the command
+///
+/// A variable of the caller with the name of a variable of the process holds
+/// the value of the caller for the command. Every process has a home
+/// directory in its environment, and the command reports the one that the
+/// caller set.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_variable_that_the_process_holds_replaces_it_for_the_command() {
@@ -353,8 +382,10 @@ async fn run_with_a_variable_that_the_process_holds_replaces_it_for_the_command(
     assert_eq!(execution.stdout().to_string_lossy().trim(), "/kawauso");
 }
 
-// A command that works on a directory has to start in that directory, and not
-// where the process runs.
+/// Shows that a working directory is where the command starts
+///
+/// A command that works on a directory has to start in that directory, and not
+/// where the process runs.
 #[cfg(unix)]
 #[tokio::test]
 async fn run_with_a_working_directory_starts_the_command_in_it() {
