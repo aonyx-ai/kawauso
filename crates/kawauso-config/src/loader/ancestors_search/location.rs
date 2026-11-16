@@ -72,7 +72,6 @@ mod tests {
     /// The name that the file of the application has in most locations
     const FILE: &str = "example.toml";
 
-    /// Shows that the dot-config convention reads the file before the directory
     #[test]
     fn dot_config_paths_in_directories_names_the_file_first() {
         let location = Location::DotConfig;
@@ -96,7 +95,6 @@ mod tests {
         assert_send_sync_and_unpin::<Location>();
     }
 
-    /// Shows that a subdirectory contributes only its own file
     #[test]
     fn subdirectory_paths_in_directories_names_its_file() {
         let location = Location::Subdirectory(Subdirectory::from(".github"));
