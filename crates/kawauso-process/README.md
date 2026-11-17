@@ -29,6 +29,17 @@ starts such a program with the streams that the caller chooses, and it
 captures nothing. On a Unix platform, the program leads a process group of its
 own, and a stop or a drop reaches every program in that group.
 
+When the application is in the foreground of its terminal, the program
+receives the foreground while it runs. Ctrl+C, Ctrl+\\, and Ctrl+Z then reach
+the program and not the application. The run gives the terminal back when the
+program ends. The application must not read the terminal while the program
+holds it.
+
+A Ctrl+Z stops the program. While the application waits for the program, the
+run stops the application as well, so that the shell of the user shows the
+job as stopped. A wait for the run therefore pauses the whole application,
+and the shell continues both.
+
 ## Windows
 
 A program whose name ends in `.cmd` or `.bat` starts through `cmd.exe`. A tool
@@ -43,7 +54,8 @@ file leaves that file behind.
 
 Windows also has no process group of the Unix kind. The stop and the drop of
 an interactive run kill the program alone, and a program that it started
-survives.
+survives. Every program on a console receives Ctrl+C, so the application
+receives it as well.
 
 ## License
 

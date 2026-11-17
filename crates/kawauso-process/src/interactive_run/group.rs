@@ -37,6 +37,11 @@ impl Group {
         Pid::from_raw(identifier).map(|leader| Self { leader })
     }
 
+    /// Returns the identifier of the group
+    pub(crate) fn id(self) -> Pid {
+        self.leader
+    }
+
     /// Kills every process of the group
     ///
     /// A kill that the operating system refuses names a group that has no
@@ -86,6 +91,23 @@ impl Group {
         let status = waitid(WaitId::Pid(self.leader), options)?;
 
         Ok(status.is_some())
+    }
+
+    /// Returns the signal that stopped the program, when it stopped since the last call
+    ///
+    /// The call takes the report of the stop. A later call therefore reports
+    /// the next stop, and not this stop a second time.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the operating system when it cannot report the
+    /// state of the program.
+    pub(crate) fn take_stop(self) -> Result<Option<i32>, IoError> {
+        let options = WaitIdOptions::STOPPED | WaitIdOptions::NOHANG;
+
+        let status = waitid(WaitId::Pid(self.leader), options)?;
+
+        Ok(status.and_then(|status| status.stopping_signal()))
     }
 }
 

@@ -614,8 +614,8 @@ impl Invocation {
     ///
     /// The program inherits the environment of this process, with the
     /// variables of the invocation on top. On a Unix platform, it leads a
-    /// process group of its own. [`InteractiveRun`] states what follows from
-    /// that.
+    /// process group of its own, and it receives the foreground of the
+    /// terminal. [`InteractiveRun`] states what follows from that.
     ///
     /// The handle owns the program. A caller that drops the handle kills the
     /// program, and on a Unix platform every process of its group.
@@ -623,7 +623,8 @@ impl Invocation {
     /// # Errors
     ///
     /// Returns [`UnstartableCommand`][unstartable] when the program does not
-    /// start.
+    /// start, and [`UnavailableTerminal`][unavailable] when the terminal
+    /// refuses the program.
     ///
     /// # Panics
     ///
@@ -650,6 +651,7 @@ impl Invocation {
     /// # }
     /// ```
     ///
+    /// [unavailable]: RunCommandError::UnavailableTerminal
     /// [unstartable]: RunCommandError::UnstartableCommand
     pub fn start_interactive(&self, streams: Streams) -> Result<InteractiveRun, RunCommandError> {
         let (stdin, stdout, stderr) = streams.into_parts();

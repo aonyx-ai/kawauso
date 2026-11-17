@@ -5,11 +5,14 @@
 //! captures nothing that it writes. This module holds the handle of such a
 //! run.
 //!
-//! On a Unix platform, the program runs in a process group of its own. The
-//! documentation of [`InteractiveRun`] states what follows from that.
+//! On a Unix platform, the program runs in a process group of its own, and it
+//! holds the foreground of the terminal while it runs. The documentation of
+//! [`InteractiveRun`] states what follows from that.
 
 #[cfg(unix)]
 mod group;
+#[cfg(unix)]
+mod terminal;
 
 #[cfg(unix)]
 use std::io::Error as IoError;
@@ -34,6 +37,8 @@ use tokio::time::timeout;
 use self::group::Group;
 #[cfg(unix)]
 use self::group::Request;
+#[cfg(unix)]
+use self::terminal::Terminal;
 use crate::error::RunCommandError;
 use crate::invocation::Invocation;
 use crate::process_id::ProcessId;
@@ -50,6 +55,24 @@ use crate::process_id::ProcessId;
 /// program that it starts joins the group, so a stop reaches a wrapper such
 /// as `sh -c` and the editor that the wrapper starts. A program that ends by
 /// itself leaves such a program running.
+///
+/// # Terminal
+///
+/// When this process is in the foreground of its terminal, the start gives
+/// the foreground to the group of the program. Ctrl+C, Ctrl+\\, and Ctrl+Z
+/// then reach the program alone, and this process needs no handler for them.
+/// The handle takes the terminal back when the program ended, and when a stop
+/// or a drop ended it. This process must not read the terminal while the
+/// program holds it, because a read from the background stops this process.
+///
+/// A Ctrl+Z stops the program, and not this process. While a wait or a stop
+/// runs, the handle takes the terminal back and stops this process with the
+/// same signal. The shell of the user then shows the job as stopped. When the
+/// shell continues the job, the handle gives the terminal to the program
+/// again and continues it.
+///
+/// The handle does not save the modes of the terminal. A program that a stop
+/// kills can leave the terminal in a mode that the caller must reset.
 ///
 /// # Windows
 ///
@@ -95,6 +118,10 @@ pub struct InteractiveRun {
     #[cfg(unix)]
     group: Option<Group>,
 
+    /// The terminal that the handle lent to the program
+    #[cfg(unix)]
+    terminal: Option<Terminal>,
+
     /// The signals that report a change of a program of this process
     #[cfg(unix)]
     changes: Signal,
@@ -104,7 +131,8 @@ impl InteractiveRun {
     /// Waits until the program that leads the group has ended, and collects nothing
     ///
     /// The status stays with the operating system, so the identifier of the
-    /// group stays reserved. A stop can therefore still signal the group.
+    /// group stays reserved. A stop can therefore still signal the group. The
+    /// wait follows a program that stops while it waits.
     ///
     /// # Errors
     ///
@@ -124,6 +152,18 @@ impl InteractiveRun {
                 .map_err(|source| self.incomplete(source))?
             {
                 return Ok(());
+            }
+
+            if let Some(terminal) = &self.terminal {
+                let stop = group
+                    .take_stop()
+                    .map_err(|source| self.incomplete(source))?;
+
+                if let Some(signal) = stop {
+                    terminal.follow(group, signal);
+
+                    continue;
+                }
             }
 
             if self.changes.recv().await.is_none() {
@@ -197,7 +237,34 @@ impl InteractiveRun {
         &self.invocation
     }
 
-    /// Collects the status of the program
+    /// Lends the terminal to the group of the program, and continues the group
+    ///
+    /// A program that read the terminal before the loan stopped. The program
+    /// continues, and it reads again with the foreground.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UnavailableTerminal`][unavailable] when the terminal refuses
+    /// the group of the program.
+    ///
+    /// [unavailable]: RunCommandError::UnavailableTerminal
+    #[cfg(unix)]
+    fn lend(&self) -> Result<(), RunCommandError> {
+        if let (Some(terminal), Some(group)) = (&self.terminal, self.group) {
+            terminal
+                .lend(group)
+                .map_err(|source| RunCommandError::UnavailableTerminal {
+                    invocation: Box::new(self.invocation.clone()),
+                    source,
+                })?;
+
+            group.resume();
+        }
+
+        Ok(())
+    }
+
+    /// Takes the terminal back and collects the status of the program
     ///
     /// # Errors
     ///
@@ -206,6 +273,11 @@ impl InteractiveRun {
     ///
     /// [incomplete]: RunCommandError::IncompleteRun
     async fn reap(&mut self) -> Result<ExitStatus, RunCommandError> {
+        #[cfg(unix)]
+        if let (Some(terminal), Some(group)) = (&self.terminal, self.group) {
+            terminal.reclaim(group);
+        }
+
         let status = self
             .child
             .wait()
@@ -335,8 +407,10 @@ impl Invocation {
     /// # Errors
     ///
     /// Returns [`UnstartableCommand`][unstartable] when the program does not
-    /// start.
+    /// start, and [`UnavailableTerminal`][unavailable] when the terminal
+    /// refuses the group of the program.
     ///
+    /// [unavailable]: RunCommandError::UnavailableTerminal
     /// [unstartable]: RunCommandError::UnstartableCommand
     pub(crate) fn spawn_interactive(
         &self,
@@ -363,7 +437,7 @@ impl Invocation {
         let child = command.spawn().map_err(unstartable)?;
         let id = child.id();
 
-        Ok(InteractiveRun {
+        let run = InteractiveRun {
             invocation: self.clone(),
             child,
             id: id.map(ProcessId::from),
@@ -371,15 +445,23 @@ impl Invocation {
             #[cfg(unix)]
             group: id.and_then(Group::led_by),
             #[cfg(unix)]
+            terminal: Terminal::claim(),
+            #[cfg(unix)]
             changes,
-        })
+        };
+
+        #[cfg(unix)]
+        run.lend()?;
+
+        Ok(run)
     }
 }
 
 /// Kills the program when the caller abandons the run
 ///
-/// On a Unix platform, the kill reaches every process of the group. A program
-/// whose status the handle collected has ended, and the drop kills nothing.
+/// On a Unix platform, the kill reaches every process of the group, and the
+/// handle then takes the terminal back. A program whose status the handle
+/// collected has ended, and the drop kills nothing.
 impl Drop for InteractiveRun {
     fn drop(&mut self) {
         if self.status.is_some() {
@@ -389,6 +471,10 @@ impl Drop for InteractiveRun {
         #[cfg(unix)]
         if let Some(group) = self.group {
             group.kill();
+
+            if let Some(terminal) = &self.terminal {
+                terminal.reclaim(group);
+            }
         }
 
         let _ = self.child.start_kill();
