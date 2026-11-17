@@ -19,6 +19,7 @@
 
 pub mod argument;
 pub mod program;
+pub mod streams;
 pub mod variable;
 pub mod variable_name;
 pub mod variable_value;
@@ -35,6 +36,7 @@ use tokio::process::Command;
 
 pub use self::argument::Argument;
 pub use self::program::Program;
+pub use self::streams::Streams;
 pub use self::variable::Variable;
 pub use self::variable_name::VariableName;
 pub use self::variable_value::VariableValue;
