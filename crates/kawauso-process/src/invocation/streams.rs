@@ -57,6 +57,14 @@ impl Streams {
         }
     }
 
+    /// Returns the three streams, in the order of their numbers
+    ///
+    /// A start takes the streams apart, because a command takes each stream
+    /// in a call of its own.
+    pub(crate) fn into_parts(self) -> (Stdio, Stdio, Stdio) {
+        (self.stdin, self.stdout, self.stderr)
+    }
+
     /// Sets the stream to which the command writes its diagnostics
     ///
     /// # Examples
