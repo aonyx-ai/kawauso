@@ -1,8 +1,8 @@
 //! Tests for the interactive run through the public API
 //!
 //! Every test starts a real program, because the obligations of the run exist
-//! only when a program runs. They cover the streams, the status, and the
-//! process group.
+//! only when a program runs. They cover the streams, the status, the process
+//! group, and the stop.
 
 #![allow(
     clippy::missing_panics_doc,
@@ -24,7 +24,11 @@ use kawauso_process::invocation::Streams;
 #[cfg(unix)]
 use rustix::process::Pid;
 #[cfg(unix)]
+use rustix::process::Signal;
+#[cfg(unix)]
 use rustix::process::getpgid;
+#[cfg(unix)]
+use rustix::process::kill_process;
 #[cfg(unix)]
 use rustix::process::test_kill_process;
 #[cfg(unix)]
@@ -37,6 +41,10 @@ use tokio::time::timeout;
 /// The time in which a program in a test has to reach the state that the test waits for
 #[cfg(unix)]
 const BOUND: Duration = Duration::from_secs(20);
+
+/// The time that a program gets to end when the test expects it to end
+#[cfg(unix)]
+const GRACE: Duration = Duration::from_secs(30);
 
 /// Returns the streams of a test, which connect the program to nothing
 fn quiet() -> Streams {
@@ -79,6 +87,12 @@ fn shell(command: &str) -> Invocation {
     } else {
         Invocation::new("sh").arg("-c").arg(command)
     }
+}
+
+/// Returns a script that waits for a signal and runs the handler when it arrives
+#[cfg(unix)]
+fn spin(handler: &str) -> String {
+    format!("trap '{handler}' TERM; READY; while :; do sleep 0.05; done")
 }
 
 /// Waits until the condition holds
@@ -185,6 +199,75 @@ async fn start_interactive_writes_to_the_standard_output_of_the_caller() {
         .unwrap();
 
     assert_eq!(std::fs::read_to_string(&output).unwrap().trim(), "hello");
+}
+
+/// A stop after a dropped wait still asks the program to end, because the wait leaves the handle
+#[cfg(unix)]
+#[tokio::test]
+async fn stop_after_a_dropped_wait_asks_the_program_to_end() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut run = ready(directory.path(), &spin("exit 3")).await.unwrap();
+    let _ = timeout(Duration::from_millis(100), run.wait()).await;
+
+    let status = run.stop(GRACE).await.unwrap();
+
+    assert_eq!(status.code(), Some(3));
+}
+
+/// A stop of a program that ended reports the status of that program
+#[tokio::test]
+async fn stop_after_a_wait_reports_the_status() {
+    let mut run = shell("exit 7").start_interactive(quiet()).unwrap();
+    run.wait().await.unwrap();
+
+    let status = run.stop(Duration::from_secs(1)).await.unwrap();
+
+    assert_eq!(status.code(), Some(7));
+}
+
+/// A stopped program answers the request, because the stop continues the group
+#[cfg(unix)]
+#[tokio::test]
+async fn stop_continues_a_program_that_a_signal_stopped() {
+    let directory = tempfile::tempdir().unwrap();
+    let run = ready(directory.path(), &spin("exit 3")).await.unwrap();
+    let process = Pid::from_raw(i32::try_from(run.id().unwrap().get()).unwrap()).unwrap();
+    kill_process(process, Signal::STOP).unwrap();
+
+    let status = run.stop(GRACE).await.unwrap();
+
+    assert_eq!(status.code(), Some(3));
+}
+
+/// A program that ignores the request ends with the kill, and its status names the signal
+#[cfg(unix)]
+#[tokio::test]
+async fn stop_kills_a_program_that_ignores_the_request() {
+    use std::os::unix::process::ExitStatusExt;
+
+    let directory = tempfile::tempdir().unwrap();
+    let run = ready(directory.path(), &spin("")).await.unwrap();
+
+    let status = run.stop(Duration::from_millis(100)).await.unwrap();
+
+    assert_eq!(status.signal(), Some(9));
+}
+
+/// A stop kills a program of the group that ignores the request, after the program ended
+#[cfg(unix)]
+#[tokio::test]
+async fn stop_kills_a_program_that_the_program_started() {
+    let directory = tempfile::tempdir().unwrap();
+    let started = directory.path().join("started");
+    let script = format!(
+        "trap 'exit 0' TERM; (trap '' TERM; sleep 300) & echo $! > '{}'; READY; wait",
+        started.display()
+    );
+    let run = ready(directory.path(), &script).await.unwrap();
+
+    run.stop(GRACE).await.unwrap();
+
+    wait_for_the_end_of(&started).await.unwrap();
 }
 
 /// A wait reports the status with which the program ended, also when it is no success

@@ -12,15 +12,28 @@
 mod group;
 
 #[cfg(unix)]
+use std::io::Error as IoError;
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
+use std::time::Duration;
 
 use tokio::process::Child;
 use tokio::process::Command;
+#[cfg(unix)]
+use tokio::signal::unix::Signal;
+#[cfg(unix)]
+use tokio::signal::unix::SignalKind;
+#[cfg(unix)]
+use tokio::signal::unix::signal;
+#[cfg(unix)]
+use tokio::time::timeout;
 
 #[cfg(unix)]
 use self::group::Group;
+#[cfg(unix)]
+use self::group::Request;
 use crate::error::RunCommandError;
 use crate::invocation::Invocation;
 use crate::process_id::ProcessId;
@@ -34,15 +47,15 @@ use crate::process_id::ProcessId;
 /// # Process Group
 ///
 /// On a Unix platform, the program leads a process group of its own. A
-/// program that it starts joins the group, so a drop reaches a wrapper such
+/// program that it starts joins the group, so a stop reaches a wrapper such
 /// as `sh -c` and the editor that the wrapper starts. A program that ends by
 /// itself leaves such a program running.
 ///
 /// # Windows
 ///
 /// Windows has no process group of this kind, and every program on a console
-/// receives Ctrl+C. A drop kills the program at once, and a program that the
-/// program started survives the kill.
+/// receives Ctrl+C. A stop and a drop kill the program at once, and a program
+/// that the program started survives the kill.
 ///
 /// # Examples
 ///
@@ -81,9 +94,59 @@ pub struct InteractiveRun {
     /// The process group that the program leads
     #[cfg(unix)]
     group: Option<Group>,
+
+    /// The signals that report a change of a program of this process
+    #[cfg(unix)]
+    changes: Signal,
 }
 
 impl InteractiveRun {
+    /// Waits until the program that leads the group has ended, and collects nothing
+    ///
+    /// The status stays with the operating system, so the identifier of the
+    /// group stays reserved. A stop can therefore still signal the group.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when the state of the program
+    /// cannot be read.
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    #[cfg(unix)]
+    async fn exit(&mut self) -> Result<(), RunCommandError> {
+        let Some(group) = self.group else {
+            return Ok(());
+        };
+
+        loop {
+            if group
+                .has_ended()
+                .map_err(|source| self.incomplete(source))?
+            {
+                return Ok(());
+            }
+
+            if self.changes.recv().await.is_none() {
+                let source = IoError::other("the runtime no longer reports the end of programs");
+
+                return Err(self.incomplete(source));
+            }
+        }
+    }
+
+    /// Reports that this platform has no wait that collects nothing
+    ///
+    /// The collection of the status is the wait on this platform.
+    ///
+    /// # Errors
+    ///
+    /// Returns no error. The signature is the signature of the wait on a Unix
+    /// platform, so that a caller needs no condition of its own.
+    #[cfg(not(unix))]
+    async fn exit(&mut self) -> Result<(), RunCommandError> {
+        Ok(())
+    }
+
     /// Returns the identifier that the operating system gave the program
     ///
     /// On a Unix platform, the identifier also names the process group of
@@ -154,6 +217,71 @@ impl InteractiveRun {
         Ok(status)
     }
 
+    /// Ends the program and reports its status
+    ///
+    /// On a Unix platform, the method sends `SIGTERM` and then `SIGCONT` to
+    /// the group of the program. A program that a user stopped therefore
+    /// answers as well. The method gives the program the time that the caller
+    /// names, and then it kills every process of the group. The kill also
+    /// ends a program that the program started and that is still there.
+    ///
+    /// The method also kills the program itself, so a program that left the
+    /// group still ends. A platform without a request of this kind kills the
+    /// program at once, and the time then passes unused. A program that ended
+    /// already reports its status, and the method kills nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when the end of the program
+    /// cannot be waited for.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the Tokio runtime that drives the future has no timer.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::time::Duration;
+    ///
+    /// use kawauso_process::Invocation;
+    /// use kawauso_process::invocation::Streams;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let run = Invocation::new("less").start_interactive(Streams::inherit())?;
+    ///
+    /// let status = run.stop(Duration::from_secs(5)).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    pub async fn stop(mut self, grace: Duration) -> Result<ExitStatus, RunCommandError> {
+        if let Some(status) = self.status {
+            return Ok(status);
+        }
+
+        #[cfg(unix)]
+        if let Some(group) = self.group {
+            if group.request_end() == Request::Sent {
+                if let Ok(exited) = timeout(grace, self.exit()).await {
+                    exited?;
+                }
+            }
+
+            group.kill();
+        }
+
+        #[cfg(not(unix))]
+        let _ = grace;
+
+        let _ = self.child.start_kill();
+
+        self.exit().await?;
+        self.reap().await
+    }
+
     /// Waits for the end of the program and reports its status
     ///
     /// A program that ends without success is no failure of this method. An
@@ -168,7 +296,7 @@ impl InteractiveRun {
     /// # Cancel safety
     ///
     /// The method is cancel safe. A caller that drops the future keeps the
-    /// handle, and it can wait again or drop it.
+    /// handle, and it can wait again or stop the program.
     ///
     /// # Examples
     ///
@@ -190,6 +318,8 @@ impl InteractiveRun {
         if let Some(status) = self.status {
             return Ok(status);
         }
+
+        self.exit().await?;
 
         self.reap().await
     }
@@ -227,6 +357,9 @@ impl Invocation {
         let mut command = Command::from(command);
         command.kill_on_drop(true);
 
+        #[cfg(unix)]
+        let changes = signal(SignalKind::child()).map_err(unstartable)?;
+
         let child = command.spawn().map_err(unstartable)?;
         let id = child.id();
 
@@ -237,6 +370,8 @@ impl Invocation {
             status: None,
             #[cfg(unix)]
             group: id.and_then(Group::led_by),
+            #[cfg(unix)]
+            changes,
         })
     }
 }
