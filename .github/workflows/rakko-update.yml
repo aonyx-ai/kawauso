@@ -25,4 +25,4 @@ jobs:
 
     steps:
       - name: Update the tool pins
-        uses: aonyx-ai/rakko-update@ee1a51fa2418805b83e241ecf873595f1afc7d1f # main
+        uses: aonyx-ai/rakko-update@ba2f6b6e50272b73906dce79303c50cc815a95b9 # main
