@@ -4,13 +4,23 @@
 //! terminal. Such a program needs the streams of the terminal, and the crate
 //! captures nothing that it writes. This module holds the handle of such a
 //! run.
+//!
+//! On a Unix platform, the program runs in a process group of its own. The
+//! documentation of [`InteractiveRun`] states what follows from that.
 
+#[cfg(unix)]
+mod group;
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
 
 use tokio::process::Child;
 use tokio::process::Command;
 
+#[cfg(unix)]
+use self::group::Group;
 use crate::error::RunCommandError;
 use crate::invocation::Invocation;
 use crate::process_id::ProcessId;
@@ -21,8 +31,18 @@ use crate::process_id::ProcessId;
 /// writes the streams that the caller chose, and the handle reports how the
 /// program ended. Nothing captures the output.
 ///
-/// The handle owns the program. A caller that drops the handle kills the
-/// program at once.
+/// # Process Group
+///
+/// On a Unix platform, the program leads a process group of its own. A
+/// program that it starts joins the group, so a drop reaches a wrapper such
+/// as `sh -c` and the editor that the wrapper starts. A program that ends by
+/// itself leaves such a program running.
+///
+/// # Windows
+///
+/// Windows has no process group of this kind, and every program on a console
+/// receives Ctrl+C. A drop kills the program at once, and a program that the
+/// program started survives the kill.
 ///
 /// # Examples
 ///
@@ -54,13 +74,21 @@ pub struct InteractiveRun {
 
     /// The identifier that the operating system gave the program
     id: Option<ProcessId>,
+
+    /// The status of the program, once the handle collected it
+    status: Option<ExitStatus>,
+
+    /// The process group that the program leads
+    #[cfg(unix)]
+    group: Option<Group>,
 }
 
 impl InteractiveRun {
     /// Returns the identifier that the operating system gave the program
     ///
-    /// The value is `None` when the operating system gave the program no
-    /// identifier.
+    /// On a Unix platform, the identifier also names the process group of
+    /// the program. The value is `None` when the operating system gave the
+    /// program no identifier.
     ///
     /// # Examples
     ///
@@ -106,6 +134,26 @@ impl InteractiveRun {
         &self.invocation
     }
 
+    /// Collects the status of the program
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IncompleteRun`][incomplete] when the status cannot be
+    /// collected.
+    ///
+    /// [incomplete]: RunCommandError::IncompleteRun
+    async fn reap(&mut self) -> Result<ExitStatus, RunCommandError> {
+        let status = self
+            .child
+            .wait()
+            .await
+            .map_err(|source| self.incomplete(source))?;
+
+        self.status = Some(status);
+
+        Ok(status)
+    }
+
     /// Waits for the end of the program and reports its status
     ///
     /// A program that ends without success is no failure of this method. An
@@ -139,10 +187,11 @@ impl InteractiveRun {
     ///
     /// [incomplete]: RunCommandError::IncompleteRun
     pub async fn wait(&mut self) -> Result<ExitStatus, RunCommandError> {
-        self.child
-            .wait()
-            .await
-            .map_err(|source| self.incomplete(source))
+        if let Some(status) = self.status {
+            return Ok(status);
+        }
+
+        self.reap().await
     }
 }
 
@@ -168,6 +217,13 @@ impl Invocation {
             source,
         };
 
+        #[cfg(unix)]
+        let command = {
+            let mut command = command;
+            command.process_group(0);
+            command
+        };
+
         let mut command = Command::from(command);
         command.kill_on_drop(true);
 
@@ -178,7 +234,29 @@ impl Invocation {
             invocation: self.clone(),
             child,
             id: id.map(ProcessId::from),
+            status: None,
+            #[cfg(unix)]
+            group: id.and_then(Group::led_by),
         })
+    }
+}
+
+/// Kills the program when the caller abandons the run
+///
+/// On a Unix platform, the kill reaches every process of the group. A program
+/// whose status the handle collected has ended, and the drop kills nothing.
+impl Drop for InteractiveRun {
+    fn drop(&mut self) {
+        if self.status.is_some() {
+            return;
+        }
+
+        #[cfg(unix)]
+        if let Some(group) = self.group {
+            group.kill();
+        }
+
+        let _ = self.child.start_kill();
     }
 }
 

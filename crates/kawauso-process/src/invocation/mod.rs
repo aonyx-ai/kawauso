@@ -613,10 +613,12 @@ impl Invocation {
     /// captures its output, so the handle reports the exit status alone.
     ///
     /// The program inherits the environment of this process, with the
-    /// variables of the invocation on top.
+    /// variables of the invocation on top. On a Unix platform, it leads a
+    /// process group of its own. [`InteractiveRun`] states what follows from
+    /// that.
     ///
     /// The handle owns the program. A caller that drops the handle kills the
-    /// program.
+    /// program, and on a Unix platform every process of its group.
     ///
     /// # Errors
     ///
