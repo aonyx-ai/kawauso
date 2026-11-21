@@ -52,12 +52,12 @@ use crate::run::Run;
 /// is optional.
 ///
 /// An invocation also holds the variables that the caller sets for the
-/// command. The command inherits the environment of the process that runs
-/// it, and a variable of the invocation replaces a variable of the process
-/// with the same name.
+/// command. The command inherits the environment of the process that runs it. A
+/// variable of the invocation replaces a variable of the process with the same
+/// name.
 ///
-/// No shell reads the command. Nothing splits an argument at a space, removes
-/// a quotation mark, or expands a character such as `*`, so the program
+/// No shell reads the command. Nothing splits an argument at a space, removes a
+/// quotation mark, or expands a character such as `*`. The program therefore
 /// receives every argument as the caller wrote it. An application that wants
 /// a shell names the shell as the program, and gives the command line to it
 /// as one argument.
@@ -220,6 +220,16 @@ impl Invocation {
     }
 
     /// Returns the arguments of the command, in the order of the calls
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::Invocation;
+    ///
+    /// let invocation = Invocation::new("git").arg("status").arg("--short");
+    ///
+    /// assert_eq!(invocation.arguments().len(), 2);
+    /// ```
     pub fn arguments(&self) -> &[Argument] {
         &self.arguments
     }
@@ -232,8 +242,8 @@ impl Invocation {
     ///
     /// The command carries no call that clears the environment, so the
     /// command inherits the environment of this process. The variables of the
-    /// invocation come on top of it, and a variable with the name of one that
-    /// the process holds replaces it for the command alone. The program
+    /// invocation come on top of it. A variable with the name of one that the
+    /// process holds replaces it for the command alone. The program
     /// travels as the caller wrote it, and the operating system resolves a
     /// bare name.
     fn command(&self) -> Command {
@@ -291,29 +301,39 @@ impl Invocation {
     ///
     /// [env-remove]: Invocation::env_remove
     pub fn env(mut self, name: impl Into<VariableName>, value: impl Into<VariableValue>) -> Self {
-        self.set(Variable::new(name, value));
+        self.set(Variable::builder().name(name).value(value).build());
 
         self
     }
 
     /// Returns the variables that the caller set, in the order of the calls
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::Invocation;
+    ///
+    /// let invocation = Invocation::new("cargo").env("RUSTUP_TOOLCHAIN", "nightly");
+    ///
+    /// assert_eq!(invocation.environment().len(), 1);
+    /// ```
     pub fn environment(&self) -> &[Variable] {
         &self.environment
     }
 
     /// Takes one name out of the environment of the command
     ///
-    /// The command inherits the environment of the process that runs it, and
-    /// this name is the exception: the command runs as if the process never
-    /// held it. Use this method for a program that reads a variable which the
-    /// caller cannot set to a value that would be right, such as one that
-    /// names the repository of a version control system to a child of a hook.
+    /// The command inherits the environment of the process that runs it. This
+    /// name is the exception: the command runs as if the process never held it. Use this method for a program that reads a variable which the
+    /// caller cannot set to a value that would be right. An example is a
+    /// variable that names the repository of a version control system to a
+    /// child of a hook.
     ///
     /// The process keeps its own environment. Nothing here changes the
     /// variables that this process holds, which is what makes the method safe
     /// in a program that runs several commands at once.
     ///
-    /// A name is either set or taken out, so this call undoes an earlier
+    /// A name is either set or taken out. This call therefore undoes an earlier
     /// [`env`][env] with the same name, and a later [`env`][env] with the name
     /// undoes this call. A repeated call keeps the place of the earlier one.
     ///
@@ -343,14 +363,24 @@ impl Invocation {
     }
 
     /// Returns the names that the caller took out, in the order of the calls
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::Invocation;
+    ///
+    /// let invocation = Invocation::new("git").env_remove("GIT_DIR");
+    ///
+    /// assert_eq!(invocation.removals().len(), 1);
+    /// ```
     pub fn removals(&self) -> &[VariableName] {
         &self.removals
     }
 
     /// Sets every variable of an iterator in the environment of the command
     ///
-    /// Each variable goes through the same steps as one that [`env`][env]
-    /// sets, so a later variable with the name of an earlier one replaces its
+    /// Each variable goes through the same steps as one that [`env`][env] sets.
+    /// A later variable with the name of an earlier one therefore replaces its
     /// value. A pair of a name and a value is a variable, so a caller that
     /// holds its variables as pairs gives them as they are. Use this method
     /// for a caller that holds its variables in a collection, and
@@ -380,7 +410,7 @@ impl Invocation {
     /// Runs the command in the directory that the caller names
     ///
     /// Use this method for a command that works on the directory that it runs
-    /// in, such as a build tool that reads the manifest of a project. A
+    /// in. A build tool that reads the manifest of a project is an example. A
     /// command without a working directory runs where the process runs.
     ///
     /// A later call replaces the directory of an earlier one, because a
@@ -404,14 +434,24 @@ impl Invocation {
     }
 
     /// Returns the program that the command starts
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::Invocation;
+    ///
+    /// let invocation = Invocation::new("cargo");
+    ///
+    /// assert_eq!(invocation.program().get().to_str().unwrap(), "cargo");
+    /// ```
     pub fn program(&self) -> &Program {
         &self.program
     }
 
     /// Runs the command and reports what it produced
     ///
-    /// The method starts the program, reads what the command writes to its
-    /// standard output and to its standard error, and waits for the command
+    /// The method starts the program and reads what the command writes to its
+    /// standard output and to its standard error. It also waits for the command
     /// to end. A command that fills a pipe stops until a reader empties it,
     /// so the run reads both streams while it waits. A command that writes
     /// more than a pipe holds therefore never stops the run.
@@ -433,8 +473,14 @@ impl Invocation {
     ///
     /// On Windows, a program whose name ends in `.cmd` or `.bat` starts
     /// through `cmd.exe`. Rust escapes the arguments for that interpreter and
-    /// refuses an argument that it cannot pass safely, so an argument reaches
-    /// the program as the caller wrote it or the run fails.
+    /// refuses an argument that it cannot pass safely. An argument therefore
+    /// reaches the program as the caller wrote it, or the run fails.
+    ///
+    /// The wait takes the command, and the identifier of a command that ended
+    /// is gone. The run therefore reads the identifier first, so that the
+    /// result can carry it. The wait reads both streams while it waits for the
+    /// end of the command. A wait that read one stream after the other, or that
+    /// read nothing until the end, would stop on a command that fills a pipe.
     ///
     /// # Errors
     ///
@@ -476,14 +522,8 @@ impl Invocation {
                     source,
                 })?;
 
-        // The wait takes the command, and the identifier of a command that
-        // ended is gone. The run therefore reads the identifier here, so
-        // that the result can carry it.
         let id = child.id().map(ProcessId::from);
 
-        // The wait reads both streams while it waits for the end of the
-        // command. A wait that read one stream after the other, or that read
-        // nothing until the end, would stop on a command that fills a pipe.
         let output =
             child
                 .wait_with_output()
@@ -493,14 +533,19 @@ impl Invocation {
                     source,
                 })?;
 
-        Ok(Execution::new(
-            self.clone(),
-            id,
-            output.status,
-            Capture::new(output.stdout),
-            Capture::new(output.stderr),
-            start.elapsed(),
-        ))
+        let std::process::Output {
+            status,
+            stdout,
+            stderr,
+        } = output;
+        Ok(Execution::builder()
+            .invocation(self.clone())
+            .maybe_id(id)
+            .status(status)
+            .stdout(Capture::new(stdout))
+            .stderr(Capture::new(stderr))
+            .duration(start.elapsed())
+            .build())
     }
 
     /// Puts one variable into the environment of the command
@@ -525,12 +570,12 @@ impl Invocation {
 
     /// Starts the command and reports its output while the command runs
     ///
-    /// The method starts the program and returns a handle. The handle gives
-    /// the output of the command to the caller as lines, in the order in
-    /// which the lines arrive, and it collects the same capture that
-    /// [`run`][run] collects. Use this method for an application that shows
-    /// the progress of a command, or that turns the output of a command into
-    /// events of its own, and [`run`][run] for one that needs the result
+    /// The method starts the program and returns a handle. The handle gives the
+    /// output of the command to the caller as lines, in the order in which the
+    /// lines arrive. It also collects the same capture that [`run`][run]
+    /// collects. Use this method for an application that shows the progress of
+    /// a command. Use it also for an application that turns the output of a
+    /// command into events of its own. Use [`run`][run] for an application that needs the result
     /// alone.
     ///
     /// The command starts with the same decisions that [`run`][run] makes.
@@ -539,7 +584,7 @@ impl Invocation {
     /// program. The variables of the invocation reach the command as well.
     ///
     /// The handle owns the command. A caller that drops the handle kills the
-    /// command with it, and a caller that asks the command to end first calls
+    /// command with it. A caller that asks the command to end first calls
     /// [`stop`][stop] on the handle.
     ///
     /// # Errors
@@ -585,13 +630,27 @@ impl Invocation {
                     source,
                 })?;
 
-        Ok(Run::new(self.clone(), child, started))
+        Ok(Run::builder()
+            .invocation(self.clone())
+            .child(child)
+            .started(started)
+            .build())
     }
 
     /// Returns the directory in which the command runs
     ///
     /// `None` when the caller named no directory. The command then runs where
     /// the process runs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::Invocation;
+    ///
+    /// let invocation = Invocation::new("cargo").in_directory("crates/example");
+    ///
+    /// assert!(invocation.working_directory().is_some());
+    /// ```
     pub fn working_directory(&self) -> Option<&WorkingDirectory> {
         self.working_directory.as_ref()
     }
@@ -599,19 +658,19 @@ impl Invocation {
 
 /// Renders the command as a command line for a reader
 ///
-/// The line names every name that the caller took out, then every variable
-/// that the caller set, then the program, and then every argument, each in the
-/// order in which the caller named them. A variable shows as its name, an
-/// equals sign, and its value, which is the form in which a shell sets a
+/// The line names every name that the caller took out, then every variable that
+/// the caller set, then the program, and then every argument. Each of them is
+/// in the order in which the caller named them. A variable shows as its name, an
+/// equals sign, and its value. This is the form in which a shell sets a
 /// variable for one command. A name that the caller took out shows behind a
-/// minus sign, which is the form of the `env` program, because no shell takes
-/// a name out of the environment of one command. The line does not name the
+/// minus sign. This is the form of the `env` program, because no shell takes a
+/// name out of the environment of one command. The line does not name the
 /// working directory, because a command line holds the command and not the
 /// place that it runs in.
 ///
-/// A space separates the words of the line. A word that is empty, or that
-/// holds white space, therefore shows between quotation marks, so that a
-/// reader sees where the word starts and where it ends. This rule applies to
+/// A space separates the words of the line. A word that is empty, or that holds
+/// white space, therefore shows between quotation marks. A reader then sees
+/// where the word starts and where it ends. This rule applies to
 /// the program, to each argument, and to the value of each variable. The
 /// marks go around the value alone, and not around the name of the variable.
 /// A quotation mark in a word stays as it is, and nothing escapes it.
@@ -660,7 +719,7 @@ impl Display for Invocation {
 
 /// Writes one word of a command line
 ///
-/// A space separates the words of the line, so a word that holds a space
+/// A space separates the words of the line. A word that holds a space therefore
 /// reads as two words, and a word that is empty reads as none. Such a word
 /// goes between quotation marks, and a reader then sees where it starts and
 /// where it ends.
@@ -685,20 +744,30 @@ fn write_word(formatter: &mut Formatter<'_>, word: &str) -> FmtResult {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller keeps an invocation in a field of a type that another thread
-    // reads. This test holds the invocation to the auto traits that make this
-    // possible, because a private field of a later version could take them
-    // away without a word from the compiler.
+    /// Shows that `Invocation` is Send and Sync
+    ///
+    /// A caller keeps an invocation in a field of a type that another thread
+    /// reads. This test holds the invocation to the auto traits that make this
+    /// possible. The test exists because a private field of a later version could
+    /// take them away without a word from the compiler.
     #[test]
     fn invocation_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<Invocation>();
+    }
+
+    #[test]
+    fn invocation_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Invocation>();
     }
 }

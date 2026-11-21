@@ -1,7 +1,8 @@
 //! The result of one run of an external command
 //!
-//! A run produces one value that describes what happened: how the command
-//! ended, what it wrote to each of its streams, and how long it took. This
+//! A run produces one value that describes what happened. The value says how
+//! the command ended, what it wrote to each of its streams, and how long it
+//! took. This
 //! module holds that value and the capture of one stream.
 //!
 //! A command that ends without success is not a failure of the run. The exit
@@ -19,15 +20,20 @@ use crate::process_id::ProcessId;
 
 /// The result of one run of an external command
 ///
-/// The value holds the command that ran, the exit status of the command, what
-/// the command wrote to its standard output and to its standard error, and
-/// the time that the run took. It also holds the identifier that the
+/// The value holds the command that ran and the exit status of the command. It
+/// holds what the command wrote to its standard output and to its standard
+/// error, and the time that the run took. It also holds the identifier that the
 /// operating system gave the command. The two streams stay apart, because a
 /// program separates its result from its diagnostics.
 ///
+/// A run builds this value, and a caller builds one with the builder where a
+/// test stands in for a command that no one starts. The identifier is the one
+/// that the operating system gave the command, and a result that no command
+/// produced carries none.
+///
 /// A status that is not a success is data. The check mode of a formatter ends
-/// without success when it finds a file to format, and that is the answer
-/// that the caller asked for. A caller that must not accept such a status
+/// without success when it finds a file to format. That is the answer that the
+/// caller asked for. A caller that must not accept such a status
 /// calls [`require_success`][require-success].
 ///
 /// # Examples
@@ -45,7 +51,7 @@ use crate::process_id::ProcessId;
 /// ```
 ///
 /// [require-success]: Execution::require_success
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, bon::Builder)]
 pub struct Execution {
     /// The command that ran
     ///
@@ -73,35 +79,25 @@ pub struct Execution {
 }
 
 impl Execution {
-    /// Creates the result of a run
-    ///
-    /// A run builds this value, and a caller builds one where a test stands
-    /// in for a command that no one starts. The identifier is the one that
-    /// the operating system gave the command, and a result that no command
-    /// produced carries none.
-    pub fn new(
-        invocation: Invocation,
-        id: Option<ProcessId>,
-        status: ExitStatus,
-        stdout: Capture,
-        stderr: Capture,
-        duration: Duration,
-    ) -> Self {
-        Self {
-            invocation,
-            id,
-            status,
-            stdout,
-            stderr,
-            duration,
-        }
-    }
-
     /// Returns the time that the run took
     ///
     /// The time covers the whole run, from the start of the program to the
     /// end of the capture. A caller that reports a slow step, or that logs
     /// how long a tool ran, reads it here instead of measuring the call.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let execution = Invocation::new("sleep").arg("0").run().await?;
+    ///
+    /// assert!(!execution.duration().is_zero());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn duration(&self) -> Duration {
         self.duration
     }
@@ -115,11 +111,39 @@ impl Execution {
     /// The command of a result has ended, and the operating system can give
     /// the identifier to another command. The value therefore names the
     /// command that ran. It does not name a command that runs now.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let execution = Invocation::new("echo").arg("hello").run().await?;
+    ///
+    /// assert!(execution.id().is_some());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn id(&self) -> Option<ProcessId> {
         self.id
     }
 
     /// Returns the command that ran
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let execution = Invocation::new("echo").arg("hello").run().await?;
+    ///
+    /// assert_eq!(execution.invocation().to_string(), "echo hello");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn invocation(&self) -> &Invocation {
         &self.invocation
     }
@@ -172,18 +196,64 @@ impl Execution {
     /// Returns the status with which the command ended
     ///
     /// A status that is not a success is a normal result. A command that ran
-    /// and failed reports its failure here, and the run itself returns an
-    /// error only when the command could not run at all.
+    /// and failed reports its failure here. The run itself returns an error
+    /// only when the command could not run at all.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let execution = Invocation::new("true").run().await?;
+    ///
+    /// assert!(execution.status().success());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn status(&self) -> ExitStatus {
         self.status
     }
 
     /// Returns what the command wrote to its standard error
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let execution = Invocation::new("sh")
+    ///     .arg("-c")
+    ///     .arg("echo error >&2")
+    ///     .run()
+    ///     .await?;
+    ///
+    /// assert!(!execution.stderr().is_empty());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn stderr(&self) -> &Capture {
         &self.stderr
     }
 
     /// Returns what the command wrote to its standard output
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let execution = Invocation::new("echo").arg("hello").run().await?;
+    ///
+    /// assert!(!execution.stdout().is_empty());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn stdout(&self) -> &Capture {
         &self.stdout
     }
@@ -191,20 +261,30 @@ impl Execution {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller keeps the result of a run in a report that another thread
-    // reads. This test holds the type to the auto traits that make this
-    // possible, because a private field of a later version could take them
-    // away without a word from the compiler.
+    /// Shows that `Execution` is Send and Sync
+    ///
+    /// A caller keeps the result of a run in a report that another thread reads.
+    /// This test holds the type to the auto traits that make this possible. The
+    /// test exists because a private field of a later version could take them
+    /// away without a word from the compiler.
     #[test]
     fn execution_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<Execution>();
+    }
+
+    #[test]
+    fn execution_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Execution>();
     }
 }

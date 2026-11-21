@@ -16,6 +16,30 @@ use crate::project::DataDirectory;
 ///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
+///
+/// # Examples
+///
+/// ```no_run
+/// use kawauso_project::Project;
+/// use kawauso_project::Search;
+/// use kawauso_project::error::CreateDataDirectoryError;
+/// use kawauso_project::project::ProjectIdentifier;
+///
+/// let search = Search::working_directory().marker(".git");
+/// let project: Project = Project::builder()
+///     .application("example".parse()?)
+///     .load(&search)?;
+/// let identifier: ProjectIdentifier = "my-project".parse()?;
+///
+/// match project.data_directory(&identifier) {
+///     Ok(directory) => println!("{}", directory.get().display()),
+///     Err(CreateDataDirectoryError::UnknownLocalDataDirectory { .. }) => {
+///         println!("the platform has no local data directory");
+///     }
+///     Err(error) => return Err(error.into()),
+/// }
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum CreateDataDirectoryError {
@@ -36,9 +60,9 @@ pub enum CreateDataDirectoryError {
 
     /// The crate cannot determine the local data directory of the user
     ///
-    /// The platform has no such directory, the crate cannot determine the
-    /// home directory of the user, or the directory that it found is not an
-    /// absolute path. A relative path would resolve against the working
+    /// This happens in one of three cases. The platform has no such directory,
+    /// or the crate cannot determine the home directory of the user. Otherwise
+    /// the directory that it found is not an absolute path. A relative path would resolve against the working
     /// directory, which can be inside the repository.
     ///
     /// The variant carries no cause: no operation failed, the crate only
@@ -50,20 +74,30 @@ pub enum CreateDataDirectoryError {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller sends the error between threads and keeps it in a report that
-    // another thread reads. This test holds the error to the auto traits that
-    // make this possible, because a private field of a later version could
-    // take them away without a word from the compiler.
+    /// Shows that `CreateDataDirectoryError` is Send and Sync
+    ///
+    /// A caller sends the error between threads and keeps it in a report that
+    /// another thread reads. This test holds the error to the auto traits that
+    /// make this possible. The test exists because a private field of a later
+    /// version could take them away without a word from the compiler.
     #[test]
     fn create_data_directory_error_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<CreateDataDirectoryError>();
+    }
+
+    #[test]
+    fn create_data_directory_error_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<CreateDataDirectoryError>();
     }
 }

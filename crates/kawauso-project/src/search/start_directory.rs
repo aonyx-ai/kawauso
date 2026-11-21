@@ -6,7 +6,7 @@ path!(
     /// The directory at which the walk of a search starts
     ///
     /// The search stores the value as the developer gave it. When the search
-    /// runs, the value becomes a canonical path: a relative path resolves
+    /// runs, the value becomes a canonical path. A relative path resolves
     /// against the working directory of the process, the `.` and `..`
     /// components go, and the symbolic links resolve. The walk therefore
     /// never passes through a directory that the developer did not name.
@@ -16,9 +16,9 @@ path!(
     /// of that directory.
     ///
     /// An error that names the start shows it in the resolved form, because
-    /// that is where the walk began. A start that the crate cannot read has
-    /// no canonical path, and the error then shows the start as the developer
-    /// gave it, resolved against the working directory.
+    /// that is where the walk began. A start that the crate cannot read has no
+    /// canonical path. The error then shows the start as the developer gave it,
+    /// resolved against the working directory.
     StartDirectory
 );
 
@@ -31,14 +31,17 @@ impl From<std::path::PathBuf> for StartDirectory {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A path that the user names arrives as a `PathBuf`, and the start takes
-    // it without a borrow.
+    /// Shows that StartDirectory preserves the path from PathBuf
+    ///
+    /// A path that the user names arrives as a `PathBuf`, and the start takes
+    /// it without a borrow.
     #[test]
     fn from_path_buf_keeps_the_path() {
         let start = StartDirectory::from(std::path::PathBuf::from("src"));

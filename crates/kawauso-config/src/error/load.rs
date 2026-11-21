@@ -23,6 +23,28 @@ use crate::loader::ConfigurationPath;
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
 ///
+/// # Examples
+///
+/// ```
+/// use serde::Deserialize;
+///
+/// use kawauso_config::Loader;
+/// use kawauso_config::error::LoadConfigurationError;
+///
+/// #[derive(Deserialize)]
+/// struct Configuration {
+///     port: u16,
+/// }
+///
+/// let directory = tempfile::tempdir()?;
+/// let path = directory.path().join("kawauso.toml");
+///
+/// let result = Loader::path(&path).load::<Configuration>();
+///
+/// assert!(matches!(result, Err(LoadConfigurationError::MissingFile { .. })));
+/// # Ok::<(), std::io::Error>(())
+/// ```
+///
 /// [source]: https://doc.rust-lang.org/std/error/trait.Error.html#method.source
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -31,8 +53,8 @@ pub enum LoadConfigurationError {
     ///
     /// The loader got its contents from the caller, not from a file.
     /// Contents that an application embeds or computes are part of the
-    /// application, so this failure is a defect to report to its
-    /// developers, not a file that the user can correct.
+    /// application. This failure is therefore a defect to report to its
+    /// developers, and not a file that the user can correct.
     #[error("failed to deserialize the configuration contents")]
     #[non_exhaustive]
     InvalidContents {
@@ -117,20 +139,30 @@ pub enum LoadConfigurationError {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller sends the error between threads and keeps it in a report that
-    // another thread reads. This test holds the error to the auto traits that
-    // make this possible, because a private field of a later version could
-    // take them away without a word from the compiler.
+    /// Shows that `LoadConfigurationError` is Send and Sync
+    ///
+    /// A caller sends the error between threads and keeps it in a report that
+    /// another thread reads. This test holds the error to the auto traits that
+    /// make this possible. The test exists because a private field of a later
+    /// version could take them away without a word from the compiler.
     #[test]
     fn load_configuration_error_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<LoadConfigurationError>();
+    }
+
+    #[test]
+    fn load_configuration_error_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<LoadConfigurationError>();
     }
 }

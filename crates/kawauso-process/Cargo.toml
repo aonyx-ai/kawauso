@@ -25,6 +25,7 @@ include = [
 ]
 
 [dependencies]
+bon = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 typed-fields = { workspace = true }

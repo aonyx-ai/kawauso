@@ -9,8 +9,8 @@ use crate::error::ParseApplicationNameError;
 
 /// The name of an application that has a configuration file
 ///
-/// A search derives the name of the file from the name of the application,
-/// so that the developer supplies one word and gets the same file name on
+/// A search derives the name of the file from the name of the application.
+/// The developer therefore supplies one word and gets the same file name on
 /// every platform. A search near the working directory looks for
 /// `<name>.toml`, and a search in the directory of the user looks for
 /// `config.toml` in a directory `<name>`.
@@ -20,8 +20,8 @@ use crate::error::ParseApplicationNameError;
 ///
 /// The name becomes part of a path, so it holds from 1 to 250 ASCII
 /// letters, ASCII digits, and hyphens. It is also not the name of a device on
-/// Windows: `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, or `LPT0` to
-/// `LPT9`, in upper case, lower case, or a mix of the two. Every way to
+/// Windows. These are `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, and `LPT0`
+/// to `LPT9`, in upper case, lower case, or a mix of the two. Every way to
 /// create a name checks these rules and can fail. A constructor of the loader
 /// that takes a name therefore cannot fail because of it.
 ///
@@ -41,6 +41,17 @@ pub struct ApplicationName(String);
 
 impl ApplicationName {
     /// Returns the name as a string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_config::ApplicationName;
+    ///
+    /// let name: ApplicationName = "example".parse()?;
+    ///
+    /// assert_eq!(name.get(), "example");
+    /// # Ok::<(), kawauso_config::error::ParseApplicationNameError>(())
+    /// ```
     pub fn get(&self) -> &str {
         &self.0
     }
@@ -82,15 +93,25 @@ impl TryFrom<String> for ApplicationName {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // The rules of a name hold more than the set of characters. A name of a
-    // device on Windows obeys that set, so only the rule on devices rejects
-    // it.
+    #[test]
+    fn application_name_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<ApplicationName>();
+    }
+
+    /// Shows that the rule on devices rejects a device name
+    ///
+    /// The rules of a name hold more than the set of characters. A name of a
+    /// device on Windows obeys that set, so only the rule on devices rejects
+    /// it.
     #[test]
     fn from_str_with_a_device_returns_an_error() {
         let error = "CON".parse::<ApplicationName>().unwrap_err();

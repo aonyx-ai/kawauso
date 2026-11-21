@@ -10,16 +10,40 @@ use crate::search::StartDirectory;
 
 /// The error returned when a search does not produce a project
 ///
-/// The variants separate what the user of the application has to do next. A
-/// search that walked to the root of the file system and matched nothing
-/// needs a marker, and the error names the start and the markers that it
-/// looked for. A start that cannot be read needs a path that exists. A search
+/// The variants separate what the user of the application has to do next. A search that walked
+/// to the root of the file system and matched nothing needs a marker. The error
+/// names the start and the markers that it looked for. A start that cannot be read needs a path that exists. A search
 /// that never started needs an environment in which the process can name its
 /// own working directory. A marker that leaves its directory is a mistake in
 /// the application, which the user reports to its developers.
 ///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
+///
+/// # Examples
+///
+/// ```
+/// use kawauso_project::Project;
+/// use kawauso_project::Search;
+/// use kawauso_project::error::DiscoverProjectError;
+/// use kawauso_project::error::LoadProjectError;
+///
+/// let directory = tempfile::tempdir()?;
+/// let search = Search::start(directory.path()).marker(".kawauso-doctest-marker");
+///
+/// let result: Result<Project, _> = Project::builder()
+///     .application("example".parse()?)
+///     .load(&search);
+///
+/// assert!(matches!(
+///     result,
+///     Err(LoadProjectError::UndiscoverableProject {
+///         source: DiscoverProjectError::MissingProject { .. },
+///         ..
+///     })
+/// ));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum DiscoverProjectError {
@@ -30,9 +54,8 @@ pub enum DiscoverProjectError {
     /// marker in the directory that is the project, or run the application
     /// inside a project.
     ///
-    /// The start is the resolved form of the directory at which the walk
-    /// began, and the markers are in the order in which the search tested
-    /// them.
+    /// The start is the resolved form of the directory at which the walk began.
+    /// The markers are in the order in which the search tested them.
     #[error(
         "no project exists at or above `{start}`, because no directory holds any of these markers: {markers}"
     )]
@@ -68,8 +91,8 @@ pub enum DiscoverProjectError {
     ///
     /// The developer named a start, and the file system reports nothing at
     /// that path, or refuses to report on it. A start that does not exist is
-    /// usually a mistake in an argument of the user, and the report that no
-    /// project exists would hide that mistake.
+    /// usually a mistake in an argument of the user. The report that no project
+    /// exists would hide that mistake.
     #[error("failed to read the start of the search at `{start}`")]
     #[non_exhaustive]
     UnreadableStart {
@@ -96,20 +119,30 @@ pub enum DiscoverProjectError {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller sends the error between threads and keeps it in a report that
-    // another thread reads. This test holds the error to the auto traits that
-    // make this possible, because a private field of a later version could
-    // take them away without a word from the compiler.
+    /// Shows that `DiscoverProjectError` is Send and Sync
+    ///
+    /// A caller sends the error between threads and keeps it in a report that
+    /// another thread reads. This test holds the error to the auto traits that
+    /// make this possible. The test exists because a private field of a later
+    /// version could take them away without a word from the compiler.
     #[test]
     fn discover_project_error_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<DiscoverProjectError>();
+    }
+
+    #[test]
+    fn discover_project_error_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<DiscoverProjectError>();
     }
 }

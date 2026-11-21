@@ -9,8 +9,8 @@ use crate::invocation::Invocation;
 /// The variants separate what happened to the command. A command that never
 /// started needs a program that exists, a working directory that exists, and
 /// the rights to start a program. A run that started and did not finish means
-/// that the operating system stopped the crate from collecting the result,
-/// which a caller reports and can try again.
+/// that the operating system stopped the crate from collecting the result. A
+/// caller reports that failure and can try again.
 ///
 /// The message of each variant shows the command line that the
 /// [`Invocation`] renders, so that the reader of a log knows which command
@@ -26,6 +26,23 @@ use crate::invocation::Invocation;
 ///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
+///
+/// # Examples
+///
+/// ```
+/// use kawauso_process::Invocation;
+/// use kawauso_process::error::RunCommandError;
+///
+/// # #[tokio::main(flavor = "current_thread")]
+/// # async fn main() {
+/// let result = Invocation::new("kawauso-doctest-missing-program").run().await;
+///
+/// assert!(matches!(
+///     result,
+///     Err(RunCommandError::UnstartableCommand { .. })
+/// ));
+/// # }
+/// ```
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum RunCommandError {
@@ -63,16 +80,19 @@ pub enum RunCommandError {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller sends the error between threads and keeps it in a report that
-    // another thread reads. This test holds the error to the auto traits that
-    // make this possible, because a private field of a later version could
-    // take them away without a word from the compiler.
+    /// Shows that `RunCommandError` is Send and Sync
+    ///
+    /// A caller sends the error between threads and keeps it in a report that
+    /// another thread reads. This test holds the error to the auto traits that
+    /// make this possible. The test exists because a private field of a later
+    /// version could take them away without a word from the compiler.
     #[test]
     fn run_command_error_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
@@ -80,10 +100,19 @@ mod tests {
         assert_send_and_sync::<RunCommandError>();
     }
 
-    // A result carries its error by value, and a consumer wraps the error in
-    // an error of its own. An error that grows makes every such wrapper grow
-    // with it, until the wrapper needs a box that the consumer writes. This
-    // test holds the error to a size that leaves the consumer that room.
+    #[test]
+    fn run_command_error_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<RunCommandError>();
+    }
+
+    /// Shows that an error stays small for consumers wrapping it
+    ///
+    /// A result carries its error by value. A consumer wraps the error in an
+    /// error of its own. An error that grows makes every such wrapper grow
+    /// with it, until the wrapper needs a box that the consumer writes. This test holds the error to a
+    /// size that leaves the consumer that room.
     #[test]
     fn run_command_error_stays_small() {
         assert!(size_of::<RunCommandError>() <= 4 * size_of::<usize>());

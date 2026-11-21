@@ -1,13 +1,14 @@
 //! Tests for the loading of configuration files
 //!
 //! The crate loads a configuration from a source and deserializes it into a
-//! type that the caller defines. These tests take the role of the caller:
-//! they define a type, and they give the loader contents, a file, or the
-//! name of an application to search for.
+//! type that the caller defines. These tests take the role of the caller. They
+//! define a type, and they give the loader contents, a file, or the name of an
+//! application to search for.
 
-// An assertion in a test panics by design. A `# Panics` section on every test
-// would repeat that and give the reader no information.
-#![allow(clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_panics_doc,
+    reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+)]
 
 use indoc::indoc;
 use kawauso_config::AncestorsSearch;
@@ -29,9 +30,9 @@ struct Configuration {
 
 /// The configuration of an imaginary application that groups its settings
 ///
-/// A configuration file often collects related settings in a table. A caller
-/// that defines a type with a table like this one gets a path with a dot in
-/// it when an entry of the table does not match.
+/// A configuration file often collects related settings in a table. A caller that
+/// defines a type with a table like this one gets a path with a dot in it. This
+/// happens when an entry of the table does not match.
 #[derive(Eq, PartialEq, Debug, Deserialize)]
 struct NestedConfiguration {
     server: Server,
@@ -43,13 +44,15 @@ struct Server {
     port: u16,
 }
 
+/// Shows that a search for an unknown application fails
+///
+/// The search must find nothing, so the application needs a name that no
+/// file on this machine belongs to. `tempfile` gives a temporary directory
+/// a unique name, and the application borrows it. The prefix replaces the
+/// default one, which starts with a dot. The random part holds only ASCII
+/// letters and digits, so the name obeys its rules.
 #[test]
 fn load_with_ancestors_and_no_file_returns_an_error() {
-    // The search must find nothing, so the application needs a name that no
-    // file on this machine belongs to. `tempfile` gives a temporary directory
-    // a unique name, and the application borrows it. The prefix replaces the
-    // default one, which starts with a dot, and the random part holds only
-    // ASCII letters and digits, so the name obeys its rules.
     let directory = tempfile::Builder::new()
         .prefix("kawauso-")
         .tempdir()
@@ -65,11 +68,13 @@ fn load_with_ancestors_and_no_file_returns_an_error() {
     ));
 }
 
+/// Shows that a directory at the path is reported by its condition
+///
+/// The read of a directory fails with a different report on each platform,
+/// and one of them names a permission. The message must state the
+/// condition instead, so that the message reads the same everywhere.
 #[test]
 fn load_with_directory_at_the_path_reports_the_path() {
-    // The read of a directory fails with a different report on each platform,
-    // and one of them names a permission. The message must state the
-    // condition instead, so that the message reads the same everywhere.
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("configuration.toml");
     std::fs::create_dir(&path).unwrap();
@@ -202,10 +207,12 @@ fn load_with_missing_file_returns_an_error() {
     assert!(result.is_err());
 }
 
-// A subdirectory that leaves its directory is a mistake in the application,
-// not in a file that the user wrote. The report therefore names the value
-// that the application gave, so that the user can pass it on to the
-// developers.
+/// Shows that an outside subdirectory is reported by its value
+///
+/// A subdirectory that leaves its directory is a mistake in the application,
+/// not in a file that the user wrote. The report therefore names the value
+/// that the application gave, so that the user can pass it on to the
+/// developers.
 #[test]
 fn load_with_outside_subdirectory_reports_the_subdirectory() {
     let search = AncestorsSearch::new("kawauso".parse().unwrap()).subdirectory("../secrets");
@@ -223,11 +230,13 @@ fn load_with_outside_subdirectory_reports_the_subdirectory() {
     );
 }
 
+/// Shows that an unreadable file is reported by its path
+///
+/// A fixture that removes the read permission silently passes when the
+/// tests run as root, such as in a container. Invalid UTF-8 fails the
+/// read on every platform and for every user.
 #[test]
 fn load_with_unreadable_file_reports_the_path() {
-    // A fixture that removes the read permission silently passes when the
-    // tests run as root, such as in a container. Invalid UTF-8 fails the
-    // read on every platform and for every user.
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("configuration.toml");
     std::fs::write(&path, b"name = \xff").unwrap();
@@ -243,13 +252,15 @@ fn load_with_unreadable_file_reports_the_path() {
     );
 }
 
+/// Shows that a search of the user directory for an unknown application fails
+///
+/// The search must find nothing, so the application needs a name that no
+/// file on this machine belongs to. `tempfile` gives a temporary directory
+/// a unique name, and the application borrows it. The prefix replaces the
+/// default one, which starts with a dot. The random part holds only ASCII
+/// letters and digits, so the name obeys its rules.
 #[test]
 fn load_with_user_directory_and_no_file_returns_an_error() {
-    // The search must find nothing, so the application needs a name that no
-    // file on this machine belongs to. `tempfile` gives a temporary directory
-    // a unique name, and the application borrows it. The prefix replaces the
-    // default one, which starts with a dot, and the random part holds only
-    // ASCII letters and digits, so the name obeys its rules.
     let directory = tempfile::Builder::new()
         .prefix("kawauso-")
         .tempdir()

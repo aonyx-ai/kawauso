@@ -1,24 +1,25 @@
 //! Tests for the search for a configuration file
 //!
-//! A search reads the environment of the process: the walk up the ancestors
-//! starts at the working directory, and the search of the user directory
-//! starts at the home directory. A test that changes one of them changes it
-//! for every thread of the process, and the tests of a binary run in
-//! parallel, so such a test would decide what the other tests see.
+//! A search reads the environment of the process. The walk up the ancestors
+//! starts at the working directory. The search of the user directory starts
+//! at the home directory. A test that changes one of them changes it for
+//! every thread of the process. The tests of a binary run in parallel, so
+//! such a test would decide what the other tests see.
 //!
 //! A test here therefore has two halves. The first half writes a
 //! configuration file and starts a child process that has a working
 //! directory and a home directory of its own. The child runs the second
-//! half, which is a test of this same binary: it asks the loader for the
+//! half, which is a test of this same binary. It asks the loader for the
 //! configuration and asserts that the loader returned what the file holds.
 //! The first half then asserts that the child reported success.
 //!
 //! A search that finds nothing needs no environment of its own, and the
 //! tests for it live with the other tests of the loader.
 
-// An assertion in a test panics by design. A `# Panics` section on every test
-// would repeat that and give the reader no information.
-#![allow(clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_panics_doc,
+    reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+)]
 
 use std::process::Command;
 use std::process::Output;
@@ -37,9 +38,9 @@ const CONTENTS: &str = "port = 8080";
 
 /// The line with which a child process reports one test that passed
 ///
-/// A filter that matches no test is a success for the harness of the tests,
-/// so an exit code of zero does not say that the child ran anything. A test
-/// that looks for this line therefore fails when the name of its half in the
+/// A filter that matches no test is a success for the harness of the tests.
+/// An exit code of zero therefore does not say that the child ran anything.
+/// A test that looks for this line fails when the name of its half in the
 /// child changes, instead of passing without a search.
 const PASSED: &str = "test result: ok. 1 passed";
 
@@ -66,9 +67,10 @@ struct Configuration {
 /// start a child of its own. `--nocapture` sends the report of a failed
 /// assertion to the standard error of the child, from which the caller reads
 /// it.
+///
+/// The lints that ban `unwrap` and `expect` make an exception for a test.
+/// A helper of a test is not one, so a failure gets its own report.
 fn child(test: &str) -> Command {
-    // The lints that ban `unwrap` and `expect` make an exception for a test,
-    // and a helper of a test is not one, so the failure gets its own report.
     let Ok(binary) = std::env::current_exe() else {
         panic!("the test needs the path of the binary that runs it");
     };
@@ -85,10 +87,10 @@ fn child(test: &str) -> Command {
 /// must know that place without a call into the crate. This function is
 /// therefore the rule of the platform, stated a second time.
 ///
-/// The home directory decides the answer, so the caller can hand a child
-/// process a directory of the platform that holds nothing but the file of
-/// the test. Windows names the directory through an interface that no
-/// environment redirects, which is why the rule of that platform is missing
+/// The home directory decides the answer. The caller can therefore hand a child
+/// process a directory of the platform that holds nothing but the file of the
+/// test. Windows names the directory through an interface that no
+/// environment redirects. That is why the rule of that platform is missing
 /// here and no test calls this function there.
 #[cfg(not(windows))]
 fn configuration_directory(home: &std::path::Path) -> std::path::PathBuf {
@@ -126,10 +128,12 @@ fn report_of(output: &Output) -> String {
     )
 }
 
-// The tool that this case comes from keeps its configuration in
-// `.github`, and its users ran it without a flag and got a report that no
-// configuration file exists. The search has to reach the file that the
-// project already has.
+/// Shows that the search reaches a file in a subdirectory
+///
+/// The tool that this case comes from keeps its configuration in `.github`. Its
+/// users ran it without a flag and got a report that no configuration file
+/// exists. The search has to reach the file that the
+/// project already has.
 #[test]
 fn load_with_ancestors_and_a_file_in_a_subdirectory_returns_the_configuration() {
     let working_directory = tempfile::tempdir().unwrap();
@@ -146,9 +150,11 @@ fn load_with_ancestors_and_a_file_in_a_subdirectory_returns_the_configuration() 
     assert!(report.contains(PASSED), "{report}");
 }
 
-// The dot-config convention also keeps the file with the name of the
-// application in the shared directory `.config`, and the search finds it
-// there.
+/// Shows that the search reaches a file in `.config`
+///
+/// The dot-config convention also keeps the file with the name of the
+/// application in the shared directory `.config`, and the search finds it
+/// there.
 #[test]
 fn load_with_ancestors_and_a_file_in_dot_config_file_returns_the_configuration() {
     let working_directory = tempfile::tempdir().unwrap();
@@ -165,8 +171,10 @@ fn load_with_ancestors_and_a_file_in_dot_config_file_returns_the_configuration()
     assert!(report.contains(PASSED), "{report}");
 }
 
-// The dot-config convention gives the application a directory of its own,
-// and its configuration file sits inside it.
+/// Shows that the search reaches a file in the directory of the application
+///
+/// The dot-config convention gives the application a directory of its own,
+/// and its configuration file sits inside it.
 #[test]
 fn load_with_ancestors_and_a_file_in_the_dot_config_directory_returns_the_configuration() {
     let working_directory = tempfile::tempdir().unwrap();
@@ -198,11 +206,13 @@ fn load_with_ancestors_and_a_file_in_the_working_directory_returns_the_configura
     assert!(report.contains(PASSED), "{report}");
 }
 
-// Most file systems accept a component of a path with up to 255 bytes, and
-// the walk adds `.toml` to the name of the application. The file of the
-// longest name that the rules accept must still be a file that the user can
-// create and that the walk finds. Each location of the walk ends in the same
-// component `<name>.toml`, so the working directory stands for all of them.
+/// Shows that the longest name that the rules accept names a file that the search finds
+///
+/// Most file systems accept a component of a path with up to 255 bytes, and
+/// the walk adds `.toml` to the name of the application. The file of the
+/// longest name that the rules accept must still be a file that the user can
+/// create and that the walk finds. Each location of the walk ends in the same
+/// component `<name>.toml`, so the working directory stands for all of them.
 #[test]
 fn load_with_ancestors_and_the_longest_name_returns_the_configuration() {
     let name = longest_name().unwrap();
@@ -219,10 +229,12 @@ fn load_with_ancestors_and_the_longest_name_returns_the_configuration() {
     assert!(report.contains(PASSED), "{report}");
 }
 
-// The tests of the crate must not read the configuration directory of the
-// user who runs them, so the child gets a home directory of its own.
-// `XDG_CONFIG_HOME` would name a directory outside that home, and the child
-// inherits the environment of this process, so the variable has to go.
+/// Shows that the search of the user directory reaches a file in a home directory of its own
+///
+/// The tests of the crate must not read the configuration directory of the user
+/// who runs them. The child therefore gets a home directory of its own.
+/// `XDG_CONFIG_HOME` would name a directory outside that home, and the child
+/// inherits the environment of this process, so the variable has to go.
 #[cfg(not(windows))]
 #[test]
 fn load_with_user_directory_and_a_file_returns_the_configuration() {
@@ -245,8 +257,8 @@ fn load_with_user_directory_and_a_file_returns_the_configuration() {
 ///
 /// Each test here belongs to a test above it, which prepares a configuration
 /// file and starts the child. Only that test can give this one the
-/// environment that it needs, so `#[ignore]` keeps a run of the suite from
-/// reaching it on its own.
+/// environment that it needs. The attribute `#[ignore]` therefore keeps a run
+/// of the suite from reaching it on its own.
 mod child {
     use kawauso_config::AncestorsSearch;
     use kawauso_config::ApplicationName;

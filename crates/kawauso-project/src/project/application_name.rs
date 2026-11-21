@@ -9,18 +9,18 @@ use crate::error::ParseApplicationNameError;
 
 /// The name of an application
 ///
-/// The name identifies the application whose project this is. The crate
-/// derives the conventional location of the configuration file from it,
-/// `.config/<name>.toml` inside the project, and the data directory of the
-/// project, `<data>/<name>/projects/<identifier>` in the local data directory
-/// of the user.
+/// The name identifies the application whose project this is. The crate derives
+/// two locations from it. One is the conventional location of the configuration
+/// file, `.config/<name>.toml` inside the project. The other is the data
+/// directory of the project, `<data>/<name>/projects/<identifier>` in the local
+/// data directory of the user.
 ///
 /// Use the name that a user types to start the application, so that the
 /// user finds the files under a name that they recognize.
 ///
 /// The name becomes a component of a path, so it holds from 1 to 250 ASCII
-/// letters, ASCII digits, and hyphens. It is also not a name that Windows
-/// keeps for a device: `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, or
+/// letters, ASCII digits, and hyphens. It is also not a name that Windows keeps
+/// for a device. These are `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, and
 /// `LPT0` to `LPT9`, in upper case, lower case, or a mix of the two. The
 /// rules are the same on every platform. Every way to create a name checks
 /// these rules and can fail. A builder that takes a name therefore cannot
@@ -49,6 +49,16 @@ pub struct ApplicationName(String);
 
 impl ApplicationName {
     /// Returns the name as a string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::project::ApplicationName;
+    ///
+    /// let name: ApplicationName = "myapp".parse()?;
+    /// assert_eq!(name.get(), "myapp");
+    /// # Ok::<(), kawauso_project::error::ParseApplicationNameError>(())
+    /// ```
     pub fn get(&self) -> &str {
         &self.0
     }
@@ -90,11 +100,19 @@ impl TryFrom<String> for ApplicationName {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
+
+    #[test]
+    fn application_name_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<ApplicationName>();
+    }
 
     #[test]
     fn from_str_with_a_malformed_name_returns_an_error() {

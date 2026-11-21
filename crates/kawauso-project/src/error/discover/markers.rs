@@ -12,8 +12,19 @@ use crate::search::Marker;
 /// vector cannot carry that report, because it has no [`Display`]
 /// implementation, and the message of an error needs one.
 ///
-/// The order is the order of the test, so the first marker is the one that
-/// wins when a directory holds more than one of them.
+/// The order is the order of the test. The first marker is therefore the one
+/// that wins when a directory holds more than one of them.
+///
+/// # Examples
+///
+/// ```
+/// use kawauso_project::error::discover::Markers;
+/// use kawauso_project::search::Marker;
+///
+/// let markers = Markers::new(vec![Marker::from(".git"), Marker::from("Cargo.toml")]);
+///
+/// assert_eq!(markers.to_string(), "`.git`, `Cargo.toml`");
+/// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Markers(Vec<Marker>);
 
@@ -22,11 +33,33 @@ impl Markers {
     ///
     /// The order is kept as it is given, because it decides which marker wins
     /// and in which order a report names them.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::error::discover::Markers;
+    /// use kawauso_project::search::Marker;
+    ///
+    /// let markers = Markers::new(vec![Marker::from(".git")]);
+    ///
+    /// assert_eq!(markers.as_slice().len(), 1);
+    /// ```
     pub fn new(markers: impl Into<Vec<Marker>>) -> Self {
         Self(markers.into())
     }
 
     /// Returns the markers in the order of the test
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::error::discover::Markers;
+    /// use kawauso_project::search::Marker;
+    ///
+    /// let markers = Markers::new(vec![Marker::from(".git"), Marker::from("Cargo.toml")]);
+    ///
+    /// assert_eq!(markers.as_slice()[1], Marker::from("Cargo.toml"));
+    /// ```
     pub fn as_slice(&self) -> &[Marker] {
         &self.0
     }
@@ -43,11 +76,19 @@ impl Display for Markers {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
+
+    #[test]
+    fn markers_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Markers>();
+    }
 
     #[test]
     fn trait_display() {

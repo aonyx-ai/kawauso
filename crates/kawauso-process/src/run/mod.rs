@@ -1,13 +1,13 @@
 //! The run of a command that the caller observes while it runs
 //!
-//! A run in one call reports after the command ended. An application that
-//! shows the progress of a command, or that turns the output of a command
-//! into events of its own, needs the output earlier. This module holds the
+//! A run in one call reports after the command ended. An application that shows
+//! the progress of a command needs the output earlier. So does an application
+//! that turns the output of a command into events of its own. This module holds the
 //! handle that gives the output to such a caller, one line at a time, and the
 //! types of a line.
 //!
-//! The handle reports the same result as a run in one call, so an application
-//! that moves from the one form to the other keeps its handling of the
+//! The handle reports the same result as a run in one call. An application that
+//! moves from the one form to the other therefore keeps its handling of the
 //! result.
 
 pub mod line;
@@ -56,9 +56,9 @@ use crate::process_id::ProcessId;
 
 /// The number of bytes that one read takes from a stream
 ///
-/// The value is a compromise. A small buffer reads a stream in many steps,
-/// and a large one holds memory that most commands never fill, because a
-/// command writes lines and not blocks.
+/// The value is a compromise. A small buffer reads a stream in many steps. A
+/// large one holds memory that most commands never fill, because a command
+/// writes lines and not blocks.
 const CHUNK: usize = 8 * 1024;
 
 /// The number of bytes that one take reads from a stream at most
@@ -72,15 +72,14 @@ const LEFTOVER: usize = 4 * 1024 * 1024;
 
 /// The run of a command that the caller observes while it runs
 ///
-/// The handle starts with the command and ends with the result of the run. It
-/// gives the output of the command to the caller as lines, in the order in
-/// which the lines arrive, and it collects the same capture that a run in one
-/// call collects. A caller that reads no line at all therefore still gets
+/// The handle starts with the command and ends with the result of the run. It gives the output
+/// of the command to the caller as lines, in the order in which the lines
+/// arrive. It also collects the same capture that a run in one call collects. A caller that reads no line at all therefore still gets
 /// every byte that the command wrote.
 ///
-/// The handle owns the command. A caller that drops the handle ends the
-/// command with it, so a timeout, a `select`, and a scheduler that abandons a
-/// run leave no process behind. The kill that ends such a command is
+/// The handle owns the command. A caller that drops the handle ends the command
+/// with it. A timeout, a `select`, and a scheduler that abandons a run
+/// therefore leave no process behind. The kill that ends such a command is
 /// immediate, and a caller that wants the command to end in good order calls
 /// [`stop`][stop] instead. A caller that waits for the end of the command in a
 /// `select` keeps the handle with [`wait_for_end`][wait-for-end].
@@ -143,25 +142,35 @@ pub struct Run {
     started: Instant,
 }
 
+#[bon::bon]
 impl Run {
     /// Takes the streams of a command that started and builds the handle
     ///
     /// The constructor is not public, because it takes the command as the
-    /// asynchronous runtime represents it, and no public signature of this
-    /// crate names a type of that runtime. [`start`][start] is the way to a
+    /// asynchronous runtime represents it. No public signature of this crate
+    /// names a type of that runtime. [`start`][start] is the way to a
     /// handle.
     ///
+    /// The command started with a pipe on each stream, so both are here. A
+    /// reader without a stream reports the end of its stream at once, which
+    /// leaves the caller with the streams that it can read.
+    ///
+    /// The command runs, so the operating system has given it an identifier.
+    /// The handle takes the value now, because the crate can no longer read it
+    /// after it collected the status of the command.
+    ///
     /// [start]: Invocation::start
+    #[builder]
     pub(crate) fn new(invocation: Invocation, mut child: Child, started: Instant) -> Self {
-        // The command started with a pipe on each stream, so both are here.
-        // A reader without a stream reports the end of its stream at once,
-        // which leaves the caller with the streams that it can read.
-        let stdout = Reader::new(Stream::StandardOutput, child.stdout.take());
-        let stderr = Reader::new(Stream::StandardError, child.stderr.take());
+        let stdout = Reader::builder()
+            .stream(Stream::StandardOutput)
+            .maybe_source(child.stdout.take())
+            .build();
+        let stderr = Reader::builder()
+            .stream(Stream::StandardError)
+            .maybe_source(child.stderr.take())
+            .build();
 
-        // The command runs, so the operating system has given it an
-        // identifier. The handle takes the value now, because the crate can
-        // no longer read it after it collected the status of the command.
         let id = child.id().map(ProcessId::from);
 
         Self {
@@ -238,6 +247,13 @@ impl Run {
     /// its own gives them its streams. Such a program can end while a program
     /// that it started holds the streams open.
     ///
+    /// The wait holds its state in the future, so the method builds the future
+    /// once and polls it again in every round. The read comes first, because
+    /// a command that fills a pipe ends only after something empties it. A
+    /// stream that gave bytes registered no interest with the runtime, because
+    /// it has nothing to wait for. The runtime therefore wakes nothing, and
+    /// the call wakes itself instead.
+    ///
     /// # Errors
     ///
     /// Returns [`IncompleteRun`][incomplete] when a stream of the command
@@ -255,26 +271,20 @@ impl Run {
             ..
         } = self;
 
-        // The wait holds its state in the future, so the method builds the
-        // future once and polls it again in every round.
         let mut wait = pin!(child.wait());
 
         let exited = poll_fn(|context| {
-            // The read comes first, because a command that fills a pipe ends
-            // only after something empties it.
             let produced = match poll_streams(stdout, stderr, lines, context) {
                 Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
                 Poll::Ready(Ok(())) => true,
                 Poll::Pending => false,
             };
 
-            if let Poll::Ready(exited) = wait.as_mut().poll(context) {
-                return Poll::Ready(exited);
+            match wait.as_mut().poll(context) {
+                Poll::Ready(exited) => return Poll::Ready(exited),
+                Poll::Pending => {}
             }
 
-            // A stream that gave bytes registered no interest with the
-            // runtime, because it has nothing to wait for. The runtime
-            // therefore wakes nothing, and the call wakes itself instead.
             if produced {
                 context.waker().wake_by_ref();
             }
@@ -295,14 +305,14 @@ impl Run {
     /// the one place that builds it. The status arrives as an argument,
     /// because the handle does not keep it.
     fn finish(self, status: ExitStatus) -> Execution {
-        Execution::new(
-            self.invocation,
-            self.id,
-            status,
-            Capture::new(self.stdout.capture),
-            Capture::new(self.stderr.capture),
-            self.started.elapsed(),
-        )
+        Execution::builder()
+            .invocation(self.invocation)
+            .maybe_id(self.id)
+            .status(status)
+            .stdout(Capture::new(self.stdout.capture))
+            .stderr(Capture::new(self.stderr.capture))
+            .duration(self.started.elapsed())
+            .build()
     }
 
     /// Returns the identifier that the operating system gave the command
@@ -320,11 +330,37 @@ impl Run {
     ///
     /// The value is `None` when the operating system gave the command no
     /// identifier.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let run = Invocation::new("sleep").arg("1").start()?;
+    /// let pid = run.id();
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn id(&self) -> Option<ProcessId> {
         self.id
     }
 
     /// Returns the command that runs
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use kawauso_process::Invocation;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let run = Invocation::new("cargo").arg("build").start()?;
+    /// let cmd = run.invocation();
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn invocation(&self) -> &Invocation {
         &self.invocation
     }
@@ -341,15 +377,15 @@ impl Run {
 
     /// Returns the next line of the output of the command
     ///
-    /// The method waits until the command writes a line to one of its
-    /// streams, and it returns the lines in the order in which they arrive.
+    /// The method waits until the command writes a line to one of its streams.
+    /// It returns the lines in the order in which they arrive.
     /// It returns `None` when the command closed both of its streams, which a
     /// command does when it ends. A command that writes a last line without
     /// the characters that end a line still reports that line.
     ///
-    /// Every line that the method returns stays in the capture of the result
-    /// as well, so a caller that shows the output while the command runs and
-    /// then reports the whole output reads both from the same run.
+    /// Every line that the method returns stays in the capture of the result as
+    /// well. A caller that shows the output while the command runs and then
+    /// reports the whole output therefore reads both from the same run.
     ///
     /// # Errors
     ///
@@ -364,6 +400,11 @@ impl Run {
     /// and the call loses no output. The bytes that the call took stay with
     /// the handle, and the call that follows reports the line that they
     /// belong to.
+    ///
+    /// A poll that takes bytes stores them in the reader and in the queue
+    /// before it returns. The await point of the call is a poll that took
+    /// nothing. Every state of the read therefore lives in the handle, and a
+    /// future that the caller drops takes none of it.
     ///
     /// # Examples
     ///
@@ -392,10 +433,6 @@ impl Run {
                 return Ok(None);
             }
 
-            // A poll that takes bytes stores them in the reader and in the
-            // queue before it returns. The await point below is a poll that
-            // took nothing. Every state of the read therefore lives in the
-            // handle, and a future that the caller drops takes none of it.
             let read = {
                 let Self {
                     stdout,
@@ -418,8 +455,8 @@ impl Run {
     ///
     /// A Unix platform has `SIGTERM`, which is the request that a program
     /// answers when it ends its work in good order. The request reaches the
-    /// process of the command alone, and not a process group, so a command
-    /// that starts programs of its own decides what happens to them.
+    /// process of the command alone, and not a process group. A command that
+    /// starts programs of its own therefore decides what happens to them.
     ///
     /// A process that the operating system no longer knows, and a request
     /// that it refuses, both report that nothing asked the command to end.
@@ -453,8 +490,8 @@ impl Run {
 
     /// Reports that this platform has no request to end
     ///
-    /// Windows has no signal that asks a program to end its work, and the
-    /// crate has no interface of the operating system that takes its place.
+    /// Windows has no signal that asks a program to end its work. The crate has
+    /// no interface of the operating system that takes its place.
     /// The stop therefore kills the command at once, which the
     /// documentation of the stop states.
     #[cfg(not(unix))]
@@ -472,9 +509,9 @@ impl Run {
     ///
     /// The request is `SIGTERM` on a Unix platform. A platform that has no
     /// request of this kind kills the command at once, and the time then
-    /// passes unused. The request reaches the program that the crate
-    /// started, and not a group of processes, so a program that starts
-    /// programs of its own decides what happens to them.
+    /// passes unused. The request reaches the program that the crate started,
+    /// and not a group of processes. A program that starts programs of its own
+    /// therefore decides what happens to them.
     ///
     /// The time measures the command, and not the streams of the command. A
     /// program that starts programs of its own gives them its streams. Such a
@@ -492,6 +529,18 @@ impl Run {
     ///
     /// A caller that drops the handle instead of this call kills the command
     /// at once, with no request before it.
+    ///
+    /// The method waits for an answer only when the request went out. The
+    /// command then has the time to answer it. The wait reads what the command
+    /// writes while it answers, so a command that fills a pipe reaches its own
+    /// end. When nothing asked the command to end, nothing waits for an
+    /// answer, and the kill is what this platform has.
+    ///
+    /// The command can ignore the request, or no request can reach it. The
+    /// kill then ends it. The wait that follows collects the status of a
+    /// command that can no longer refuse. The command ended, and what it wrote
+    /// last can still be in a pipe, so the method takes those bytes before it
+    /// builds the result.
     ///
     /// # Errors
     ///
@@ -526,25 +575,17 @@ impl Run {
     /// [wait]: Run::wait
     pub async fn stop(mut self, grace: Duration) -> Result<Execution, RunCommandError> {
         let exited = match self.request_end() {
-            // The command has the request, so it has the time to answer it.
-            // The wait reads what the command writes while it answers, so a
-            // command that fills a pipe reaches its own end.
             Request::Sent => match timeout(grace, self.exit()).await {
                 Ok(exited) => Some(exited?),
                 Err(_) => None,
             },
 
-            // Nothing asked the command to end, so nothing waits for an
-            // answer. The kill below is what this platform has.
             Request::Unsent => None,
         };
 
         let status = match exited {
             Some(status) => status,
 
-            // The command ignored the request, or nothing asked it to end.
-            // The kill ends it, and the wait that follows collects the status
-            // of a command that can no longer refuse.
             None => {
                 self.kill();
 
@@ -552,7 +593,6 @@ impl Run {
             }
         };
 
-        // The command ended, and what it wrote last can still be in a pipe.
         self.take().await?;
 
         Ok(self.finish(status))
@@ -613,9 +653,9 @@ impl Run {
 
     /// Waits for the end of the command and reports the result of the run
     ///
-    /// The method reads what the command still writes, waits for the end of
-    /// the command, and reports what a run in one call reports: the exit
-    /// status, the capture of both streams, and the time that the run took.
+    /// The method reads what the command still writes and waits for the end of
+    /// the command. It reports what a run in one call reports: the exit status,
+    /// the capture of both streams, and the time that the run took.
     /// The capture holds everything that the command wrote, whether or not
     /// the caller read a line.
     ///
@@ -730,9 +770,9 @@ impl Run {
 
 /// Whether the request to end reached the command
 ///
-/// A platform without a request of this kind, and a process that the
-/// operating system no longer knows, both leave the kill as the only way to
-/// end a run. A stop that asked nothing must not wait for an answer, because
+/// A platform without a request of this kind leaves the kill as the only way to
+/// end a run. A process that the operating system no longer knows does the
+/// same. A stop that asked nothing must not wait for an answer, because
 /// no answer can arrive.
 #[derive(Debug)]
 enum Request {
@@ -745,8 +785,8 @@ enum Request {
 
 /// Reads the streams of a command until one of them produced something
 ///
-/// The function polls both streams on every call, so a command that fills the
-/// pipe of one stream while it is quiet on the other never stops the run. A
+/// The function polls both streams on every call. A command that fills the pipe
+/// of one stream while it is quiet on the other therefore never stops the run. A
 /// stream that produced nothing has registered its interest with the runtime,
 /// which wakes the caller when the stream has bytes.
 ///
@@ -803,8 +843,8 @@ struct Reader<S> {
 
     /// The number of pending bytes in which no end of a line was found
     ///
-    /// A read looks for the end of a line in the bytes that it added, and not
-    /// in the bytes that it has looked at before. A command that writes a
+    /// A read looks for the end of a line in the bytes that it added. It does
+    /// not look in the bytes that it has looked at before. A command that writes a
     /// long line therefore reads that line once, and not once per read.
     searched: usize,
 
@@ -812,8 +852,10 @@ struct Reader<S> {
     capture: Vec<u8>,
 }
 
+#[bon::bon]
 impl<S: AsyncRead + Unpin> Reader<S> {
     /// Creates the reader of one stream of a command
+    #[builder]
     fn new(stream: Stream, source: Option<S>) -> Self {
         Self {
             stream,
@@ -857,7 +899,10 @@ impl<S: AsyncRead + Unpin> Reader<S> {
     /// character, because a line is for a display and a display takes text.
     /// The capture keeps the byte, so nothing that the command wrote is lost.
     fn line(&self, bytes: &[u8]) -> Line {
-        Line::new(self.stream, String::from_utf8_lossy(bytes).into_owned())
+        Line::builder()
+            .stream(self.stream)
+            .text(String::from_utf8_lossy(bytes).into_owned())
+            .build()
     }
 
     /// Reads what the stream has and builds the lines that it completed
@@ -865,7 +910,7 @@ impl<S: AsyncRead + Unpin> Reader<S> {
     /// The function returns `Ready` when it read bytes or when the stream
     /// reached its end, and `Pending` when the stream has nothing yet. A
     /// stream that reached its end reports `Pending`, because it has nothing
-    /// to report ever again.
+    /// to report ever again. A read of no bytes is the end of the stream.
     ///
     /// # Errors
     ///
@@ -890,7 +935,6 @@ impl<S: AsyncRead + Unpin> Reader<S> {
 
         let read = buffer.filled();
 
-        // A read of no bytes is the end of the stream.
         if read.is_empty() {
             self.close(lines);
 
@@ -913,6 +957,10 @@ impl<S: AsyncRead + Unpin> Reader<S> {
     /// The read goes to the stream itself, and not through the runtime. The
     /// runtime reports a stream as quiet until it looked at the stream again,
     /// and this call gives it no time to look.
+    ///
+    /// A signal that arrived during the read took nothing from the stream, so
+    /// the read starts again. A stream that is open and holds nothing is what
+    /// ends this call.
     ///
     /// # Errors
     ///
@@ -937,12 +985,8 @@ impl<S: AsyncRead + Unpin> Reader<S> {
                     self.accept(&bytes[..count], lines);
                 }
 
-                // A signal that arrived during the read took nothing from
-                // the stream, so the read starts again.
                 Err(Errno::INTR) => {}
 
-                // The stream is open and holds nothing, which is what ends
-                // this call.
                 Err(error) if error == Errno::AGAIN || error == Errno::WOULDBLOCK => {
                     return Ok(());
                 }
@@ -984,20 +1028,44 @@ impl<S: AsyncRead + Unpin> Reader<S> {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller keeps the handle in a task that another thread drives. This
-    // test holds the type to the auto traits that make this possible, because
-    // a private field of a later version could take them away without a word
-    // from the compiler.
+    #[test]
+    fn reader_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Reader<ChildStdout>>();
+    }
+
+    #[test]
+    fn request_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Request>();
+    }
+
+    /// Shows that `Run` is Send and Sync
+    ///
+    /// A caller keeps the handle in a task that another thread drives. This test
+    /// holds the type to the auto traits that make this possible. The test exists
+    /// because a private field of a later version could take them away without a
+    /// word from the compiler.
     #[test]
     fn run_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<Run>();
+    }
+
+    #[test]
+    fn run_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Run>();
     }
 }

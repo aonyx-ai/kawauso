@@ -1,25 +1,26 @@
 //! Tests for the discovery of a project through the public API
 //!
 //! The unit tests of the crate reach the walk and the resolution of the start
-//! directly, so that each of them can name a start and a working directory of
+//! directly. Each of them can therefore name a start and a working directory of
 //! its own. A test here goes through [`Project::discover`], which puts the
 //! two together.
 //!
 //! A search that names no directory reads the working directory of the
-//! process. A test that changes it changes it for every thread of the
-//! process, and the tests of a binary run in parallel, so such a test would
-//! decide what the other tests see.
+//! process. A test that changes it changes it for every thread of the process.
+//! The tests of a binary run in parallel, so such a test would decide what the
+//! other tests see.
 //!
 //! A test that needs a working directory therefore has two halves. The first
 //! half writes a marker and starts a child process that has a working
 //! directory of its own. The child runs the second half, which is a test of
-//! this same binary: it asks for the project and asserts that the search
+//! this same binary. It asks for the project and asserts that the search
 //! returned the working directory. The first half then asserts that the child
 //! reported success.
 
-// An assertion in a test panics by design. A `# Panics` section on every test
-// would repeat that and give the reader no information.
-#![allow(clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_panics_doc,
+    reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+)]
 
 use std::process::Command;
 use std::process::Output;
@@ -41,8 +42,8 @@ const MARKER: &str = ".git";
 
 /// The line with which a child process reports one test that passed
 ///
-/// A filter that matches no test is a success for the harness of the tests,
-/// so an exit code of zero does not say that the child ran anything. A test
+/// A filter that matches no test is a success for the harness of the tests. An
+/// exit code of zero therefore does not say that the child ran anything. A test
 /// that looks for this line therefore fails when the name of its half in the
 /// child changes, instead of passing without a search.
 const PASSED: &str = "test result: ok. 1 passed";
@@ -57,9 +58,9 @@ const PASSED: &str = "test result: ok. 1 passed";
 /// Neither flag matches a test that starts a child, so the child cannot start
 /// a child of its own. `--nocapture` sends the report of a failed assertion to
 /// the standard error of the child, from which the caller reads it.
+/// The lints that ban `unwrap` and `expect` make an exception for a test.
+/// A helper of a test is not one, so the failure gets its own report.
 fn child(test: &str) -> Command {
-    // The lints that ban `unwrap` and `expect` make an exception for a test,
-    // and a helper of a test is not one, so the failure gets its own report.
     let Ok(binary) = std::env::current_exe() else {
         panic!("the test needs the path of the binary that runs it");
     };
@@ -84,6 +85,11 @@ fn report_of(output: &Output) -> String {
     )
 }
 
+/// Shows that a start in one of two projects returns that project
+///
+/// A temporary directory can sit below a symbolic link, which is what macOS
+/// does for `/var`. The project reports a canonical path, so the test
+/// canonicalizes the directory that it expects.
 #[test]
 fn discover_with_a_start_in_one_of_two_projects_returns_that_project() {
     let directory = tempfile::tempdir().unwrap();
@@ -99,9 +105,6 @@ fn discover_with_a_start_in_one_of_two_projects_returns_that_project() {
         .load(&search)
         .unwrap();
 
-    // A temporary directory can sit below a symbolic link, which is what
-    // macOS does for `/var`. The project reports a canonical path, so the
-    // test canonicalizes the directory that it expects.
     assert_eq!(
         project.root().get(),
         std::fs::canonicalize(&second).unwrap()
@@ -122,15 +125,11 @@ fn discover_with_the_working_directory_returns_the_working_directory() {
     assert!(report.contains(PASSED), "{report}");
 }
 
-/// The halves of the tests that a child process runs
+/// Shows that a search without a match reports the markers
 ///
-/// Each test here belongs to a test above it, which prepares a marker and
-/// starts the child. Only that test can give this one the working directory
-/// that it needs, so `#[ignore]` keeps a run of the suite from reaching it on
-/// its own.
-// A caller that reports one line of an error still names what its user has to
-// correct, because the message of the load is the message of the search that
-// produced no project.
+/// A caller that reports one line of an error still names what its user has to
+/// correct. This is because the message of the load is the message of the
+/// search that produced no project.
 #[test]
 fn discover_without_a_match_reports_the_markers() {
     let directory = tempfile::tempdir().unwrap();
@@ -144,6 +143,12 @@ fn discover_without_a_match_reports_the_markers() {
     assert!(outcome.unwrap_err().to_string().contains(ABSENT));
 }
 
+/// The halves of the tests that a child process runs
+///
+/// Each test here belongs to a test above it, which prepares a marker and
+/// starts the child. Only that test can give this one the working directory
+/// that it needs. The `#[ignore]` attribute therefore keeps a run of the suite
+/// from reaching it on its own.
 mod child {
     use kawauso_project::Project;
     use kawauso_project::Search;

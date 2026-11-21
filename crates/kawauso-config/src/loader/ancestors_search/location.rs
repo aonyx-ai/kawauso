@@ -59,9 +59,10 @@ impl Location {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
@@ -71,7 +72,6 @@ mod tests {
     /// The name that the file of the application has in most locations
     const FILE: &str = "example.toml";
 
-    // The dot-config convention reads the file before the directory.
     #[test]
     fn dot_config_paths_in_directories_names_the_file_first() {
         let location = Location::DotConfig;
@@ -88,7 +88,13 @@ mod tests {
         );
     }
 
-    // A subdirectory contributes only its own file.
+    #[test]
+    fn location_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Location>();
+    }
+
     #[test]
     fn subdirectory_paths_in_directories_names_its_file() {
         let location = Location::Subdirectory(Subdirectory::from(".github"));

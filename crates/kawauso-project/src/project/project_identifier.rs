@@ -13,19 +13,19 @@ use crate::error::ParseProjectIdentifierError;
 
 /// The identifier of a project
 ///
-/// The identifier names the data directory of a project. Two checkouts with
-/// the same identifier share one data directory, so the application
-/// supplies a value that stays the same for clones, worktrees, and renamed
-/// checkouts of one project. A value in the configuration file that the
+/// The identifier names the data directory of a project. Two checkouts with the
+/// same identifier share one data directory. The application therefore supplies
+/// a value that stays the same for clones, worktrees, and renamed checkouts of
+/// one project. A value in the configuration file that the
 /// users of the application commit is an example. A project that changes its
 /// identifier gets a new, empty data directory.
 ///
 /// The identifier becomes a component of a path, so it holds from 1 to 250
-/// ASCII letters, ASCII digits, and hyphens. It is also not a name that
-/// Windows keeps for a device: `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`,
-/// or `LPT0` to `LPT9`, in any case. The identifier obeys the same
-/// rules as an [`ApplicationName`], whose configuration file adds `.toml` to
-/// the name, which is why the limit is below the 255 bytes that most file
+/// ASCII letters, ASCII digits, and hyphens. It is also not a name that Windows
+/// keeps for a device. These are `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`,
+/// and `LPT0` to `LPT9`, in any case. The identifier obeys the same rules as an
+/// [`ApplicationName`]. The configuration file of an application adds `.toml`
+/// to its name. This is why the limit is below the 255 bytes that most file
 /// systems accept in a component. These rules keep the data
 /// directory below the directory of the application, also for a value from
 /// a repository that the user did not write. The rules are the same on every
@@ -35,9 +35,9 @@ use crate::error::ParseProjectIdentifierError;
 /// deserialization included. The crate never changes a value to make it
 /// fit, because two values that become equal would share one directory.
 ///
-/// Identifiers that differ only in case, such as `Example` and `example`,
-/// share one directory on the default file systems of macOS and Windows,
-/// and get two directories on Linux. An application that wants one directory
+/// Identifiers that differ only in case, such as `Example` and `example`, share
+/// one directory on the default file systems of macOS and Windows. They get two
+/// directories on Linux. An application that wants one directory
 /// on every platform uses identifiers that differ in more than case.
 ///
 /// # Examples
@@ -80,6 +80,16 @@ pub struct ProjectIdentifier(String);
 
 impl ProjectIdentifier {
     /// Returns the identifier as a string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_project::project::ProjectIdentifier;
+    ///
+    /// let identifier: ProjectIdentifier = "example".parse()?;
+    /// assert_eq!(identifier.get(), "example");
+    /// # Ok::<(), kawauso_project::error::ParseProjectIdentifierError>(())
+    /// ```
     pub fn get(&self) -> &str {
         &self.0
     }
@@ -91,9 +101,11 @@ impl Display for ProjectIdentifier {
     }
 }
 
-// A derived implementation writes a newtype struct, which a format such as
-// RON keeps, while deserialization reads a string. The identifier therefore
-// writes the string itself, so that every format reads what it wrote.
+/// Serializes the identifier as a string
+///
+/// A derived implementation writes a newtype struct, which a format such as
+/// RON keeps, while deserialization reads a string. The identifier therefore
+/// writes the string itself, so that every format reads what it wrote.
 impl Serialize for ProjectIdentifier {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -122,8 +134,10 @@ impl TryFrom<&str> for ProjectIdentifier {
 impl TryFrom<String> for ProjectIdentifier {
     type Error = ParseProjectIdentifierError;
 
-    // Deserialization goes through this function as well, which the
-    // attribute of serde on the type selects.
+    /// Validates a string value during deserialization
+    ///
+    /// Deserialization goes through this function as well, which the
+    /// attribute of serde on the type selects.
     fn try_from(identifier: String) -> Result<Self, Self::Error> {
         if is_portable(&identifier) {
             Ok(Self(identifier))
@@ -135,9 +149,10 @@ impl TryFrom<String> for ProjectIdentifier {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
@@ -179,8 +194,17 @@ mod tests {
         assert_eq!(identifier.get(), "example");
     }
 
-    // Deserialization reads a string, so serialization writes one as well,
-    // and not a newtype struct that some formats keep.
+    #[test]
+    fn project_identifier_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<ProjectIdentifier>();
+    }
+
+    /// Shows that serialization writes a string, not a newtype struct
+    ///
+    /// Deserialization reads a string, so serialization writes one as well,
+    /// and not a newtype struct that some formats keep.
     #[test]
     fn serialize_writes_a_string() {
         let identifier: ProjectIdentifier = "example".parse().unwrap();

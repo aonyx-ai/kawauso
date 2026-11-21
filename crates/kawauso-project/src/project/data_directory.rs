@@ -11,9 +11,9 @@ path!(
     /// the working tree, such as a log for each run.
     ///
     /// The crate creates the directory, and it never deletes anything in it.
-    /// Pruning and rotation of the files stay with the application. Two
-    /// checkouts with the same identifier share the directory, so an
-    /// application whose checkouts run at the same time names its files so
-    /// that they do not collide.
+    /// Pruning and rotation of the files stay with the application. Two checkouts with
+    /// the same identifier share the directory. An application whose checkouts
+    /// run at the same time therefore names its files so that they do not
+    /// collide.
     DataDirectory
 );

@@ -13,6 +13,19 @@
 ///
 /// A later release can add variants. Match with a wildcard arm.
 ///
+/// # Examples
+///
+/// ```
+/// use kawauso_project::Search;
+/// use kawauso_project::search::Fallback;
+///
+/// let search = Search::start(".").marker(".git");
+/// assert_eq!(search.fallback(), Fallback::Error);
+///
+/// let search = search.or_start();
+/// assert_eq!(search.fallback(), Fallback::Start);
+/// ```
+///
 /// [error]: Fallback::Error
 /// [start]: Fallback::Start
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
@@ -24,4 +37,16 @@ pub enum Fallback {
 
     /// The search reports the start directory as a project without a marker
     Start,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fallback_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Fallback>();
+    }
 }

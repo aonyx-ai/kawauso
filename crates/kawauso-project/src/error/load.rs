@@ -21,6 +21,40 @@ use crate::project::ConfigurationPath;
 ///
 /// A later release can add variants, and it can add fields to a variant.
 /// Match with a wildcard arm, and bind the fields of a variant with `..`.
+///
+/// # Examples
+///
+/// ```
+/// use serde::Deserialize;
+///
+/// use kawauso_project::Project;
+/// use kawauso_project::Search;
+/// use kawauso_project::error::LoadProjectError;
+///
+/// #[derive(Deserialize)]
+/// struct Configuration {
+///     port: u16,
+/// }
+///
+/// let directory = tempfile::tempdir()?;
+/// std::fs::write(directory.path().join(".git"), "")?;
+/// std::fs::create_dir(directory.path().join(".config"))?;
+/// std::fs::write(
+///     directory.path().join(".config").join("example.toml"),
+///     "port = \"eighty\"",
+/// )?;
+///
+/// let search = Search::start(directory.path()).marker(".git");
+/// let result: Result<Project<Configuration>, _> = Project::builder()
+///     .application("example".parse()?)
+///     .load(&search);
+///
+/// assert!(matches!(
+///     result,
+///     Err(LoadProjectError::UnloadableConfiguration { .. })
+/// ));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, ErrorDerive)]
 #[non_exhaustive]
 pub enum LoadProjectError {
@@ -83,20 +117,30 @@ pub enum LoadProjectError {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller sends the error between threads and keeps it in a report that
-    // another thread reads. This test holds the error to the auto traits that
-    // make this possible, because a private field of a later version could
-    // take them away without a word from the compiler.
+    /// Shows that `LoadProjectError` is Send and Sync
+    ///
+    /// A caller sends the error between threads and keeps it in a report that
+    /// another thread reads. This test holds the error to the auto traits that
+    /// make this possible. The test exists because a private field of a later
+    /// version could take them away without a word from the compiler.
     #[test]
     fn load_project_error_is_send_and_sync() {
         fn assert_send_and_sync<T: Send + Sync>() {}
 
         assert_send_and_sync::<LoadProjectError>();
+    }
+
+    #[test]
+    fn load_project_error_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<LoadProjectError>();
     }
 }

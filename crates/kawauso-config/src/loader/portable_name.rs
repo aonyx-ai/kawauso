@@ -2,6 +2,9 @@
 //!
 //! The name of an application becomes part of each path that a search reads.
 //! This module states the rules that such a name follows.
+//!
+//! Only the name of an application applies the rules of a portable name, so
+//! this module is private.
 
 /// The largest number of characters in a name
 ///
@@ -28,8 +31,7 @@ const NUMBERED_DEVICES: [&str; 2] = ["COM", "LPT"];
 ///
 /// A portable name is exactly one normal component of a path on every
 /// platform. It holds from 1 to 250 characters, each of which is an ASCII
-/// letter, an ASCII digit, or `-`, and it is not the name of a device on
-/// Windows.
+/// letter, an ASCII digit, or `-`. It is not the name of a device on Windows.
 ///
 /// The rules permit fewer names than any platform does. A later release can
 /// permit more names without a change to the directory of a name that is
@@ -37,10 +39,10 @@ const NUMBERED_DEVICES: [&str; 2] = ["COM", "LPT"];
 /// would orphan the files in its directory instead.
 ///
 /// The characters exclude the separators of every platform, the colon of a
-/// drive prefix on Windows, and the dot, so `.` and `..` are no names. They
-/// also exclude the characters that a file system changes or removes, such
-/// as a trailing space on Windows, or that it compares in a normalized form,
-/// such as the accented letters on macOS.
+/// drive prefix on Windows, and the dot. `.` and `..` are therefore no names. They also exclude
+/// the characters that a file system changes or removes, such as a trailing
+/// space on Windows. They exclude the characters that it compares in a
+/// normalized form as well, such as the accented letters on macOS.
 pub(super) fn is_portable(value: &str) -> bool {
     let characters = !value.is_empty()
         && value.len() <= MAXIMUM_LENGTH
@@ -72,9 +74,10 @@ fn is_device(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
@@ -128,8 +131,10 @@ mod tests {
         assert!(!is_portable("LPT0"));
     }
 
-    // A device name with more than one digit is no device, and a name that
-    // only starts with a device name is none either.
+    /// Shows that a name that starts with a device name is portable
+    ///
+    /// A device name with more than one digit is no device, and a name that
+    /// only starts with a device name is none either.
     #[test]
     fn is_portable_with_a_prefix_of_a_device_returns_true() {
         assert!(is_portable("COM10"));

@@ -11,8 +11,8 @@ use std::fmt::Result;
 /// The value holds the name as the caller wrote it, and the crate checks
 /// nothing. The rules for a name differ between the platforms, and the
 /// operating system applies them when the command starts. A name that no
-/// program reads is therefore a valid name, and a name that the platform
-/// refuses, such as one that holds a NUL byte, fails when the command starts.
+/// program reads is therefore a valid name. A name that the platform refuses,
+/// such as one that holds a NUL byte, fails when the command starts.
 ///
 /// The value is an [`OsString`], because the environment of a program holds
 /// the strings of the operating system and not the strings of Rust.
@@ -46,6 +46,16 @@ impl VariableName {
     }
 
     /// Returns the name as the caller wrote it
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::invocation::VariableName;
+    ///
+    /// let name = VariableName::from("HOME");
+    ///
+    /// assert_eq!(name.get(), "HOME");
+    /// ```
     pub fn get(&self) -> &OsStr {
         &self.0
     }
@@ -92,15 +102,17 @@ impl From<OsString> for VariableName {
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // An application that reads the name of a variable from the environment
-    // holds an `OsString`, and the name takes it without a conversion of its
-    // own.
+    /// Keeps an `OsString` without conversion
+    ///
+    /// An application that reads the name of a variable from the environment
+    /// holds an `OsString`. The name takes it without a conversion of its own.
     #[test]
     fn from_os_string_keeps_the_name() {
         let name = VariableName::from(OsString::from("RUSTUP_TOOLCHAIN"));
@@ -108,12 +120,21 @@ mod tests {
         assert_eq!(name.get(), "RUSTUP_TOOLCHAIN");
     }
 
-    // The text of a name reaches a log line through `Display`, and a caller
-    // that shows one name gets it as the caller wrote it.
+    /// Shows a name as the caller wrote it
+    ///
+    /// The text of a name reaches a log line through `Display`, and a caller
+    /// that shows one name gets it as the caller wrote it.
     #[test]
     fn to_string_returns_the_name() {
         let name = VariableName::from("RUSTUP_TOOLCHAIN");
 
         assert_eq!(name.to_string(), "RUSTUP_TOOLCHAIN");
+    }
+
+    #[test]
+    fn variable_name_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<VariableName>();
     }
 }

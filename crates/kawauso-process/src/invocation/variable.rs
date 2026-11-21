@@ -12,11 +12,11 @@ use super::variable_value::VariableValue;
 /// A variable carries a name and a value. The command reads the variable in
 /// its environment, next to the variables that it inherits from the process
 /// that runs it. Some programs take a decision from a variable and from no
-/// flag, such as a test runner that selects the format of its report with
-/// one.
+/// flag. A test runner that selects the format of its report with a variable is
+/// an example.
 ///
-/// A pair of a name and a value becomes a variable, so a caller that holds
-/// its variables as pairs gives them to an invocation as they are.
+/// A pair of a name and a value becomes a variable. A caller that holds its
+/// variables as pairs therefore gives them to an invocation as they are.
 ///
 /// # Examples
 ///
@@ -36,6 +36,7 @@ pub struct Variable {
     value: VariableValue,
 }
 
+#[bon::bon]
 impl Variable {
     /// Creates a variable from a name and a value
     ///
@@ -44,10 +45,14 @@ impl Variable {
     /// ```
     /// use kawauso_process::invocation::Variable;
     ///
-    /// let variable = Variable::new("CARGO_TERM_COLOR", "always");
+    /// let variable = Variable::builder()
+    ///     .name("CARGO_TERM_COLOR")
+    ///     .value("always")
+    ///     .build();
     ///
     /// assert_eq!(variable.value().get(), "always");
     /// ```
+    #[builder]
     pub fn new(name: impl Into<VariableName>, value: impl Into<VariableValue>) -> Self {
         Self {
             name: name.into(),
@@ -56,11 +61,31 @@ impl Variable {
     }
 
     /// Returns the name of the variable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::invocation::Variable;
+    ///
+    /// let variable = Variable::from(("PATH", "/usr/bin"));
+    ///
+    /// assert_eq!(variable.name().get(), "PATH");
+    /// ```
     pub fn name(&self) -> &VariableName {
         &self.name
     }
 
     /// Returns the value of the variable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use kawauso_process::invocation::Variable;
+    ///
+    /// let variable = Variable::from(("RUST_BACKTRACE", "1"));
+    ///
+    /// assert_eq!(variable.value().get(), "1");
+    /// ```
     pub fn value(&self) -> &VariableValue {
         &self.value
     }
@@ -70,8 +95,8 @@ impl Variable {
 ///
 /// The text is the name, an equals sign, and the value, which is the form in
 /// which a shell sets a variable. A value that holds a space shows without
-/// marks, because the caller that renders a whole command line adds the marks
-/// where the line needs them.
+/// marks. This is because the caller that renders a whole command line adds the
+/// marks where the line needs them.
 impl Display for Variable {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         write!(formatter, "{}={}", self.name, self.value)
@@ -81,20 +106,23 @@ impl Display for Variable {
 /// Creates a variable from a pair of a name and a value
 impl<N: Into<VariableName>, V: Into<VariableValue>> From<(N, V)> for Variable {
     fn from((name, value): (N, V)) -> Self {
-        Self::new(name, value)
+        Self::builder().name(name).value(value).build()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    // An assertion in a test panics by design. A `# Panics` section on every
-    // test would repeat that and give the reader no information.
-    #![allow(clippy::missing_panics_doc)]
+    #![allow(
+        clippy::missing_panics_doc,
+        reason = "An assertion in a test panics by design. A `# Panics` section on every test would repeat that and give the reader no information."
+    )]
 
     use super::*;
 
-    // A caller that holds its variables as pairs gives them to an invocation
-    // as they are, and the pair keeps its two parts in their places.
+    /// Keeps name and value from a pair
+    ///
+    /// A caller that holds its variables as pairs gives them to an invocation
+    /// as they are. The pair keeps its two parts in their places.
     #[test]
     fn from_pair_keeps_the_name_and_the_value() {
         let variable = Variable::from(("RUSTUP_TOOLCHAIN", "stable"));
@@ -108,12 +136,24 @@ mod tests {
         );
     }
 
-    // The text of a variable reaches a log line through `Display`, and a
-    // caller that shows one variable gets it in the form of a shell.
+    /// Shows a variable in shell form
+    ///
+    /// The text of a variable reaches a log line through `Display`. A caller
+    /// that shows one variable gets it in the form of a shell.
     #[test]
     fn to_string_returns_the_name_and_the_value() {
-        let variable = Variable::new("RUSTUP_TOOLCHAIN", "stable");
+        let variable = Variable::builder()
+            .name("RUSTUP_TOOLCHAIN")
+            .value("stable")
+            .build();
 
         assert_eq!(variable.to_string(), "RUSTUP_TOOLCHAIN=stable");
+    }
+
+    #[test]
+    fn variable_is_send_sync_and_unpin() {
+        fn assert_send_sync_and_unpin<T: Send + Sync + Unpin>() {}
+
+        assert_send_sync_and_unpin::<Variable>();
     }
 }
