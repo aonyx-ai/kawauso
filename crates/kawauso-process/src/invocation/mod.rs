@@ -27,6 +27,7 @@ pub mod working_directory;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
+use std::process::Command as StdCommand;
 use std::process::Stdio;
 use std::time::Instant;
 
@@ -229,6 +230,23 @@ impl Invocation {
     /// Both forms of a run start the same command, so both take it from here.
     /// The command pipes both output streams, because a run reports what the
     /// command wrote to each of them.
+    fn command(&self) -> Command {
+        let mut command = Command::from(self.program_command());
+
+        command
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+
+        command
+    }
+
+    /// Builds the command that the invocation describes, without its streams
+    ///
+    /// Every start of a command takes the program, the arguments, the
+    /// environment, and the working directory from here. Each start then
+    /// connects the streams that it needs.
     ///
     /// The command carries no call that clears the environment, so the
     /// command inherits the environment of this process. The variables of the
@@ -236,20 +254,14 @@ impl Invocation {
     /// the process holds replaces it for the command alone. The program
     /// travels as the caller wrote it, and the operating system resolves a
     /// bare name.
-    fn command(&self) -> Command {
-        let mut command = Command::new(self.program.get());
+    fn program_command(&self) -> StdCommand {
+        let mut command = StdCommand::new(self.program.get());
 
-        command
-            .args(self.arguments.iter().map(Argument::get))
-            .envs(
-                self.environment
-                    .iter()
-                    .map(|variable| (variable.name().get(), variable.value().get())),
-            )
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
+        command.args(self.arguments.iter().map(Argument::get)).envs(
+            self.environment
+                .iter()
+                .map(|variable| (variable.name().get(), variable.value().get())),
+        );
 
         for name in &self.removals {
             command.env_remove(name.get());
