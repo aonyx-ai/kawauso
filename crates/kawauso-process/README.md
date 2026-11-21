@@ -22,6 +22,12 @@ A stop gives a command a time to end before it kills the command, and the
 timer of the runtime measures that time. A stop on a runtime that has no timer
 panics.
 
+## Interactive Runs
+
+An editor, a pager, and `ssh` take over the terminal. An interactive run
+starts such a program with the streams that the caller chooses, and it
+captures nothing.
+
 ## Windows
 
 A program whose name ends in `.cmd` or `.bat` starts through `cmd.exe`. A tool

@@ -12,8 +12,10 @@
 //! The [run][run] method starts the command that the invocation describes,
 //! and it reports what the command produced. The [start][start] method starts
 //! the same command and gives its output to the caller while the command
-//! runs.
+//! runs. The [start_interactive][interactive] method starts a program that
+//! takes over the terminal.
 //!
+//! [interactive]: Invocation::start_interactive
 //! [run]: Invocation::run
 //! [start]: Invocation::start
 
@@ -44,6 +46,7 @@ pub use self::working_directory::WorkingDirectory;
 use crate::error::RunCommandError;
 use crate::execution::Capture;
 use crate::execution::Execution;
+use crate::interactive_run::InteractiveRun;
 use crate::process_id::ProcessId;
 use crate::run::Run;
 
@@ -600,6 +603,59 @@ impl Invocation {
                 })?;
 
         Ok(Run::new(self.clone(), child, started))
+    }
+
+    /// Starts a program that takes over the terminal
+    ///
+    /// Use this method for a program that reads the keys of the user or draws
+    /// on the terminal. An editor, a pager, and `ssh` are such programs. The
+    /// program reads and writes the streams that the caller names. Nothing
+    /// captures its output, so the handle reports the exit status alone.
+    ///
+    /// The program inherits the environment of this process, with the
+    /// variables of the invocation on top.
+    ///
+    /// The handle owns the program. A caller that drops the handle kills the
+    /// program.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UnstartableCommand`][unstartable] when the program does not
+    /// start.
+    ///
+    /// # Panics
+    ///
+    /// Panics when no Tokio runtime runs, or when the runtime has no driver
+    /// for input and output. The runtime reports the end of the program.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::process::Stdio;
+    ///
+    /// use kawauso_process::Invocation;
+    /// use kawauso_process::invocation::Streams;
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let streams = Streams::inherit().stdout(Stdio::from(std::io::stderr()));
+    /// let mut run = Invocation::new("vi")
+    ///     .arg("notes.md")
+    ///     .start_interactive(streams)?;
+    ///
+    /// let saved = run.wait().await?.success();
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [unstartable]: RunCommandError::UnstartableCommand
+    pub fn start_interactive(&self, streams: Streams) -> Result<InteractiveRun, RunCommandError> {
+        let (stdin, stdout, stderr) = streams.into_parts();
+        let mut command = self.program_command();
+
+        command.stdin(stdin).stdout(stdout).stderr(stderr);
+
+        self.spawn_interactive(command)
     }
 
     /// Returns the directory in which the command runs
