@@ -1,8 +1,9 @@
 //! Tests for the interactive run through the public API
 //!
 //! Every test starts a real program, because the obligations of the run exist
-//! only when a program runs. They cover the streams, the status, the process
-//! group, and the stop.
+//! only when a program runs. The tests run without a terminal, so they cover
+//! the streams, the status, the process group, and the stop. The lending of
+//! the terminal needs a terminal, and no test here has one.
 
 #![allow(
     clippy::missing_panics_doc,

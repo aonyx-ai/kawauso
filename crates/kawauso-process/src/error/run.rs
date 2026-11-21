@@ -45,6 +45,22 @@ pub enum RunCommandError {
         source: std::io::Error,
     },
 
+    /// The terminal refused the process group of the command
+    ///
+    /// An interactive run gives the foreground of the terminal to the command,
+    /// and the terminal did not take the group. The program started, and the
+    /// run killed it, because the program cannot read the terminal from the
+    /// background.
+    #[error("failed to give the terminal to the command `{invocation}`")]
+    #[non_exhaustive]
+    UnavailableTerminal {
+        /// The command that did not receive the terminal
+        invocation: Box<Invocation>,
+
+        /// The cause of the failure
+        source: std::io::Error,
+    },
+
     /// The command did not start
     ///
     /// No program answers to the name, the working directory does not exist,
