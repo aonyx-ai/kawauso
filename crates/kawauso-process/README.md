@@ -26,7 +26,8 @@ panics.
 
 An editor, a pager, and `ssh` take over the terminal. An interactive run
 starts such a program with the streams that the caller chooses, and it
-captures nothing.
+captures nothing. On a Unix platform, the program leads a process group of its
+own, and a drop reaches every program in that group.
 
 ## Windows
 
@@ -39,6 +40,10 @@ fails and says so.
 Windows has no signal that asks a program to end its work. A stop therefore
 kills the command at once on this platform, and a program that holds a lock
 file leaves that file behind.
+
+Windows also has no process group of the Unix kind. The drop of an
+interactive run kills the program alone, and a program that it started
+survives.
 
 ## License
 

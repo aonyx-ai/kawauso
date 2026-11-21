@@ -1,18 +1,42 @@
 //! Tests for the interactive run through the public API
 //!
 //! Every test starts a real program, because the obligations of the run exist
-//! only when a program runs. They cover the streams and the status.
+//! only when a program runs. They cover the streams, the status, and the
+//! process group.
 
 #![allow(
     clippy::missing_panics_doc,
     reason = "an assertion in a test panics by design, and a section on every test tells the reader nothing"
 )]
 
+#[cfg(unix)]
+use std::error::Error;
+#[cfg(unix)]
+use std::path::Path;
 use std::process::Stdio;
+use std::time::Duration;
 
+#[cfg(unix)]
+use kawauso_process::InteractiveRun;
 use kawauso_process::Invocation;
 use kawauso_process::error::RunCommandError;
 use kawauso_process::invocation::Streams;
+#[cfg(unix)]
+use rustix::process::Pid;
+#[cfg(unix)]
+use rustix::process::getpgid;
+#[cfg(unix)]
+use rustix::process::test_kill_process;
+#[cfg(unix)]
+use tokio::time::error::Elapsed;
+#[cfg(unix)]
+use tokio::time::sleep;
+#[cfg(unix)]
+use tokio::time::timeout;
+
+/// The time in which a program in a test has to reach the state that the test waits for
+#[cfg(unix)]
+const BOUND: Duration = Duration::from_secs(20);
 
 /// Returns the streams of a test, which connect the program to nothing
 fn quiet() -> Streams {
@@ -20,6 +44,26 @@ fn quiet() -> Streams {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
+}
+
+/// Starts a shell script and waits until the script reports that it is ready
+///
+/// A request that arrives before the script installed its handler kills the
+/// script. Every script therefore replaces `READY` with a command that
+/// creates a file, at the point where its handler is in place.
+///
+/// # Errors
+///
+/// Returns an error when the script does not start or does not report in time.
+#[cfg(unix)]
+async fn ready(directory: &Path, script: &str) -> Result<InteractiveRun, Box<dyn Error>> {
+    let ready = directory.join("ready");
+    let script = script.replace("READY", &format!("touch '{}'", ready.display()));
+    let run = sh(&script).start_interactive(quiet())?;
+
+    wait_for(|| ready.exists()).await?;
+
+    Ok(run)
 }
 
 /// Returns an invocation that gives the script to the shell of a Unix system
@@ -35,6 +79,63 @@ fn shell(command: &str) -> Invocation {
     } else {
         Invocation::new("sh").arg("-c").arg(command)
     }
+}
+
+/// Waits until the condition holds
+///
+/// # Errors
+///
+/// Returns an error when the condition does not hold in time.
+#[cfg(unix)]
+async fn wait_for(condition: impl Fn() -> bool) -> Result<(), Elapsed> {
+    timeout(BOUND, async {
+        while !condition() {
+            sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+}
+
+/// Waits until no process has the identifier that the file holds
+///
+/// # Errors
+///
+/// Returns an error when the file holds no identifier, or when the process
+/// does not end in time.
+#[cfg(unix)]
+async fn wait_for_the_end_of(file: &Path) -> Result<(), Box<dyn Error>> {
+    let identifier: i32 = std::fs::read_to_string(file)?.trim().parse()?;
+    let process = Pid::from_raw(identifier).ok_or("the file holds no identifier")?;
+
+    wait_for(|| test_kill_process(process).is_err()).await?;
+
+    Ok(())
+}
+
+/// A drop kills a program that the program started, because the kill reaches the group
+#[cfg(unix)]
+#[tokio::test]
+async fn drop_kills_a_program_that_the_program_started() {
+    let directory = tempfile::tempdir().unwrap();
+    let started = directory.path().join("started");
+    let script = format!("sleep 300 & echo $! > '{}'; READY; wait", started.display());
+    let run = ready(directory.path(), &script).await.unwrap();
+
+    drop(run);
+
+    wait_for_the_end_of(&started).await.unwrap();
+}
+
+/// The program leads a group of its own, so a signal to the group reaches its descendants
+#[cfg(unix)]
+#[tokio::test]
+async fn start_interactive_puts_the_program_into_a_group_of_its_own() {
+    let run = sh("sleep 300").start_interactive(quiet()).unwrap();
+    let process = Pid::from_raw(i32::try_from(run.id().unwrap().get()).unwrap()).unwrap();
+
+    let group = getpgid(Some(process)).unwrap();
+
+    assert_eq!(group, process);
 }
 
 /// The program reads the standard input that the caller names
